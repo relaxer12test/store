@@ -9,24 +9,24 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as OpsRouteImport } from './routes/ops'
+import { Route as InternalRouteImport } from './routes/internal'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as OpsIndexRouteImport } from './routes/ops.index'
+import { Route as InternalIndexRouteImport } from './routes/internal.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as OpsWebhooksRouteImport } from './routes/ops.webhooks'
-import { Route as OpsTenantsRouteImport } from './routes/ops.tenants'
-import { Route as OpsSyncJobsRouteImport } from './routes/ops.sync-jobs'
-import { Route as OpsAiTracesRouteImport } from './routes/ops.ai-traces'
+import { Route as InternalWebhooksRouteImport } from './routes/internal.webhooks'
+import { Route as InternalInstallStateRouteImport } from './routes/internal.install-state'
+import { Route as InternalCacheRouteImport } from './routes/internal.cache'
+import { Route as InternalActionAuditsRouteImport } from './routes/internal.action-audits'
 import { Route as AppWorkflowsRouteImport } from './routes/app.workflows'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppExplorerRouteImport } from './routes/app.explorer'
 import { Route as AppCopilotRouteImport } from './routes/app.copilot'
 
-const OpsRoute = OpsRouteImport.update({
-  id: '/ops',
-  path: '/ops',
+const InternalRoute = InternalRouteImport.update({
+  id: '/internal',
+  path: '/internal',
   getParentRoute: () => rootRouteImport,
 } as any)
 const InstallRoute = InstallRouteImport.update({
@@ -44,35 +44,35 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const OpsIndexRoute = OpsIndexRouteImport.update({
+const InternalIndexRoute = InternalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => OpsRoute,
+  getParentRoute: () => InternalRoute,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRoute,
 } as any)
-const OpsWebhooksRoute = OpsWebhooksRouteImport.update({
+const InternalWebhooksRoute = InternalWebhooksRouteImport.update({
   id: '/webhooks',
   path: '/webhooks',
-  getParentRoute: () => OpsRoute,
+  getParentRoute: () => InternalRoute,
 } as any)
-const OpsTenantsRoute = OpsTenantsRouteImport.update({
-  id: '/tenants',
-  path: '/tenants',
-  getParentRoute: () => OpsRoute,
+const InternalInstallStateRoute = InternalInstallStateRouteImport.update({
+  id: '/install-state',
+  path: '/install-state',
+  getParentRoute: () => InternalRoute,
 } as any)
-const OpsSyncJobsRoute = OpsSyncJobsRouteImport.update({
-  id: '/sync-jobs',
-  path: '/sync-jobs',
-  getParentRoute: () => OpsRoute,
+const InternalCacheRoute = InternalCacheRouteImport.update({
+  id: '/cache',
+  path: '/cache',
+  getParentRoute: () => InternalRoute,
 } as any)
-const OpsAiTracesRoute = OpsAiTracesRouteImport.update({
-  id: '/ai-traces',
-  path: '/ai-traces',
-  getParentRoute: () => OpsRoute,
+const InternalActionAuditsRoute = InternalActionAuditsRouteImport.update({
+  id: '/action-audits',
+  path: '/action-audits',
+  getParentRoute: () => InternalRoute,
 } as any)
 const AppWorkflowsRoute = AppWorkflowsRouteImport.update({
   id: '/workflows',
@@ -99,17 +99,17 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/install': typeof InstallRoute
-  '/ops': typeof OpsRouteWithChildren
+  '/internal': typeof InternalRouteWithChildren
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
-  '/ops/ai-traces': typeof OpsAiTracesRoute
-  '/ops/sync-jobs': typeof OpsSyncJobsRoute
-  '/ops/tenants': typeof OpsTenantsRoute
-  '/ops/webhooks': typeof OpsWebhooksRoute
+  '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/cache': typeof InternalCacheRoute
+  '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
-  '/ops/': typeof OpsIndexRoute
+  '/internal/': typeof InternalIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -118,29 +118,29 @@ export interface FileRoutesByTo {
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
-  '/ops/ai-traces': typeof OpsAiTracesRoute
-  '/ops/sync-jobs': typeof OpsSyncJobsRoute
-  '/ops/tenants': typeof OpsTenantsRoute
-  '/ops/webhooks': typeof OpsWebhooksRoute
+  '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/cache': typeof InternalCacheRoute
+  '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/webhooks': typeof InternalWebhooksRoute
   '/app': typeof AppIndexRoute
-  '/ops': typeof OpsIndexRoute
+  '/internal': typeof InternalIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/app': typeof AppRouteWithChildren
   '/install': typeof InstallRoute
-  '/ops': typeof OpsRouteWithChildren
+  '/internal': typeof InternalRouteWithChildren
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
-  '/ops/ai-traces': typeof OpsAiTracesRoute
-  '/ops/sync-jobs': typeof OpsSyncJobsRoute
-  '/ops/tenants': typeof OpsTenantsRoute
-  '/ops/webhooks': typeof OpsWebhooksRoute
+  '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/cache': typeof InternalCacheRoute
+  '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
-  '/ops/': typeof OpsIndexRoute
+  '/internal/': typeof InternalIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -148,17 +148,17 @@ export interface FileRouteTypes {
     | '/'
     | '/app'
     | '/install'
-    | '/ops'
+    | '/internal'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
     | '/app/workflows'
-    | '/ops/ai-traces'
-    | '/ops/sync-jobs'
-    | '/ops/tenants'
-    | '/ops/webhooks'
+    | '/internal/action-audits'
+    | '/internal/cache'
+    | '/internal/install-state'
+    | '/internal/webhooks'
     | '/app/'
-    | '/ops/'
+    | '/internal/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -167,44 +167,44 @@ export interface FileRouteTypes {
     | '/app/explorer'
     | '/app/settings'
     | '/app/workflows'
-    | '/ops/ai-traces'
-    | '/ops/sync-jobs'
-    | '/ops/tenants'
-    | '/ops/webhooks'
+    | '/internal/action-audits'
+    | '/internal/cache'
+    | '/internal/install-state'
+    | '/internal/webhooks'
     | '/app'
-    | '/ops'
+    | '/internal'
   id:
     | '__root__'
     | '/'
     | '/app'
     | '/install'
-    | '/ops'
+    | '/internal'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
     | '/app/workflows'
-    | '/ops/ai-traces'
-    | '/ops/sync-jobs'
-    | '/ops/tenants'
-    | '/ops/webhooks'
+    | '/internal/action-audits'
+    | '/internal/cache'
+    | '/internal/install-state'
+    | '/internal/webhooks'
     | '/app/'
-    | '/ops/'
+    | '/internal/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AppRoute: typeof AppRouteWithChildren
   InstallRoute: typeof InstallRoute
-  OpsRoute: typeof OpsRouteWithChildren
+  InternalRoute: typeof InternalRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/ops': {
-      id: '/ops'
-      path: '/ops'
-      fullPath: '/ops'
-      preLoaderRoute: typeof OpsRouteImport
+    '/internal': {
+      id: '/internal'
+      path: '/internal'
+      fullPath: '/internal'
+      preLoaderRoute: typeof InternalRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/install': {
@@ -228,12 +228,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/ops/': {
-      id: '/ops/'
+    '/internal/': {
+      id: '/internal/'
       path: '/'
-      fullPath: '/ops/'
-      preLoaderRoute: typeof OpsIndexRouteImport
-      parentRoute: typeof OpsRoute
+      fullPath: '/internal/'
+      preLoaderRoute: typeof InternalIndexRouteImport
+      parentRoute: typeof InternalRoute
     }
     '/app/': {
       id: '/app/'
@@ -242,33 +242,33 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRoute
     }
-    '/ops/webhooks': {
-      id: '/ops/webhooks'
+    '/internal/webhooks': {
+      id: '/internal/webhooks'
       path: '/webhooks'
-      fullPath: '/ops/webhooks'
-      preLoaderRoute: typeof OpsWebhooksRouteImport
-      parentRoute: typeof OpsRoute
+      fullPath: '/internal/webhooks'
+      preLoaderRoute: typeof InternalWebhooksRouteImport
+      parentRoute: typeof InternalRoute
     }
-    '/ops/tenants': {
-      id: '/ops/tenants'
-      path: '/tenants'
-      fullPath: '/ops/tenants'
-      preLoaderRoute: typeof OpsTenantsRouteImport
-      parentRoute: typeof OpsRoute
+    '/internal/install-state': {
+      id: '/internal/install-state'
+      path: '/install-state'
+      fullPath: '/internal/install-state'
+      preLoaderRoute: typeof InternalInstallStateRouteImport
+      parentRoute: typeof InternalRoute
     }
-    '/ops/sync-jobs': {
-      id: '/ops/sync-jobs'
-      path: '/sync-jobs'
-      fullPath: '/ops/sync-jobs'
-      preLoaderRoute: typeof OpsSyncJobsRouteImport
-      parentRoute: typeof OpsRoute
+    '/internal/cache': {
+      id: '/internal/cache'
+      path: '/cache'
+      fullPath: '/internal/cache'
+      preLoaderRoute: typeof InternalCacheRouteImport
+      parentRoute: typeof InternalRoute
     }
-    '/ops/ai-traces': {
-      id: '/ops/ai-traces'
-      path: '/ai-traces'
-      fullPath: '/ops/ai-traces'
-      preLoaderRoute: typeof OpsAiTracesRouteImport
-      parentRoute: typeof OpsRoute
+    '/internal/action-audits': {
+      id: '/internal/action-audits'
+      path: '/action-audits'
+      fullPath: '/internal/action-audits'
+      preLoaderRoute: typeof InternalActionAuditsRouteImport
+      parentRoute: typeof InternalRoute
     }
     '/app/workflows': {
       id: '/app/workflows'
@@ -319,29 +319,31 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
-interface OpsRouteChildren {
-  OpsAiTracesRoute: typeof OpsAiTracesRoute
-  OpsSyncJobsRoute: typeof OpsSyncJobsRoute
-  OpsTenantsRoute: typeof OpsTenantsRoute
-  OpsWebhooksRoute: typeof OpsWebhooksRoute
-  OpsIndexRoute: typeof OpsIndexRoute
+interface InternalRouteChildren {
+  InternalActionAuditsRoute: typeof InternalActionAuditsRoute
+  InternalCacheRoute: typeof InternalCacheRoute
+  InternalInstallStateRoute: typeof InternalInstallStateRoute
+  InternalWebhooksRoute: typeof InternalWebhooksRoute
+  InternalIndexRoute: typeof InternalIndexRoute
 }
 
-const OpsRouteChildren: OpsRouteChildren = {
-  OpsAiTracesRoute: OpsAiTracesRoute,
-  OpsSyncJobsRoute: OpsSyncJobsRoute,
-  OpsTenantsRoute: OpsTenantsRoute,
-  OpsWebhooksRoute: OpsWebhooksRoute,
-  OpsIndexRoute: OpsIndexRoute,
+const InternalRouteChildren: InternalRouteChildren = {
+  InternalActionAuditsRoute: InternalActionAuditsRoute,
+  InternalCacheRoute: InternalCacheRoute,
+  InternalInstallStateRoute: InternalInstallStateRoute,
+  InternalWebhooksRoute: InternalWebhooksRoute,
+  InternalIndexRoute: InternalIndexRoute,
 }
 
-const OpsRouteWithChildren = OpsRoute._addFileChildren(OpsRouteChildren)
+const InternalRouteWithChildren = InternalRoute._addFileChildren(
+  InternalRouteChildren,
+)
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
   InstallRoute: InstallRoute,
-  OpsRoute: OpsRouteWithChildren,
+  InternalRoute: InternalRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

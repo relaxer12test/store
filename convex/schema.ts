@@ -7,18 +7,15 @@ export default defineSchema({
 		action: v.string(),
 		createdAt: v.number(),
 		payload: v.optional(v.any()),
-		tenantId: v.optional(v.id("tenants")),
-	}).index("by_tenant_created_at", ["tenantId", "createdAt"]),
+		shopId: v.optional(v.id("shops")),
+	}).index("by_shop_created_at", ["shopId", "createdAt"]),
 
 	shops: defineTable({
 		createdAt: v.number(),
 		domain: v.string(),
 		installStatus: v.union(v.literal("preview"), v.literal("connected"), v.literal("inactive")),
 		name: v.string(),
-		tenantId: v.id("tenants"),
-	})
-		.index("by_domain", ["domain"])
-		.index("by_tenant", ["tenantId"]),
+	}).index("by_domain", ["domain"]),
 
 	syncJobs: defineTable({
 		domain: v.string(),
@@ -27,12 +24,6 @@ export default defineSchema({
 		status: v.string(),
 		type: v.string(),
 	}).index("by_shop_status", ["shopId", "status"]),
-
-	tenants: defineTable({
-		createdAt: v.number(),
-		displayName: v.string(),
-		slug: v.string(),
-	}).index("by_slug", ["slug"]),
 
 	webhookDeliveries: defineTable({
 		receivedAt: v.number(),

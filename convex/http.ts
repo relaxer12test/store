@@ -31,29 +31,24 @@ function parseCookies(cookieHeader: string | null) {
 }
 
 function buildPreviewSession(mode: PreviewSessionMode): SessionEnvelope {
-	if (mode === "ops") {
+	if (mode === "internal") {
 		return {
 			authMode: "preview",
 			state: "ready",
 			viewer: {
-				id: "preview-platform-admin",
-				name: "Platform Preview",
-				email: "ops-preview@growthcapital.dev",
-				initials: "PP",
-				roles: ["platform_admin"],
-			},
-			activeTenant: {
-				id: "tenant-platform",
-				name: "Growth Capital Internal",
-				slug: "growth-capital-internal",
+				id: "preview-internal-staff",
+				name: "Internal Preview",
+				email: "internal-preview@growthcapital.dev",
+				initials: "IP",
+				roles: ["internal_staff"],
 			},
 			activeShop: {
-				id: "shop-platform",
-				name: "Internal Sandbox",
-				domain: "internal-sandbox.myshopify.com",
+				id: "shop-northwind",
+				name: "Northwind Atelier",
+				domain: "northwind-demo.myshopify.com",
 				installStatus: "preview",
 			},
-			roles: ["platform_admin"],
+			roles: ["internal_staff"],
 			convexToken: null,
 		};
 	}
@@ -66,12 +61,7 @@ function buildPreviewSession(mode: PreviewSessionMode): SessionEnvelope {
 			name: "Merchant Preview",
 			email: "merchant-preview@growthcapital.dev",
 			initials: "MP",
-			roles: ["tenant_admin"],
-		},
-		activeTenant: {
-			id: "tenant-northwind",
-			name: "Northwind Atelier",
-			slug: "northwind-atelier",
+			roles: ["shop_admin"],
 		},
 		activeShop: {
 			id: "shop-northwind",
@@ -79,7 +69,7 @@ function buildPreviewSession(mode: PreviewSessionMode): SessionEnvelope {
 			domain: "northwind-demo.myshopify.com",
 			installStatus: "preview",
 		},
-		roles: ["tenant_admin"],
+		roles: ["shop_admin"],
 		convexToken: null,
 	};
 }
@@ -92,13 +82,12 @@ http.route({
 		const mode = cookies[PREVIEW_COOKIE_NAME];
 
 		const session =
-			mode === "merchant" || mode === "ops"
+			mode === "merchant" || mode === "internal"
 				? buildPreviewSession(mode)
 				: {
 						authMode: "none",
 						state: "ready",
 						viewer: null,
-						activeTenant: null,
 						activeShop: null,
 						roles: [],
 						convexToken: null,

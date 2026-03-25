@@ -15,7 +15,6 @@ const guestSession: SessionEnvelope = {
 	authMode: "none",
 	state: "offline",
 	viewer: null,
-	activeTenant: null,
 	activeShop: null,
 	roles: [],
 	convexToken: null,
@@ -70,11 +69,11 @@ export const setPreviewSession = createServerFn({ method: "POST" })
 		return input;
 	})
 	.handler(async ({ data }) => {
-		// Temporary preview bridge until Better Auth bootstrap lands in plan 02.
+		// Temporary preview bridge until Shopify session-token bootstrap lands in plan 02.
 		setResponseHeader("Set-Cookie", serializePreviewSessionCookie(data.mode));
 
 		return {
-			redirectTo: data.mode === "ops" ? "/ops" : "/app",
+			redirectTo: data.mode === "internal" ? "/internal" : "/app",
 		};
 	});
 

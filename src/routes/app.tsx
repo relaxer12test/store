@@ -1,6 +1,8 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
+import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
+import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 
 const appNav: SurfaceNavItem[] = [
 	{
@@ -31,23 +33,24 @@ const appNav: SurfaceNavItem[] = [
 ];
 
 export const Route = createFileRoute("/app")({
-	beforeLoad: ({ context }) => {
-		if (!context.viewer) {
-			throw redirect({ to: "/install" });
-		}
-	},
 	component: MerchantLayoutRoute,
 });
 
 function MerchantLayoutRoute() {
 	const { session } = Route.useRouteContext();
+	const embeddedApp = useEmbeddedAppBootstrap();
 
 	return (
 		<SurfaceLayout
-			description="Embedded Shopify app shell for merchants. The first load already includes real query data from Convex and transitions keep previous content visible while new route data preloads."
+			description="Embedded Shopify app shell for merchants. The route can render as a lightweight shell first, then layer on App Bridge-authenticated requests without full-page redirects or route rewrites."
 			eyebrow="Merchant app"
 			navItems={appNav}
-			statusLabel={session.activeShop?.name ?? "Preview tenant"}
+			notice={<EmbeddedAppShellBanner />}
+			statusLabel={
+				session.activeShop?.name ??
+				embeddedApp.shop ??
+				(embeddedApp.isEmbedded ? "Shopify admin shell" : "Local shell preview")
+			}
 			title="Store operating cockpit"
 		/>
 	);

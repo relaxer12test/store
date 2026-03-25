@@ -1,14 +1,14 @@
 import { StatusPill } from "@/components/ui/feedback";
 import { MetricGrid, Panel, TimelineList } from "@/components/ui/layout";
-import type { OpsOverviewSnapshot } from "@/shared/contracts/app-shell";
+import type { InternalOverviewSnapshot } from "@/shared/contracts/app-shell";
 
-export function OpsHome({ snapshot }: { snapshot: OpsOverviewSnapshot }) {
+export function InternalHome({ snapshot }: { snapshot: InternalOverviewSnapshot }) {
 	return (
 		<div className="grid gap-5">
 			<MetricGrid metrics={snapshot.metrics} />
 			<div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
 				<Panel
-					description="Platform-only signals for tenants, sync health, and AI governance. These are wired behind a role-checked `/ops` layout."
+					description="Disposable diagnostics for install state, webhook posture, cache projections, and action traces. This console stays separate from merchant navigation and merchant auth assumptions."
 					title="Watchlist"
 				>
 					<div className="space-y-3">
@@ -27,8 +27,8 @@ export function OpsHome({ snapshot }: { snapshot: OpsOverviewSnapshot }) {
 					</div>
 				</Panel>
 				<Panel
-					description="Representative operations work that later plans will back with real audit logs, sync jobs, and webhook delivery data."
-					title="Internal queue"
+					description="Representative debugging work that later plans will back with real install records, replay helpers, and action audit trails."
+					title="Debug queue"
 				>
 					<TimelineList items={snapshot.timeline} />
 				</Panel>

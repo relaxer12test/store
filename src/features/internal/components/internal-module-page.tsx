@@ -18,7 +18,7 @@ function buildColumns(records: TableRecord[]): ColumnDef<TableRecord>[] {
 	) as ColumnDef<TableRecord>[];
 }
 
-export function OpsModulePage({ snapshot }: { snapshot: ModuleSnapshot }) {
+export function InternalModulePage({ snapshot }: { snapshot: ModuleSnapshot }) {
 	const records = snapshot.records ?? [];
 
 	return (
@@ -28,7 +28,7 @@ export function OpsModulePage({ snapshot }: { snapshot: ModuleSnapshot }) {
 					columns={buildColumns(records)}
 					data={records}
 					description="The same generic table shell supports internal diagnostics without introducing a second rendering stack."
-					emptyBody="This surface will fill once jobs, webhook deliveries, and trace events are flowing through Convex."
+					emptyBody="This surface will fill once install records, webhook deliveries, cache snapshots, and audit trails are flowing through Convex."
 					emptyTitle="Nothing to inspect yet"
 					title={snapshot.title}
 				/>

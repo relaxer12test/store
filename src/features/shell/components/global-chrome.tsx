@@ -1,11 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
+import { isInternalToolsEnabled } from "@/lib/env";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
 
 export function GlobalChrome({ session }: { session: SessionEnvelope }) {
+	const showInternalLink = isInternalToolsEnabled() || session.roles.includes("internal_staff");
+
 	return (
 		<header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
 			<div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-4 lg:flex-row lg:items-center lg:justify-between lg:px-8">
@@ -35,16 +38,18 @@ export function GlobalChrome({ session }: { session: SessionEnvelope }) {
 					<Link className={navLinkClass} to="/app">
 						Merchant app
 					</Link>
-					<Link className={navLinkClass} to="/ops">
-						Ops
-					</Link>
+					{showInternalLink ? (
+						<Link className={navLinkClass} to="/internal">
+							Internal
+						</Link>
+					) : null}
 
 					<StatusPill tone={session.state === "ready" ? "success" : "watch"}>
 						{session.state === "ready" ? "Convex live" : "Convex offline"}
 					</StatusPill>
 
 					{session.viewer ? (
-						<StatusPill tone={session.roles.includes("platform_admin") ? "accent" : "neutral"}>
+						<StatusPill tone={session.roles.includes("internal_staff") ? "accent" : "neutral"}>
 							{session.viewer.name}
 						</StatusPill>
 					) : (

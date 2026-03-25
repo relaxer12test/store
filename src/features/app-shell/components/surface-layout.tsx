@@ -6,6 +6,7 @@ interface SurfaceLayoutProps {
 	description: string;
 	eyebrow: string;
 	navItems: SurfaceNavItem[];
+	notice?: React.ReactNode;
 	statusLabel: string;
 	title: string;
 }
@@ -14,6 +15,7 @@ export function SurfaceLayout({
 	description,
 	eyebrow,
 	navItems,
+	notice,
 	statusLabel,
 	title,
 }: SurfaceLayoutProps) {
@@ -25,6 +27,8 @@ export function SurfaceLayout({
 				eyebrow={eyebrow}
 				title={title}
 			/>
+
+			{notice ? <div className="mt-6">{notice}</div> : null}
 
 			<div className="mt-8">
 				<SurfaceNav items={navItems} label={`${title} navigation`} />

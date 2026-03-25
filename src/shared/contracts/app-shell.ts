@@ -74,7 +74,7 @@ export interface ModuleSnapshot {
 	messages?: AiMessage[];
 }
 
-export interface OpsOverviewSnapshot {
+export interface InternalOverviewSnapshot {
 	title: string;
 	summary: string;
 	metrics: MetricCard[];

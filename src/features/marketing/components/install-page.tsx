@@ -24,7 +24,7 @@ export function InstallPreviewPage({
 	const endPreviewSession = useServerFn(clearPreviewSession);
 	const [isPending, startTransition] = useTransition();
 
-	const runMode = (mode: "merchant" | "ops") => {
+	const runMode = (mode: "merchant" | "internal") => {
 		startTransition(async () => {
 			const result = await startPreviewSession({ data: { mode } });
 			await navigate({ to: result.redirectTo });
@@ -55,7 +55,7 @@ export function InstallPreviewPage({
 
 			<section className="mt-10 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
 				<Panel
-					description="This route stands in for the real install/bootstrap flow. Right now it sets a same-origin preview cookie so `/app` and `/ops` can already exercise the SSR session envelope pattern."
+					description="This route stands in for the real install/bootstrap flow. Right now it sets a same-origin preview cookie so `/app` and `/internal` can exercise the shell-first route model without inventing a separate browser-login system."
 					title="Preview surfaces"
 				>
 					<div className="grid gap-4 md:grid-cols-2">
@@ -68,22 +68,23 @@ export function InstallPreviewPage({
 							<StatusPill tone="success">Merchant preview</StatusPill>
 							<h2 className="mt-4 font-serif text-3xl text-slate-950">Open `/app`</h2>
 							<p className="mt-3 text-sm leading-7 text-slate-600">
-								Simulates a tenant admin session so protected merchant routes render with
-								server-preloaded data on first load.
+								Simulates a merchant admin session so the embedded shell and merchant routes can be
+								exercised with preloaded data on first load.
 							</p>
 						</button>
 
 						<button
 							className={installModeCardClass}
 							disabled={isPending}
-							onClick={() => runMode("ops")}
+							onClick={() => runMode("internal")}
 							type="button"
 						>
-							<StatusPill tone="accent">Platform ops preview</StatusPill>
-							<h2 className="mt-4 font-serif text-3xl text-slate-950">Open `/ops`</h2>
+							<StatusPill tone="accent">Internal console preview</StatusPill>
+							<h2 className="mt-4 font-serif text-3xl text-slate-950">Open `/internal`</h2>
 							<p className="mt-3 text-sm leading-7 text-slate-600">
-								Simulates a platform admin session so the internal management surface can be
-								exercised before Better Auth is installed.
+								Simulates a staff-only diagnostics session so install state, webhooks, and
+								cache/debug tooling can be exercised while the real Shopify auth layer is still
+								being built.
 							</p>
 						</button>
 					</div>

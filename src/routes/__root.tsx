@@ -5,7 +5,10 @@ import { getSessionEnvelope } from "@/features/auth/session/server";
 import { GlobalChrome } from "@/features/shell/components/global-chrome";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
+import { getOptionalShopifyApiKey } from "@/lib/env";
 import appCss from "../styles.css?url";
+
+const shopifyApiKey = getOptionalShopifyApiKey();
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context }) => {
@@ -14,7 +17,6 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 
 		return {
 			activeShop: session.activeShop,
-			activeTenant: session.activeTenant,
 			roles: session.roles,
 			session,
 			viewer: session.viewer,
@@ -32,6 +34,14 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 			{
 				title: "Growth Capital Shopify AI",
 			},
+			...(shopifyApiKey
+				? [
+						{
+							name: "shopify-api-key",
+							content: shopifyApiKey,
+						},
+					]
+				: []),
 		],
 		links: [
 			{
@@ -54,6 +64,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 			<body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
+					embeddedApp={context.embeddedApp}
 					queryClient={context.queryClient}
 				>
 					<div className="min-h-screen">

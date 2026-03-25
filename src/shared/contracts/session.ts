@@ -1,10 +1,10 @@
 export const PREVIEW_COOKIE_NAME = "store-preview-session";
 
-export const previewSessionModes = ["merchant", "ops"] as const;
+export const previewSessionModes = ["merchant", "internal"] as const;
 
 export type PreviewSessionMode = (typeof previewSessionModes)[number];
 
-export const viewerRoles = ["tenant_admin", "tenant_member", "platform_admin"] as const;
+export const viewerRoles = ["shop_admin", "shop_staff", "internal_staff"] as const;
 
 export type ViewerRole = (typeof viewerRoles)[number];
 
@@ -16,12 +16,6 @@ export interface ViewerSummary {
 	roles: ViewerRole[];
 }
 
-export interface TenantSummary {
-	id: string;
-	name: string;
-	slug: string;
-}
-
 export interface ShopSummary {
 	id: string;
 	name: string;
@@ -30,10 +24,9 @@ export interface ShopSummary {
 }
 
 export interface SessionEnvelope {
-	authMode: "none" | "preview";
+	authMode: "none" | "preview" | "embedded";
 	state: "ready" | "offline";
 	viewer: ViewerSummary | null;
-	activeTenant: TenantSummary | null;
 	activeShop: ShopSummary | null;
 	roles: ViewerRole[];
 	convexToken: string | null;

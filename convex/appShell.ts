@@ -1,10 +1,10 @@
 import { v } from "convex/values";
 import type {
 	InstallGuideSnapshot,
+	InternalOverviewSnapshot,
 	MarketingSnapshot,
 	MerchantOverviewSnapshot,
 	ModuleSnapshot,
-	OpsOverviewSnapshot,
 } from "../src/shared/contracts/app-shell";
 import { query } from "./_generated/server";
 
@@ -40,7 +40,7 @@ const marketingSnapshotData: MarketingSnapshot = {
 			label: "Surfaces",
 			value: "3",
 			delta: "Connected",
-			hint: "Marketing, embedded merchant app, and hidden ops are all represented in the foundation.",
+			hint: "Marketing, embedded merchant app, and a dev-only internal console are all represented in the foundation.",
 			tone: "neutral",
 		},
 	],
@@ -76,7 +76,7 @@ const marketingSnapshotData: MarketingSnapshot = {
 	installSteps: [
 		"Scaffold from the official TanStack Start starter with the Cloudflare deployment adapter and npm.",
 		"Add Convex as the only real backend and preload critical route data via TanStack Query during SSR.",
-		"Mount Better Auth on Convex HTTP actions so embedded Shopify sessions can bootstrap into canonical browser sessions.",
+		"Initialize a shell-first embedded bootstrap so `/app` can render before App Bridge session tokens are attached to protected requests.",
 		"Register Shopify install, OAuth, webhook, and storefront endpoints on Convex instead of the worker runtime.",
 	],
 	storefrontCallout:
@@ -86,24 +86,24 @@ const marketingSnapshotData: MarketingSnapshot = {
 const installGuideData: InstallGuideSnapshot = {
 	title: "Install and bootstrap path",
 	summary:
-		"This slice uses a same-origin preview cookie so the SSR session envelope contract is already testable before Better Auth is wired to Convex.",
+		"This slice keeps a lightweight preview cookie only for local demos. The embedded `/app` shell itself is already structured around shell-first App Bridge bootstrap instead of cookie-based auth.",
 	checklist: [
 		"Run Convex in anonymous agent mode locally or connect a real dev deployment.",
-		"Use `/install` to enter merchant or platform preview mode.",
-		"Refresh `/app` or `/ops` and confirm the first rendered frame already contains data.",
-		"Replace the preview cookie bridge with Better Auth session bootstrap in plan 02.",
+		"Use `/install` to enter merchant or internal preview mode.",
+		"Refresh `/app` or `/internal` and confirm the first rendered frame already contains data.",
+		"Replace the preview cookie bridge with verified Shopify session-token helpers in plan 02.",
 	],
 	notes: [
 		{
 			label: "Current bridge",
 			detail:
-				"Preview mode is intentionally temporary. It proves the SSR session-envelope flow without locking us into a fake auth architecture.",
+				"Preview mode is intentionally temporary. It is only a local testing aid for merchant and internal shells, not the long-term embedded auth model.",
 			tone: "watch",
 		},
 		{
 			label: "Next auth step",
 			detail:
-				"Better Auth on Convex will become the canonical session layer, with Shopify embed bootstrap mapping the merchant to a tenant and shop.",
+				"App Bridge session tokens and token exchange will resolve the active shop and merchant actor without introducing a separate browser login.",
 			tone: "accent",
 		},
 	],
@@ -112,7 +112,7 @@ const installGuideData: InstallGuideSnapshot = {
 const merchantOverviewData: MerchantOverviewSnapshot = {
 	title: "Northwind Atelier",
 	summary:
-		"Protected merchant surface with server-preloaded overview metrics. This route is the concrete proof of the no-spinner first-load pattern in the foundation plan.",
+		"Shell-first merchant surface with preloaded overview metrics. This route is the concrete proof of the no-spinner first-load pattern in the foundation plan.",
 	metrics: [
 		{
 			label: "Catalog mirrored",
@@ -145,9 +145,9 @@ const merchantOverviewData: MerchantOverviewSnapshot = {
 	],
 	signals: [
 		{
-			label: "SSR session envelope",
+			label: "Embedded shell bootstrap",
 			detail:
-				"Merchant routes inherit viewer context from the root beforeLoad, so role checks happen before child loaders fire.",
+				"Merchant routes can render a lightweight shell before App Bridge-backed requests kick in, so navigation avoids document redirects and blank states.",
 			tone: "success",
 		},
 		{
@@ -165,9 +165,9 @@ const merchantOverviewData: MerchantOverviewSnapshot = {
 	],
 	timeline: [
 		{
-			title: "Wire Better Auth bootstrap",
+			title: "Wire Shopify session bootstrap",
 			detail:
-				"Attach the embedded merchant to a canonical Better Auth session on first arrival from Shopify admin.",
+				"Acquire session tokens from App Bridge, verify them in Convex, and resolve the active merchant actor for protected reads and writes.",
 			meta: "Plan 02",
 		},
 		{
@@ -191,7 +191,7 @@ const merchantModules: Record<"copilot" | "explorer" | "workflows" | "settings",
 		title: "Merchant copilot",
 		summary:
 			"Preview conversation shell for questions, dashboards, and approval-routed actions. The UI wrapper is in place before the actual AI orchestration arrives.",
-		chips: ["Approval gated", "Tenant scoped", "Audit ready"],
+		chips: ["Approval gated", "Shop scoped", "Audit ready"],
 		signals: [
 			{
 				label: "Prompt boundary",
@@ -224,7 +224,7 @@ const merchantModules: Record<"copilot" | "explorer" | "workflows" | "settings",
 				id: "m1",
 				role: "system",
 				content:
-					"You are the merchant copilot. Stay tenant-scoped, request approval before mutations, and log all proposed actions.",
+					"You are the merchant copilot. Stay shop-scoped, request approval before mutations, and log all proposed actions.",
 				tag: "prompt policy",
 			},
 			{
@@ -330,7 +330,7 @@ const merchantModules: Record<"copilot" | "explorer" | "workflows" | "settings",
 			{
 				label: "Widget health",
 				detail:
-					"This page will surface extension status, public AI enablement, and install diagnostics without sending merchants to `/ops`.",
+					"This page will surface extension status, public AI enablement, and install diagnostics without sending merchants into the internal console.",
 				tone: "neutral",
 			},
 		],
@@ -338,23 +338,23 @@ const merchantModules: Record<"copilot" | "explorer" | "workflows" | "settings",
 			{
 				title: "Persist merchant controls",
 				detail:
-					"Replace the local preview form with authenticated Convex mutations once Better Auth and tenant checks are in place.",
+					"Replace the local preview form with authenticated Convex mutations once Shopify session verification and shop checks are in place.",
 				meta: "Plan 02/03",
 			},
 		],
 	},
 };
 
-const opsOverviewData: OpsOverviewSnapshot = {
-	title: "Platform operations",
+const internalOverviewData: InternalOverviewSnapshot = {
+	title: "Internal diagnostics",
 	summary:
-		"Role-gated surface for cross-tenant oversight, sync posture, and AI governance. It stays hidden from merchant users even in preview mode.",
+		"Dev-only shell for install state, webhook posture, cache projections, and action audits while the product is still being built.",
 	metrics: [
 		{
-			label: "Tenants tracked",
-			value: "12",
-			delta: "+2 this week",
-			hint: "Installs, re-installs, and dormant shops will eventually roll up here.",
+			label: "Install state",
+			value: "1 shop",
+			delta: "Preview ready",
+			hint: "The internal console is single-store diagnostics, not a cross-tenant platform surface.",
 			tone: "accent",
 		},
 		{
@@ -375,115 +375,112 @@ const opsOverviewData: OpsOverviewSnapshot = {
 			label: "AI approvals",
 			value: "24",
 			delta: "Today",
-			hint: "Cross-tenant view into merchant copilot action approvals and trace volume.",
+			hint: "Action traces will help debug merchant copilot safety and approval flow behavior.",
 			tone: "success",
 		},
 	],
 	signals: [
 		{
-			label: "Tenant isolation",
+			label: "Environment gate",
 			detail:
-				"Every tenant-facing write path will resolve the viewer and tenant in Convex before touching data.",
+				"The route stays disabled unless internal tools are enabled, and it remains separate from merchant navigation in every environment.",
 			tone: "success",
 		},
 		{
-			label: "Webhook backlog",
+			label: "Single-store scope",
 			detail:
-				"A handful of inventory updates need replay handling after the sync pipeline is introduced.",
-			tone: "watch",
+				"These diagnostics inspect one connected shop and its app state, not a multi-tenant control plane.",
+			tone: "neutral",
 		},
 	],
 	timeline: [
 		{
 			title: "Stand up install audit trail",
-			detail: "Track install, bootstrap, invite, and role-change events centrally in Convex.",
+			detail: "Track install, reinstall, scope changes, and bootstrap failures in Convex.",
 			meta: "Plan 02/03",
 		},
 		{
-			title: "Expose sync diagnostics",
+			title: "Expose cache diagnostics",
 			detail:
-				"Bring failed jobs, stale domains, and reconciliation alerts into `/ops` and `/app/settings`.",
+				"Bring sync freshness, replay helpers, and audit visibility into `/internal` while leaving merchant-facing settings focused on shop operations.",
 			meta: "Plan 04",
 		},
 	],
 };
 
-const opsModules: Record<"tenants" | "sync-jobs" | "webhooks" | "ai-traces", ModuleSnapshot> = {
-	tenants: {
-		eyebrow: "Tenant directory",
-		title: "Tenant roster",
+const internalModules: Record<
+	"install-state" | "cache" | "webhooks" | "action-audits",
+	ModuleSnapshot
+> = {
+	"install-state": {
+		eyebrow: "Install diagnostics",
+		title: "Install state",
 		summary:
-			"Controlled cross-tenant visibility for platform admins only. This is where installation posture, ownership, and bootstrap health converge.",
-		chips: ["Platform only", "Cross-tenant", "Install aware"],
+			"Local view of install metadata, preview auth state, and shell bootstrap checkpoints while the real Shopify app install flow is still being wired.",
+		chips: ["Dev only", "Install aware", "Auth traces"],
 		signals: [
 			{
-				label: "Membership model",
+				label: "Embedded auth",
 				detail:
-					"Tenant memberships map Better Auth users to roles without leaking multi-tenant concepts into the merchant UI.",
+					"Session tokens authenticate embedded requests, while stored offline tokens later authorize backend Shopify calls.",
 				tone: "accent",
 			},
 		],
 		timeline: [
 			{
-				title: "Bootstrap tenant + first admin",
+				title: "Persist installation record",
 				detail:
-					"The installing merchant becomes the initial tenant admin when the Shopify app is first attached.",
-				meta: "Plan 02",
+					"Store scopes, install status, and offline token metadata per shop once managed installation is connected.",
+				meta: "Plan 02/03",
 			},
 		],
 		records: [
 			{
-				id: "tenant-1",
-				domain: "northwind-demo.myshopify.com",
-				role: "tenant_admin",
+				id: "install-1",
+				bootstrap: "Shell ready",
+				install_status: "Preview",
+				scopes: "read_products, read_orders",
 				status: "Healthy",
-				tenant: "Northwind Atelier",
-			},
-			{
-				id: "tenant-2",
-				domain: "papertrail-co.myshopify.com",
-				role: "tenant_member",
-				status: "Needs bootstrap",
-				tenant: "Papertrail Co.",
+				shop: "northwind-demo.myshopify.com",
 			},
 		],
 	},
-	"sync-jobs": {
-		eyebrow: "Queue health",
-		title: "Sync jobs",
+	cache: {
+		eyebrow: "Projection cache",
+		title: "Projection cache",
 		summary:
-			"Backfills, reconciliation jobs, projection rebuilds, and cleanup tasks will all report here with deterministic idempotent state.",
-		chips: ["Convex workflows", "Bulk import", "Reconciliation"],
+			"Snapshot of mirrored products, inventory projections, and sync freshness for debugging before merchant-facing dashboards depend on them.",
+		chips: ["Convex cache", "Sync freshness", "Replay safe"],
 		signals: [
 			{
-				label: "Idempotency",
+				label: "Selective mirrors",
 				detail:
-					"Every webhook or bulk import path is designed to upsert by stable Shopify identifiers rather than append blindly.",
+					"Only the data needed for AI, diagnostics, and repeated reads should be mirrored into Convex.",
 				tone: "success",
 			},
 		],
 		timeline: [
 			{
-				title: "Split full import by domain",
+				title: "Backfill products and inventory",
 				detail:
-					"Products, collections, customers, orders, and inventory will each own their own retryable workflow.",
+					"Warehouse mirrors should project products, inventory, orders, and collections into deterministic shop-scoped tables.",
 				meta: "Plan 04",
 			},
 		],
 		records: [
 			{
-				id: "job-1",
-				domain: "Products",
-				status: "Running",
-				tenant: "Northwind Atelier",
-				updated_at: "2m ago",
+				id: "cache-1",
+				freshness: "2m",
+				projection: "Products",
+				rows: "4.2k",
+				status: "Healthy",
 			},
 			{
-				id: "job-2",
-				domain: "Inventory",
-				status: "Queued",
-				tenant: "Papertrail Co.",
-				updated_at: "11m ago",
+				id: "cache-2",
+				freshness: "11m",
+				projection: "Inventory",
+				rows: "18.4k",
+				status: "Needs replay",
 			},
 		],
 	},
@@ -520,23 +517,22 @@ const opsModules: Record<"tenants" | "sync-jobs" | "webhooks" | "ai-traces", Mod
 			{
 				id: "webhook-2",
 				latency: "592ms",
-				shop: "papertrail-co.myshopify.com",
+				shop: "northwind-demo.myshopify.com",
 				status: "Retrying",
 				topic: "inventory_levels/update",
 			},
 		],
 	},
-	"ai-traces": {
-		eyebrow: "AI governance",
-		title: "AI traces",
+	"action-audits": {
+		eyebrow: "Action audits",
+		title: "Action audits",
 		summary:
-			"Separate prompt and tool surfaces for shoppers and merchants eventually flow into a common internal trace view here.",
-		chips: ["Prompt splits", "Approval audit", "Safety review"],
+			"Merchant tool proposals, approvals, and executed mutations flow here for debugging and review.",
+		chips: ["Approval trail", "Tool proposals", "Safety review"],
 		signals: [
 			{
-				label: "Surface separation",
-				detail:
-					"Public shopper prompts and merchant prompts stay isolated by tool scope, approval policy, and rate limits.",
+				label: "Approval boundary",
+				detail: "Merchant writes stay explicit and audited, while shopper AI remains read-only.",
 				tone: "accent",
 			},
 		],
@@ -553,14 +549,14 @@ const opsModules: Record<"tenants" | "sync-jobs" | "webhooks" | "ai-traces", Mod
 				id: "trace-1",
 				actor: "merchant",
 				outcome: "Approval required",
-				tenant: "Northwind Atelier",
+				shop: "northwind-demo.myshopify.com",
 				trace: "copilot-024",
 			},
 			{
 				id: "trace-2",
 				actor: "shopper",
 				outcome: "Read only",
-				tenant: "Papertrail Co.",
+				shop: "northwind-demo.myshopify.com",
 				trace: "storefront-117",
 			},
 		],
@@ -594,19 +590,19 @@ export const merchantModule = query({
 	handler: async (_ctx, args) => merchantModules[args.module],
 });
 
-export const opsOverview = query({
+export const internalOverview = query({
 	args: {},
-	handler: async () => opsOverviewData,
+	handler: async () => internalOverviewData,
 });
 
-export const opsModule = query({
+export const internalModule = query({
 	args: {
 		module: v.union(
-			v.literal("tenants"),
-			v.literal("sync-jobs"),
+			v.literal("install-state"),
+			v.literal("cache"),
 			v.literal("webhooks"),
-			v.literal("ai-traces"),
+			v.literal("action-audits"),
 		),
 	},
-	handler: async (_ctx, args) => opsModules[args.module],
+	handler: async (_ctx, args) => internalModules[args.module],
 });
