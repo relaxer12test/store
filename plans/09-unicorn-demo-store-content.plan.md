@@ -453,6 +453,35 @@ Product data:
 - Headline concept: `A Little More Magic For Everyday Play`
 - Supporting concept: `Discover unicorn costumes, cuddle toys, party kits, and room-brightening favorites for birthdays, sleepovers, and imaginative afternoons.`
 
+## Shopify Insert Strategy
+
+### What Shopify Already Supports
+- Shopify CLI can insert content into a dev store by executing Admin GraphQL mutations.
+- Use `shopify app execute` for smaller mutations and `shopify app bulk execute` for high-volume imports.
+- Shopify CLI help explicitly states that mutations are allowed on dev stores.
+- The Shopify Dev MCP server is for docs, schema introspection, and validation, not for mutating store content.
+
+### Resources We Can Seed Through Admin GraphQL
+- Products and variants through `productSet`
+- Collections through `collectionCreate` and `collectionAddProducts`
+- Pages through `pageCreate`
+- Blogs and articles through `blogCreate` and `articleCreate`
+- Menus through `menuCreate`
+- Files and reusable media through `fileCreate`
+- Structured merchandising content through `metaobjectUpsert`
+- Channel visibility through `publishablePublish`
+
+### Recommended Execution Model
+- Build our own seeding script or dataset generator and use Shopify CLI as the execution transport during development.
+- For small or iterative tests, run single mutations with `shopify app execute`.
+- For the full `500-1000` product catalog, use `shopify app bulk execute` with JSONL variable files.
+- Treat CLI as the write path for dev stores and the Admin API as the underlying platform surface.
+
+### Seeder Decision
+- We do need our own import layer on our end.
+- Shopify gives us the write primitives, but not the full opinionated unicorn-catalog seeder we need.
+- Our seeder should own data shaping, family expansion, image manifest generation, and mutation batching.
+
 ## Image Strategy
 
 ### Core Principle
@@ -460,8 +489,26 @@ Use generated product imagery for the actual catalog and licensed stock imagery 
 
 ### Image Source Priority
 1. AI-generated product packshots and stylized lifestyle scenes for actual sellable products
-2. Unsplash or Pexels for lifestyle/editorial scenes that do not need exact product matches
-3. Pixabay only as a fallback for simple decorative or background imagery
+2. Our own stable public asset host for generated outputs, preferably an R2-backed HTTPS origin
+3. Burst by Shopify, Unsplash, or Pexels for lifestyle/editorial scenes that do not need exact product matches
+4. Pixabay only as a fallback for simple decorative or background imagery
+
+### Where To Grab Pictures From
+
+#### Sellable Product Images
+- Generate them ourselves because these products are fictional and stock libraries will not match our exact catalog.
+- Store the generated outputs in an asset bucket we control, ideally a public R2 path with stable HTTPS URLs.
+- Use one asset manifest row per image with: `sku`, `variant`, `source_type`, `source_url`, `license_note`, `alt`, `width`, `height`.
+
+#### Editorial And Collection Images
+- Use Burst first when a generic ecommerce or room image works.
+- Use Unsplash or Pexels for lifestyle scenes, room setups, tabletop activity, balloons, cakes, and decorative backgrounds.
+- Use Pixabay only if the other sources do not cover a simple supporting visual.
+
+#### People And Kids Imagery
+- Prefer generated scenes for child-model imagery because release confidence is simpler and visual consistency is higher.
+- If using real-photo stock, prefer back views, hands, or room scenes over recognizable child portraits.
+- Avoid imagery that could imply a real child endorses the brand.
 
 ### What To Generate With AI
 - All product hero images
@@ -501,6 +548,12 @@ Use generated product imagery for the actual catalog and licensed stock imagery 
 - Use as a backup for decorative assets.
 - Commercial use is allowed under their content license summary.
 - Avoid anything with visible trademarks or anything that would become the primary thing being sold.
+
+#### Burst By Shopify
+- Good for generic ecommerce editorial shots and some product-adjacent lifestyle scenes.
+- Commercial use is allowed under Burst's photo license.
+- Burst is in maintenance mode, so use the current library opportunistically rather than depending on new coverage.
+- Burst is unlikely to cover exact unicorn products, so use it for backgrounds and editorial context, not core fictional product media.
 
 ### Human Subject Rule
 - For homepage/editorial use, prefer scenes with hands, back views, room setups, or tabletop activity.
@@ -600,6 +653,38 @@ storybook kids boutique product photography, pastel moonbeam palette, soft dayli
 - Avoid hyper-saturated neon.
 - Avoid uncanny full-face child closeups.
 
+## Media Upload Strategy
+
+### Preferred Upload Path For This Store
+- Prefer remote HTTPS image URLs over raw local uploads for the large seeded catalog.
+- The cleanest path is:
+  1. generate or license images
+  2. place them on a stable public origin we control, ideally R2
+  3. import them into Shopify with `productSet` or `fileCreate`
+- This keeps the catalog import deterministic and easier to rerun.
+
+### Remote URL Upload Path
+- Use `fileCreate` with `contentType: IMAGE` and `originalSource` set to the public image URL when we want reusable Shopify file records.
+- Use `productSet` file inputs with `originalSource` when creating products and attaching media in the same import flow.
+- This is the best default for a large synthetic catalog because it avoids handling binary upload requests inside the seeder.
+
+### Local Or Generated File Upload Path
+- If an image only exists locally, call `stagedUploadsCreate` first.
+- Shopify returns a temporary upload `url`, `parameters`, and a `resourceUrl`.
+- Upload the file bytes to that target.
+- Then use the returned `resourceUrl` as `originalSource` in `fileCreate` or subsequent product media mutations.
+
+### When To Use Each Path
+- Use remote URL ingestion for most product images, bundle shots, banners, and editorial assets.
+- Use staged uploads for one-off local files, manual experiments, or cases where assets have not been mirrored to our public bucket yet.
+- Do not make staged uploads the default for `500-1000` products unless we have no stable public asset host.
+
+### Upload Validation Rules
+- Keep source URLs valid and directly fetchable over HTTPS.
+- Keep alt text under Shopify's limits.
+- Track `fileStatus` until assets are ready.
+- Reuse uploaded file IDs when the same asset belongs on multiple products or pages.
+
 ## Content Production Workflow
 
 ### Step 1: Create Structured Catalog Data
@@ -625,23 +710,34 @@ storybook kids boutique product photography, pastel moonbeam palette, soft dayli
 - Generate hero images first, then supporting angles.
 - Reuse approved family setups for long-tail items so the catalog stays visually consistent.
 
-### Step 6: Source Editorial Stock
+### Step 6: Produce And Collect Assets
+- Generate core product media and export them into a stable public asset origin.
+- Pull editorial stock only for the pages that actually need it.
+- Record every asset in an image manifest with its source and intended Shopify destination.
+
+### Step 7: Import Media Into Shopify
+- For remote assets, ingest images through `fileCreate` or directly through product media fields using `originalSource`.
+- For local-only assets, use `stagedUploadsCreate`, upload binaries, then create Shopify file records from the returned `resourceUrl`.
+- Reuse file records where the same image appears in multiple places.
+
+### Step 8: Source Editorial Stock
 - Pull only the editorial images the site actually needs.
 - Track URLs and licenses in a simple asset register.
 
-### Step 7: Import Into Shopify
+### Step 9: Import Into Shopify
 - Upload product data, variant media, alt text, and collections.
 - Make sure bundle components and tags are consistent for AI recommendations.
 - Populate enough pagination depth and filter coverage that the store reads as real on browse and search pages.
 
-### Step 8: Publish Public Docs
+### Step 10: Publish Public Docs
 - Upload the public markdown docs for the storefront AI.
 - Keep policy docs clear and plain-language.
 
-### Step 9: QA
+### Step 11: QA
 - Make sure the AI can answer gift, party, age, and bundle questions from public data only.
 - Check that no collection page looks thin.
 - Check that search for `unicorn`, `birthday`, `plush`, `cape`, `party`, and `gift` returns dense, believable results.
+- Check that product media and collection art are all in `READY` state before final publishing.
 
 ## Public Knowledge Doc Content Requirements
 
@@ -768,6 +864,17 @@ A fresh implementation agent should be able to use only this file to:
   - https://www.pexels.com/license/
   - https://help.pexels.com/hc/en-us/articles/360042295214-can-i-use-the-photos-and-videos-for-a-commercial-project
   - https://pixabay.com/service/license-summary/
+  - https://www.shopify.com/stock-photos/about-us
+  - https://www.shopify.com/stock-photos/licenses/shopify-some-rights-reserved
+  - https://www.shopify.com/stock-photos/become-a-contributor/
 - Shopify help references for media workflow:
+  - https://shopify.dev/docs/api/shopify-cli/app/app-execute
+  - https://shopify.dev/docs/api/shopify-cli/app/app-bulk-execute
+  - https://shopify.dev/docs/api/usage/bulk-operations/imports
+  - https://shopify.dev/docs/apps/build/devmcp
   - https://help.shopify.com/en/manual/products/product-media/add-images-variants
   - https://help.shopify.com/en/manual/products/product-media/product-photography
+  - https://shopify.dev/docs/apps/build/product-merchandising/products-and-collections/manage-media
+  - https://shopify.dev/docs/api/admin-graphql/latest/mutations/stagedUploadsCreate
+  - https://shopify.dev/docs/api/admin-graphql/latest/mutations/fileCreate
+  - https://shopify.dev/docs/api/admin-graphql/latest/mutations/productSet
