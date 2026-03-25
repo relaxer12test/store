@@ -1,0 +1,21 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "071da31bc3d06adfc33381e5c99fc20d"
+name = "ldevstore"
+application_url = "https://storeai.ldev.cloud"
+embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products,write_products,read_orders,read_inventory,write_inventory,read_locations,read_themes"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = []
+
+[build]
+automatically_update_urls_on_dev = false

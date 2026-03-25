@@ -62,7 +62,10 @@ export function LandingPage() {
 				>
 					<ul className="space-y-4 text-sm leading-7 text-slate-700">
 						<li>No verified Shopify session-token path on the backend yet.</li>
-						<li>No install/OAuth callback flow storing a real connected shop record.</li>
+						<li>
+							No managed-install token exchange or shop bootstrap storing a real connected shop
+							record.
+						</li>
 						<li>No webhook ingestion writing live deliveries into Convex.</li>
 						<li>No mirrored Shopify catalog/order/inventory tables yet.</li>
 					</ul>

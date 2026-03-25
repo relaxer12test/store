@@ -6,8 +6,8 @@ import { getOptionalConvexUrl, getOptionalShopifyApiKey, isInternalToolsEnabled 
 const checklistItems = [
 	"Shopify app API key available to the frontend shell",
 	"Shopify app secret available to the backend for token verification",
-	"App URL, callback URL, and scopes configured in the Partner Dashboard",
-	"Install/OAuth flow writing a real shop record into Convex",
+	"Shopify app URL set to https://storeai.ldev.cloud and managed-install scopes deployed",
+	"Backend install/token-exchange flow writing a real shop record into Convex",
 	"Webhook topics writing real deliveries into Convex",
 ];
 
