@@ -1,14 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
 import { useSessionEnvelope } from "@/features/auth/session/client";
-import { isInternalToolsEnabled } from "@/lib/env";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
 
 export function GlobalChrome() {
 	const session = useSessionEnvelope();
-	const showInternalLink = isInternalToolsEnabled() || session.roles.includes("internal_staff");
 
 	return (
 		<header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
@@ -39,11 +37,6 @@ export function GlobalChrome() {
 					<Link className={navLinkClass} to="/app">
 						Merchant app
 					</Link>
-					{showInternalLink ? (
-						<Link className={navLinkClass} to="/internal">
-							Internal
-						</Link>
-					) : null}
 
 					<StatusPill tone={session.state === "ready" ? "success" : "watch"}>
 						{session.state === "ready" ? "Convex live" : "Convex offline"}

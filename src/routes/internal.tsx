@@ -1,8 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
 import { useSessionEnvelope } from "@/features/auth/session/client";
-import { isInternalToolsEnabled } from "@/lib/env";
 
 const internalNav: SurfaceNavItem[] = [
 	{
@@ -32,18 +31,7 @@ const internalNav: SurfaceNavItem[] = [
 	},
 ];
 
-export const Route = createFileRoute("/internal")({
-	beforeLoad: ({ context }) => {
-		if (!isInternalToolsEnabled()) {
-			throw redirect({ to: "/" });
-		}
-
-		if (!import.meta.env.DEV && !context.roles.includes("internal_staff")) {
-			throw redirect({ to: "/install" });
-		}
-	},
-	component: InternalLayoutRoute,
-});
+export const Route = createFileRoute("/internal")({ component: InternalLayoutRoute });
 
 function InternalLayoutRoute() {
 	const session = useSessionEnvelope();

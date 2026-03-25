@@ -6,7 +6,6 @@ import {
 	getOptionalConvexDeploymentUrl,
 	getOptionalConvexHttpUrl,
 	getOptionalShopifyApiKey,
-	isInternalToolsEnabled,
 } from "@/lib/env";
 
 const checklistItems = [
@@ -24,7 +23,6 @@ export function InstallPage() {
 	const hasConvexDeploymentUrl = Boolean(getOptionalConvexDeploymentUrl());
 	const hasConvexHttpUrl = Boolean(getOptionalConvexHttpUrl());
 	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
-	const internalToolsEnabled = isInternalToolsEnabled();
 
 	return (
 		<div className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16">
@@ -105,16 +103,6 @@ export function InstallPage() {
 								{session.activeShop
 									? `The current embedded session resolved the active shop as ${session.activeShop.name}.`
 									: "The app shell has not resolved an embedded shop context yet."}
-							</p>
-						</div>
-						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
-							<div className="flex items-center gap-3">
-								<StatusPill tone={internalToolsEnabled ? "accent" : "neutral"}>
-									{internalToolsEnabled ? "Internal tools enabled" : "Internal tools disabled"}
-								</StatusPill>
-							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-600">
-								The `/internal` console only exists for development/staff diagnostics.
 							</p>
 						</div>
 					</div>

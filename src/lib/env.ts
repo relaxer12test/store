@@ -80,10 +80,6 @@ export function getOptionalShopifyApiKey() {
 	);
 }
 
-export function isInternalToolsEnabled() {
-	return import.meta.env.VITE_ENABLE_INTERNAL_TOOLS !== "false";
-}
-
 export function getRequiredConvexDeploymentUrl() {
 	const url = getOptionalConvexDeploymentUrl();
 

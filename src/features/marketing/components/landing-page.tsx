@@ -1,14 +1,12 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
 import { useSessionEnvelope } from "@/features/auth/session/client";
-import { isInternalToolsEnabled } from "@/lib/env";
 
 const cardClass =
 	"group flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 transition hover:border-slate-300 hover:shadow-sm";
 
 export function LandingPage() {
 	const session = useSessionEnvelope();
-	const showInternal = isInternalToolsEnabled() || session.roles.includes("internal_staff");
 
 	return (
 		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
@@ -43,15 +41,6 @@ export function LandingPage() {
 					</span>
 					<span className="text-xs leading-5 text-slate-500">Connection setup and checklist</span>
 				</Link>
-
-				{showInternal ? (
-					<Link className={cardClass} to="/internal">
-						<span className="text-sm font-semibold text-slate-900 group-hover:text-slate-950">
-							Internal tools
-						</span>
-						<span className="text-xs leading-5 text-slate-500">Diagnostics, webhooks, cache</span>
-					</Link>
-				) : null}
 			</nav>
 		</div>
 	);
