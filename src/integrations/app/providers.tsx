@@ -7,74 +7,27 @@ import { useEffect } from "react";
 import { SessionProvider, type SessionManager } from "@/features/auth/session/client";
 import { EmbeddedAppProvider, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import type { AppRouterContext } from "@/integrations/app/router-context";
-import type { SessionEnvelope } from "@/shared/contracts/session";
 
 interface AppProvidersProps {
 	children: React.ReactNode;
 	convexQueryClient: ConvexQueryClient;
 	embeddedApp: EmbeddedAppManager;
+	ensureEmbeddedSession: AppRouterContext["sessionApi"]["ensureEmbeddedSession"];
 	queryClient: QueryClient;
-	request: AppRouterContext["request"];
 	sessionManager: SessionManager;
-	setSession: (session: SessionEnvelope) => void;
 }
 
 export function AppProviders({
 	children,
 	convexQueryClient,
 	embeddedApp,
+	ensureEmbeddedSession,
 	queryClient,
-	request,
 	sessionManager,
-	setSession,
 }: AppProvidersProps) {
 	useEffect(() => {
-		let cancelled = false;
-
-		async function bootstrapEmbeddedSession() {
-			const embeddedState = await embeddedApp.ensureReady();
-
-			if (!embeddedState.isEmbedded || !embeddedState.sessionToken) {
-				return;
-			}
-
-			try {
-				const response = await request.fetch("/api/shopify/bootstrap", {
-					method: "POST",
-					headers: {
-						Accept: "application/json",
-					},
-				});
-
-				if (!response.ok) {
-					throw new Error(`Embedded bootstrap failed with status ${response.status}.`);
-				}
-
-				const session = (await response.json()) as SessionEnvelope;
-
-				if (!cancelled) {
-					setSession(session);
-				}
-			} catch {
-				if (!cancelled) {
-					setSession({
-						authMode: "embedded",
-						state: "offline",
-						viewer: null,
-						activeShop: null,
-						roles: [],
-						convexToken: null,
-					});
-				}
-			}
-		}
-
-		void bootstrapEmbeddedSession();
-
-		return () => {
-			cancelled = true;
-		};
-	}, [convexQueryClient, embeddedApp, request, setSession]);
+		void ensureEmbeddedSession();
+	}, [ensureEmbeddedSession]);
 
 	return (
 		<ConvexProvider client={convexQueryClient.convexClient}>

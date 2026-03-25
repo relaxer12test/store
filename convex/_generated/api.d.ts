@@ -9,6 +9,9 @@
  */
 
 import type * as http from "../http.js";
+import type * as merchantApp from "../merchantApp.js";
+import type * as merchantAuth from "../merchantAuth.js";
+import type * as merchantSessionToken from "../merchantSessionToken.js";
 import type * as shopify from "../shopify.js";
 import type * as systemStatus from "../systemStatus.js";
 
@@ -20,6 +23,9 @@ import type {
 
 declare const fullApi: ApiFromModules<{
   http: typeof http;
+  merchantApp: typeof merchantApp;
+  merchantAuth: typeof merchantAuth;
+  merchantSessionToken: typeof merchantSessionToken;
   shopify: typeof shopify;
   systemStatus: typeof systemStatus;
 }>;

@@ -19,6 +19,7 @@ type Listener = () => void;
 
 export interface EmbeddedAppManager {
 	ensureReady: () => Promise<EmbeddedBootstrapState>;
+	getSessionToken: () => Promise<string | null>;
 	getState: () => EmbeddedBootstrapState;
 	subscribe: (listener: Listener) => () => void;
 }
@@ -62,6 +63,55 @@ function createInitialState(): EmbeddedBootstrapState {
 	};
 }
 
+function readUrlBootstrapState() {
+	const searchParams = new URLSearchParams(window.location.search);
+	const hostFromUrl = searchParams.get("host");
+
+	return {
+		fallbackToken: searchParams.get("id_token"),
+		host: hostFromUrl ?? getPersistedHost(),
+		hostFromUrl,
+		isEmbedded: searchParams.get("embedded") === "1" || Boolean(hostFromUrl ?? getPersistedHost()),
+		shop: searchParams.get("shop"),
+	};
+}
+
+async function requestSessionToken({
+	fallbackToken,
+	isEmbedded,
+}: {
+	fallbackToken: string | null;
+	isEmbedded: boolean;
+}): Promise<Pick<EmbeddedBootstrapState, "sessionToken" | "source">> {
+	let sessionToken = fallbackToken;
+	let source: EmbeddedBootstrapSource = sessionToken ? "url" : "none";
+
+	if (!isEmbedded) {
+		return {
+			sessionToken,
+			source,
+		};
+	}
+
+	const shopify = getShopifyGlobal();
+
+	if (shopify?.idToken) {
+		try {
+			sessionToken = await shopify.idToken();
+			source = "app-bridge";
+		} catch {
+			source = fallbackToken ? "url" : "app-bridge";
+		}
+	} else if (!fallbackToken) {
+		source = "app-bridge";
+	}
+
+	return {
+		sessionToken,
+		source,
+	};
+}
+
 export function createEmbeddedAppManager(): EmbeddedAppManager {
 	let state = createInitialState();
 	let bootPromise: Promise<EmbeddedBootstrapState> | null = null;
@@ -92,52 +142,36 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 		}
 
 		bootPromise = (async () => {
-			const searchParams = new URLSearchParams(window.location.search);
-			const hostFromUrl = searchParams.get("host");
-			const host = hostFromUrl ?? getPersistedHost();
-			const fallbackToken = searchParams.get("id_token");
-			const shop = searchParams.get("shop");
-			const isEmbedded = searchParams.get("embedded") === "1" || Boolean(host);
-			let sessionToken = fallbackToken;
-			let source: EmbeddedBootstrapSource = sessionToken ? "url" : "none";
+			const bootstrapState = readUrlBootstrapState();
 
-			if (hostFromUrl) {
-				persistHost(hostFromUrl);
-			}
-
-			if (isEmbedded) {
-				const shopify = getShopifyGlobal();
-
-				if (shopify?.idToken) {
-					try {
-						sessionToken = await shopify.idToken();
-						source = "app-bridge";
-					} catch {
-						source = fallbackToken ? "url" : "app-bridge";
-					}
-				} else if (!fallbackToken) {
-					source = "app-bridge";
-				}
+			if (bootstrapState.hostFromUrl) {
+				persistHost(bootstrapState.hostFromUrl);
 			}
 
 			setState({
 				...state,
-				host,
-				isEmbedded,
-				sessionToken,
-				shop,
-				source,
+				error: null,
+				host: bootstrapState.host,
+				isEmbedded: bootstrapState.isEmbedded,
+				sessionToken: null,
+				shop: bootstrapState.shop,
+				source: "none",
 				status: "booting",
+			});
+
+			const tokenState = await requestSessionToken({
+				fallbackToken: bootstrapState.fallbackToken,
+				isEmbedded: bootstrapState.isEmbedded,
 			});
 
 			const readyState: EmbeddedBootstrapState = {
 				apiKey: getOptionalShopifyApiKey() ?? null,
 				error: null,
-				host,
-				isEmbedded,
-				sessionToken,
-				shop,
-				source,
+				host: bootstrapState.host,
+				isEmbedded: bootstrapState.isEmbedded,
+				sessionToken: tokenState.sessionToken,
+				shop: bootstrapState.shop,
+				source: tokenState.source,
 				status: "ready",
 			};
 
@@ -166,8 +200,45 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 		}
 	};
 
+	const getSessionToken = async () => {
+		if (isServer) {
+			return null;
+		}
+
+		const readyState = await ensureReady();
+
+		if (!readyState.isEmbedded) {
+			return null;
+		}
+
+		const bootstrapState = readUrlBootstrapState();
+
+		if (bootstrapState.hostFromUrl) {
+			persistHost(bootstrapState.hostFromUrl);
+		}
+
+		const tokenState = await requestSessionToken({
+			fallbackToken: bootstrapState.fallbackToken,
+			isEmbedded: readyState.isEmbedded,
+		});
+		const nextState: EmbeddedBootstrapState = {
+			...readyState,
+			error: null,
+			host: bootstrapState.host,
+			sessionToken: tokenState.sessionToken,
+			shop: bootstrapState.shop,
+			source: tokenState.source,
+			status: "ready",
+		};
+
+		setState(nextState);
+
+		return tokenState.sessionToken;
+	};
+
 	return {
 		ensureReady,
+		getSessionToken,
 		getState: () => state,
 		subscribe: (listener) => {
 			listeners.add(listener);

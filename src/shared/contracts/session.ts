@@ -24,4 +24,13 @@ export interface SessionEnvelope {
 	activeShop: ShopSummary | null;
 	roles: ViewerRole[];
 	convexToken: string | null;
+	convexTokenExpiresAt: number | null;
+}
+
+export function hasEmbeddedMerchantSession(session: SessionEnvelope) {
+	return (
+		session.authMode === "embedded" &&
+		session.state === "ready" &&
+		Boolean(session.viewer && session.activeShop && session.convexToken)
+	);
 }

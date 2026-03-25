@@ -3,6 +3,7 @@ import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, SurfaceNav, type SurfaceNavItem } from "@/components/ui/layout";
 
 interface SurfaceLayoutProps {
+	children?: React.ReactNode;
 	description: string;
 	eyebrow: string;
 	navItems: SurfaceNavItem[];
@@ -12,6 +13,7 @@ interface SurfaceLayoutProps {
 }
 
 export function SurfaceLayout({
+	children,
 	description,
 	eyebrow,
 	navItems,
@@ -34,9 +36,7 @@ export function SurfaceLayout({
 				<SurfaceNav items={navItems} label={`${title} navigation`} />
 			</div>
 
-			<div className="mt-8">
-				<Outlet />
-			</div>
+			<div className="mt-8">{children ?? <Outlet />}</div>
 		</div>
 	);
 }

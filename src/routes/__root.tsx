@@ -66,10 +66,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
+					ensureEmbeddedSession={context.sessionApi.ensureEmbeddedSession}
 					queryClient={context.queryClient}
-					request={context.request}
 					sessionManager={context.sessionManager}
-					setSession={context.setSession}
 				>
 					<div className="min-h-screen">
 						<GlobalChrome />

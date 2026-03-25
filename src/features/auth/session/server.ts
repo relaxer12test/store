@@ -8,6 +8,7 @@ const guestSession: SessionEnvelope = {
 	activeShop: null,
 	roles: [],
 	convexToken: null,
+	convexTokenExpiresAt: null,
 };
 
 export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(

@@ -65,7 +65,9 @@ export default defineSchema({
 		source: v.optional(v.string()),
 		status: v.string(),
 		type: v.string(),
-	}).index("by_shop_status", ["shopId", "status"]),
+	})
+		.index("by_shop_status", ["shopId", "status"])
+		.index("by_shop_and_last_updated_at", ["shopId", "lastUpdatedAt"]),
 
 	webhookDeliveries: defineTable({
 		apiVersion: v.optional(v.string()),
@@ -82,6 +84,7 @@ export default defineSchema({
 		webhookId: v.optional(v.string()),
 	})
 		.index("by_shop_topic", ["shopId", "topic"])
+		.index("by_shop_and_received_at", ["shopId", "receivedAt"])
 		.index("by_status_received_at", ["status", "receivedAt"])
 		.index("by_domain_received_at", ["domain", "receivedAt"])
 		.index("by_event_id", ["eventId"])

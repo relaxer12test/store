@@ -4,6 +4,7 @@ import type { SessionEnvelope, ShopSummary, ViewerSummary } from "../src/shared/
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
+import { issueMerchantSessionToken } from "./merchantSessionToken";
 
 const SHOPIFY_API_VERSION = ApiVersion.January26;
 const ACCESS_TOKEN_REFRESH_BUFFER_MS = 1000 * 60 * 5;
@@ -104,6 +105,36 @@ function toViewerSummary(actor: Doc<"merchantActors">): ViewerSummary {
 		email: actor.email ?? "",
 		initials: actor.initials,
 		roles: ["shop_admin"],
+	};
+}
+
+async function createSessionEnvelope({
+	actor,
+	roles,
+	shop,
+}: {
+	actor: Doc<"merchantActors">;
+	roles: SessionEnvelope["roles"];
+	shop: Doc<"shops">;
+}): Promise<SessionEnvelope> {
+	const merchantToken = await issueMerchantSessionToken({
+		email: actor.email,
+		merchantActorId: actor._id,
+		name: actor.name,
+		roles,
+		shopDomain: shop.domain,
+		shopId: shop._id,
+		shopifyUserId: actor.shopifyUserId,
+	});
+
+	return {
+		authMode: "embedded",
+		state: "ready",
+		viewer: toViewerSummary(actor),
+		activeShop: toShopSummary(shop),
+		roles,
+		convexToken: merchantToken.token,
+		convexTokenExpiresAt: merchantToken.expiresAt,
 	};
 }
 
@@ -547,14 +578,11 @@ export const persistBootstrap = internalMutation({
 		const shopDoc = (await ctx.db.get(shopId))!;
 		const actorDoc = (await ctx.db.get(actorId))!;
 
-		return {
-			authMode: "embedded",
-			state: "ready",
-			viewer: toViewerSummary(actorDoc),
-			activeShop: toShopSummary(shopDoc),
+		return await createSessionEnvelope({
+			actor: actorDoc,
 			roles: ["shop_admin"],
-			convexToken: null,
-		};
+			shop: shopDoc,
+		});
 	},
 });
 

@@ -2,9 +2,10 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import { getRequiredConvexUrl, isServer } from "@/lib/env";
-import type { SessionEnvelope } from "@/shared/contracts/session";
+import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
 
 type Listener = () => void;
+const CONVEX_TOKEN_REFRESH_BUFFER_MS = 1000 * 60;
 
 const guestSession: SessionEnvelope = {
 	authMode: "none",
@@ -13,6 +14,7 @@ const guestSession: SessionEnvelope = {
 	activeShop: null,
 	roles: [],
 	convexToken: null,
+	convexTokenExpiresAt: null,
 };
 
 export interface SessionManager {
@@ -30,6 +32,9 @@ export interface AppRouterContext {
 	request: {
 		fetch: typeof fetch;
 		getEmbeddedHeaders: () => Promise<Headers>;
+	};
+	sessionApi: {
+		ensureEmbeddedSession: (options?: { forceRefresh?: boolean }) => Promise<SessionEnvelope>;
 	};
 	sessionManager: SessionManager;
 	setSession: (session: SessionEnvelope) => void;
@@ -64,10 +69,21 @@ function createSessionManager(initialSession: SessionEnvelope) {
 
 function getSessionFingerprint(session: SessionEnvelope) {
 	return JSON.stringify({
+		activeShopId: session.activeShop?.id ?? null,
 		authMode: session.authMode,
 		viewerId: session.viewer?.id ?? null,
 		roles: session.roles,
 	});
+}
+
+function hasFreshMerchantToken(session: SessionEnvelope) {
+	return (
+		hasEmbeddedMerchantSession(session) &&
+		Boolean(
+			session.convexTokenExpiresAt &&
+			session.convexTokenExpiresAt > Date.now() + CONVEX_TOKEN_REFRESH_BUFFER_MS,
+		)
+	);
 }
 
 function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
@@ -104,7 +120,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	convexQueryClient.connect(queryClient);
 
-	let currentToken: string | null = null;
+	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
 	let sessionFingerprint: string | null = null;
 	const sessionManager = createSessionManager(guestSession);
 
@@ -117,12 +133,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		}
 
 		sessionFingerprint = nextFingerprint;
-
-		if (currentToken === session.convexToken) {
-			return;
-		}
-
-		currentToken = session.convexToken;
 
 		if (isServer) {
 			if (!convexQueryClient.serverHttpClient) {
@@ -137,24 +147,94 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 			return;
 		}
-
-		if (session.convexToken) {
-			convexQueryClient.convexClient.setAuth(async () => session.convexToken as string);
-		} else {
-			convexQueryClient.convexClient.clearAuth();
-		}
 	};
 
 	const getEmbeddedHeaders = async () => {
-		const embeddedState = await embeddedApp.ensureReady();
+		const sessionToken = await embeddedApp.getSessionToken();
 		const headers = new Headers();
 
-		if (embeddedState.sessionToken) {
-			headers.set("Authorization", `Bearer ${embeddedState.sessionToken}`);
+		if (sessionToken) {
+			headers.set("Authorization", `Bearer ${sessionToken}`);
 		}
 
 		return headers;
 	};
+
+	const ensureEmbeddedSession = async (options?: { forceRefresh?: boolean }) => {
+		if (isServer) {
+			return sessionManager.getState();
+		}
+
+		const currentSession = sessionManager.getState();
+
+		if (!options?.forceRefresh && hasFreshMerchantToken(currentSession)) {
+			return currentSession;
+		}
+
+		if (bootstrapPromise) {
+			return bootstrapPromise;
+		}
+
+		const nextPromise = (async () => {
+			const embeddedState = await embeddedApp.ensureReady();
+
+			if (!embeddedState.isEmbedded) {
+				return sessionManager.getState();
+			}
+
+			try {
+				const response = await fetch("/api/shopify/bootstrap", {
+					method: "POST",
+					headers: mergeHeaders(
+						{
+							Accept: "application/json",
+						},
+						await getEmbeddedHeaders(),
+					),
+				});
+
+				if (!response.ok) {
+					throw new Error(`Embedded bootstrap failed with status ${response.status}.`);
+				}
+
+				const session = (await response.json()) as SessionEnvelope;
+				setSession(session);
+
+				return session;
+			} catch {
+				const offlineSession: SessionEnvelope = {
+					authMode: "embedded",
+					state: "offline",
+					viewer: null,
+					activeShop: null,
+					roles: [],
+					convexToken: null,
+					convexTokenExpiresAt: null,
+				};
+				setSession(offlineSession);
+
+				return offlineSession;
+			}
+		})();
+
+		bootstrapPromise = nextPromise.finally(() => {
+			if (bootstrapPromise === nextPromise) {
+				bootstrapPromise = null;
+			}
+		});
+
+		return bootstrapPromise;
+	};
+
+	if (!isServer) {
+		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
+			const session = await ensureEmbeddedSession({
+				forceRefresh: forceRefreshToken,
+			});
+
+			return session.convexToken;
+		});
+	}
 
 	return {
 		embeddedApp,
@@ -173,6 +253,9 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				});
 			},
 			getEmbeddedHeaders,
+		},
+		sessionApi: {
+			ensureEmbeddedSession,
 		},
 		sessionManager,
 		setSession,
