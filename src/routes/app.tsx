@@ -3,7 +3,6 @@ import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
-import { merchantSnapshotQuery } from "@/features/app-shell/merchant-snapshot";
 import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
@@ -38,11 +37,7 @@ const appNav: SurfaceNavItem[] = [
 
 export const Route = createFileRoute("/app")({
 	loader: async ({ context }) => {
-		const session = await context.sessionApi.ensureEmbeddedSession();
-
-		if (hasEmbeddedMerchantSession(session)) {
-			await context.preload.ensureQueryData(merchantSnapshotQuery);
-		}
+		await context.sessionApi.ensureEmbeddedSession();
 	},
 	component: MerchantLayoutRoute,
 });

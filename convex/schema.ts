@@ -225,6 +225,7 @@ export default defineSchema({
 	}).index("by_shop", ["shopId"]),
 
 	syncJobs: defineTable({
+		attemptCount: v.optional(v.number()),
 		cacheKey: v.optional(v.string()),
 		completedAt: v.optional(v.number()),
 		domain: v.string(),
@@ -233,6 +234,9 @@ export default defineSchema({
 		lastUpdatedAt: v.number(),
 		payloadPreview: v.optional(v.string()),
 		requestedAt: v.optional(v.number()),
+		resultSummary: v.optional(v.string()),
+		retryAt: v.optional(v.number()),
+		retryCount: v.optional(v.number()),
 		shopId: v.id("shops"),
 		source: v.optional(v.string()),
 		startedAt: v.optional(v.number()),
@@ -244,6 +248,17 @@ export default defineSchema({
 		.index("by_shop_and_last_updated_at", ["shopId", "lastUpdatedAt"])
 		.index("by_shop_and_type_and_status", ["shopId", "type", "status"])
 		.index("by_job_key", ["jobKey"]),
+
+	workflowLogs: defineTable({
+		createdAt: v.number(),
+		detail: v.optional(v.string()),
+		jobId: v.id("syncJobs"),
+		level: v.string(),
+		message: v.string(),
+		shopId: v.id("shops"),
+	})
+		.index("by_job_and_created_at", ["jobId", "createdAt"])
+		.index("by_shop_and_created_at", ["shopId", "createdAt"]),
 
 	webhookDeliveries: defineTable({
 		apiVersion: v.optional(v.string()),
@@ -341,6 +356,82 @@ export default defineSchema({
 	})
 		.index("by_shop_and_scope_and_key", ["shopId", "scope", "key"])
 		.index("by_window_ends_at", ["windowEndsAt"]),
+
+	merchantActionApprovals: defineTable({
+		actorId: v.id("merchantActors"),
+		conversationId: v.optional(v.id("merchantCopilotConversations")),
+		createdAt: v.number(),
+		decidedAt: v.optional(v.number()),
+		errorMessage: v.optional(v.string()),
+		plannedChangesJson: v.string(),
+		requestPayload: v.optional(v.any()),
+		requestedAt: v.number(),
+		resultSummary: v.optional(v.string()),
+		riskSummary: v.string(),
+		shopDomain: v.string(),
+		shopId: v.id("shops"),
+		status: v.string(),
+		summary: v.string(),
+		targetId: v.optional(v.string()),
+		targetLabel: v.string(),
+		targetType: v.string(),
+		tool: v.string(),
+		updatedAt: v.number(),
+	})
+		.index("by_shop_and_requested_at", ["shopId", "requestedAt"])
+		.index("by_shop_and_status_and_requested_at", ["shopId", "status", "requestedAt"])
+		.index("by_conversation_and_requested_at", ["conversationId", "requestedAt"]),
+
+	merchantCopilotConversations: defineTable({
+		actorId: v.id("merchantActors"),
+		createdAt: v.number(),
+		lastAssistantSummary: v.optional(v.string()),
+		lastPromptPreview: v.optional(v.string()),
+		shopId: v.id("shops"),
+		title: v.string(),
+		updatedAt: v.number(),
+	})
+		.index("by_shop_and_actor_and_updated_at", ["shopId", "actorId", "updatedAt"])
+		.index("by_shop_and_updated_at", ["shopId", "updatedAt"]),
+
+	merchantCopilotMessages: defineTable({
+		actorId: v.id("merchantActors"),
+		approvalIds: v.optional(v.array(v.id("merchantActionApprovals"))),
+		body: v.string(),
+		citationsJson: v.optional(v.string()),
+		conversationId: v.id("merchantCopilotConversations"),
+		createdAt: v.number(),
+		dashboardSpecJson: v.optional(v.string()),
+		role: v.union(v.literal("assistant"), v.literal("system"), v.literal("user")),
+		shopId: v.id("shops"),
+		toolNames: v.array(v.string()),
+	})
+		.index("by_conversation_and_created_at", ["conversationId", "createdAt"])
+		.index("by_shop_and_created_at", ["shopId", "createdAt"]),
+
+	merchantDocuments: defineTable({
+		content: v.string(),
+		contentPreview: v.string(),
+		createdAt: v.number(),
+		failureReason: v.optional(v.string()),
+		fileName: v.optional(v.string()),
+		mimeType: v.optional(v.string()),
+		searchText: v.string(),
+		shopId: v.id("shops"),
+		sourceType: v.string(),
+		status: v.union(v.literal("failed"), v.literal("processing"), v.literal("ready")),
+		summary: v.string(),
+		title: v.string(),
+		updatedAt: v.number(),
+		uploadedByActorId: v.id("merchantActors"),
+		visibility: v.union(v.literal("public"), v.literal("shop_private")),
+	})
+		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
+		.index("by_shop_and_visibility_and_updated_at", ["shopId", "visibility", "updatedAt"])
+		.searchIndex("search_text", {
+			filterFields: ["shopId", "status", "visibility"],
+			searchField: "searchText",
+		}),
 
 	widgetConfigs: defineTable({
 		accentColor: v.string(),

@@ -1,13 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MerchantHome } from "@/features/app-shell/components/merchant-home";
-import { useMerchantSnapshot } from "@/features/app-shell/merchant-snapshot";
+import {
+	merchantOverviewQuery,
+	useMerchantOverview,
+} from "@/features/app-shell/merchant-workspace";
+import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 export const Route = createFileRoute("/app/")({
+	loader: async ({ context }) => {
+		const session = await context.sessionApi.ensureEmbeddedSession();
+
+		if (hasEmbeddedMerchantSession(session)) {
+			await context.preload.ensureQueryData(merchantOverviewQuery);
+		}
+	},
 	component: MerchantOverviewRoute,
 });
 
 function MerchantOverviewRoute() {
-	const { data } = useMerchantSnapshot();
+	const { data } = useMerchantOverview();
 
-	return <MerchantHome snapshot={data} />;
+	return <MerchantHome overview={data} />;
 }

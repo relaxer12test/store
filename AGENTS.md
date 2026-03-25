@@ -17,15 +17,15 @@ For future tasks, when a mapping matches, load the linked `node_modules/.../SKIL
 
 skills:
 
-- task: "add or change Shopify webhook, bootstrap, or widget API routes"
+- task: "add or fix Shopify webhook handlers, embedded bootstrap, or widget API routes"
   load: "node_modules/@tanstack/start-client-core/skills/start-core/server-routes/SKILL.md"
-- task: "fix embedded app auth, install redirects, or protected routes"
+- task: "fix embedded app auth, install redirects, or merchant access guards"
   load: "node_modules/@tanstack/router-core/skills/router-core/auth-and-guards/SKILL.md"
-- task: "change route loaders, preloading, or Convex-backed page data"
+- task: "change route loaders, preloading, or Convex-backed app page data"
   load: "node_modules/@tanstack/router-core/skills/router-core/data-loading/SKILL.md"
-- task: "work on App Bridge bootstrapping, client/server boundaries, or env handling"
+- task: "work on App Bridge bootstrapping, client-server boundaries, or env wiring"
   load: "node_modules/@tanstack/start-client-core/skills/start-core/execution-model/SKILL.md"
-- task: "change Cloudflare deployment, SSR settings, or Shopify runtime config"
+- task: "adjust Cloudflare deployment, SSR behavior, or Shopify runtime config"
 load: "node_modules/@tanstack/start-client-core/skills/start-core/deployment/SKILL.md"
 <!-- intent-skills:end -->
 

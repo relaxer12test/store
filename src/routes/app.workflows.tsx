@@ -1,13 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MerchantWorkflowsPage } from "@/features/app-shell/components/merchant-workflows-page";
-import { useMerchantSnapshot } from "@/features/app-shell/merchant-snapshot";
+import {
+	merchantWorkflowsQuery,
+	useMerchantWorkflows,
+} from "@/features/app-shell/merchant-workspace";
+import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 export const Route = createFileRoute("/app/workflows")({
+	loader: async ({ context }) => {
+		const session = await context.sessionApi.ensureEmbeddedSession();
+
+		if (hasEmbeddedMerchantSession(session)) {
+			await context.preload.ensureQueryData(merchantWorkflowsQuery);
+		}
+	},
 	component: MerchantWorkflowsRoute,
 });
 
 function MerchantWorkflowsRoute() {
-	const { data } = useMerchantSnapshot();
+	const { data } = useMerchantWorkflows();
 
-	return <MerchantWorkflowsPage snapshot={data} />;
+	return <MerchantWorkflowsPage data={data} />;
 }

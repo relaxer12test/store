@@ -4,11 +4,17 @@ import { useEffect, useState } from "react";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { merchantSettingsQuery } from "@/features/app-shell/merchant-settings";
+import {
+	invalidateMerchantWorkspaceQueries,
+	merchantKnowledgeDocumentsQuery,
+} from "@/features/app-shell/merchant-workspace";
 import { api } from "@/lib/convex-api";
 import type {
 	MerchantSettingsData,
 	ThemeAppEmbedStatus,
 } from "@/shared/contracts/merchant-settings";
+import type { MerchantKnowledgeDocumentsData } from "@/shared/contracts/merchant-workspace";
+import type { Id } from "../../../../convex/_generated/dataModel";
 
 const primaryButtonClass =
 	"inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60";
@@ -89,15 +95,23 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export function MerchantSettingsPage({
 	data,
+	documents,
 	isRefreshing,
 	onRefresh,
 }: {
 	data: MerchantSettingsData;
+	documents: MerchantKnowledgeDocumentsData;
 	isRefreshing: boolean;
 	onRefresh: () => void;
 }) {
 	const queryClient = useQueryClient();
 	const saveWidgetSettings = useConvexMutation(api.merchantApp.updateWidgetSettings);
+	const uploadDocument = useConvexMutation(api.merchantWorkspace.uploadDocument);
+	const deleteDocument = useConvexMutation(api.merchantWorkspace.deleteDocument);
+	const updateDocumentVisibility = useConvexMutation(
+		api.merchantWorkspace.updateDocumentVisibility,
+	);
+	const reprocessDocuments = useConvexMutation(api.merchantWorkspace.reprocessDocuments);
 	const [enabled, setEnabled] = useState(data.widgetSettings.enabled);
 	const [greeting, setGreeting] = useState(data.widgetSettings.greeting);
 	const [position, setPosition] = useState(data.widgetSettings.position);
@@ -108,12 +122,58 @@ export function MerchantSettingsPage({
 	const [shippingPolicy, setShippingPolicy] = useState(data.widgetSettings.policyAnswers.shipping);
 	const [returnsPolicy, setReturnsPolicy] = useState(data.widgetSettings.policyAnswers.returns);
 	const [contactPolicy, setContactPolicy] = useState(data.widgetSettings.policyAnswers.contact);
+	const [documentTitle, setDocumentTitle] = useState("");
+	const [documentFileName, setDocumentFileName] = useState("");
+	const [documentVisibility, setDocumentVisibility] = useState<"public" | "shop_private">(
+		"shop_private",
+	);
+	const [documentContent, setDocumentContent] = useState("");
+	async function invalidateSettingsQueries() {
+		await Promise.all([
+			queryClient.invalidateQueries({
+				queryKey: merchantSettingsQuery.queryKey,
+			}),
+			queryClient.invalidateQueries({
+				queryKey: merchantKnowledgeDocumentsQuery.queryKey,
+			}),
+			invalidateMerchantWorkspaceQueries(queryClient),
+		]);
+	}
+
 	const saveMutation = useMutation({
 		mutationFn: saveWidgetSettings,
 		onSuccess: async () => {
 			await queryClient.invalidateQueries({
 				queryKey: merchantSettingsQuery.queryKey,
 			});
+		},
+	});
+	const uploadDocumentMutation = useMutation({
+		mutationFn: uploadDocument,
+		onSuccess: async () => {
+			setDocumentContent("");
+			setDocumentFileName("");
+			setDocumentTitle("");
+			setDocumentVisibility("shop_private");
+			await invalidateSettingsQueries();
+		},
+	});
+	const deleteDocumentMutation = useMutation({
+		mutationFn: deleteDocument,
+		onSuccess: async () => {
+			await invalidateSettingsQueries();
+		},
+	});
+	const updateDocumentVisibilityMutation = useMutation({
+		mutationFn: updateDocumentVisibility,
+		onSuccess: async () => {
+			await invalidateSettingsQueries();
+		},
+	});
+	const reprocessDocumentsMutation = useMutation({
+		mutationFn: reprocessDocuments,
+		onSuccess: async () => {
+			await invalidateSettingsQueries();
 		},
 	});
 
@@ -462,6 +522,166 @@ export function MerchantSettingsPage({
 						) : null}
 					</div>
 				</form>
+			</Panel>
+
+			<Panel
+				description="Merchant-private documents are searchable grounding sources for the copilot. Upload inline content, change visibility, or queue a re-index workflow when you refresh the knowledge base."
+				title="Knowledge documents"
+			>
+				<div className="flex flex-wrap items-center gap-3">
+					<StatusPill tone="accent">{documents.documents.length} document(s)</StatusPill>
+					<button
+						className={secondaryButtonClass}
+						disabled={reprocessDocumentsMutation.isPending}
+						onClick={() => reprocessDocumentsMutation.mutate({})}
+						type="button"
+					>
+						{reprocessDocumentsMutation.isPending ? "Queueing..." : "Queue re-index workflow"}
+					</button>
+				</div>
+
+				<form
+					className="mt-6 grid gap-5"
+					onSubmit={(event) => {
+						event.preventDefault();
+						uploadDocumentMutation.mutate({
+							content: documentContent,
+							fileName: documentFileName || undefined,
+							title: documentTitle,
+							visibility: documentVisibility,
+						});
+					}}
+				>
+					<div className="grid gap-5 lg:grid-cols-3">
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">Document title</span>
+							<input
+								className={inputClass}
+								onChange={(event) => setDocumentTitle(event.target.value)}
+								placeholder="Returns SOP"
+								value={documentTitle}
+							/>
+						</label>
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">File name</span>
+							<input
+								className={inputClass}
+								onChange={(event) => setDocumentFileName(event.target.value)}
+								placeholder="returns-sop.md"
+								value={documentFileName}
+							/>
+						</label>
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">Visibility</span>
+							<select
+								className={inputClass}
+								onChange={(event) =>
+									setDocumentVisibility(event.target.value as "public" | "shop_private")
+								}
+								value={documentVisibility}
+							>
+								<option value="shop_private">Shop private</option>
+								<option value="public">Public</option>
+							</select>
+						</label>
+					</div>
+
+					<label className="grid gap-2">
+						<span className="text-sm font-semibold text-slate-900">Document content</span>
+						<textarea
+							className={`${inputClass} min-h-40`}
+							onChange={(event) => setDocumentContent(event.target.value)}
+							placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
+							value={documentContent}
+						/>
+					</label>
+
+					<div className="flex flex-wrap items-center gap-3">
+						<button
+							className={primaryButtonClass}
+							disabled={uploadDocumentMutation.isPending}
+							type="submit"
+						>
+							{uploadDocumentMutation.isPending ? "Uploading..." : "Upload document"}
+						</button>
+						{uploadDocumentMutation.error ? (
+							<StatusPill tone="blocked">{uploadDocumentMutation.error.message}</StatusPill>
+						) : null}
+					</div>
+				</form>
+
+				<div className="mt-6 space-y-4">
+					{documents.documents.length > 0 ? (
+						documents.documents.map((document) => (
+							<article
+								className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5"
+								key={document.id}
+							>
+								<div className="flex flex-wrap items-start justify-between gap-3">
+									<div className="max-w-3xl">
+										<p className="text-sm font-semibold text-slate-950">{document.title}</p>
+										<p className="mt-2 text-sm leading-6 text-slate-600">{document.summary}</p>
+										<p className="mt-2 text-sm leading-6 text-slate-600">
+											{document.fileName ?? "Inline upload"} · updated {document.updatedAt}
+										</p>
+									</div>
+									<div className="flex flex-wrap gap-2">
+										<StatusPill
+											tone={
+												document.status === "ready"
+													? "success"
+													: document.status === "failed"
+														? "blocked"
+														: "watch"
+											}
+										>
+											{document.status}
+										</StatusPill>
+										<StatusPill tone="neutral">{document.visibility}</StatusPill>
+									</div>
+								</div>
+
+								<p className="mt-4 rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900">
+									{document.contentPreview}
+								</p>
+
+								<div className="mt-4 flex flex-wrap items-center gap-3">
+									<button
+										className={secondaryButtonClass}
+										disabled={updateDocumentVisibilityMutation.isPending}
+										onClick={() =>
+											updateDocumentVisibilityMutation.mutate({
+												documentId: document.id as Id<"merchantDocuments">,
+												visibility:
+													document.visibility === "shop_private" ? "public" : "shop_private",
+											})
+										}
+										type="button"
+									>
+										Make {document.visibility === "shop_private" ? "public" : "private"}
+									</button>
+									<button
+										className={secondaryButtonClass}
+										disabled={deleteDocumentMutation.isPending}
+										onClick={() =>
+											deleteDocumentMutation.mutate({
+												documentId: document.id as Id<"merchantDocuments">,
+											})
+										}
+										type="button"
+									>
+										Delete
+									</button>
+								</div>
+							</article>
+						))
+					) : (
+						<EmptyState
+							body="Upload SOPs, vendor notes, merchandising guidance, or other merchant knowledge to ground the copilot with shop-specific context."
+							title="No knowledge documents"
+						/>
+					)}
+				</div>
 			</Panel>
 		</div>
 	);

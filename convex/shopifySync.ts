@@ -16,6 +16,8 @@ const PUBLIC_CATALOG_CACHE_KEY = "public_catalog_index";
 const MERCHANT_METRICS_CACHE_KEY = "merchant_metrics_cache";
 
 const CATALOG_INDEX_REBUILD_JOB = "catalog_index_rebuild";
+const DASHBOARD_REGENERATION_JOB = "dashboard_regeneration";
+const DOCUMENT_REINDEX_JOB = "document_reindex";
 const METRICS_CACHE_REFRESH_JOB = "metrics_cache_refresh";
 const RECONCILIATION_SCAN_JOB = "reconciliation_scan";
 const SHOP_UNINSTALL_CLEANUP_JOB = "shop_uninstall_cleanup";
@@ -36,6 +38,7 @@ const MERCHANT_METRICS_STALE_MS = 1000 * 60 * 15;
 const RECENT_ORDER_WINDOW_DAYS = 30;
 const SHOPIFY_PAGE_SIZE = 100;
 const MAX_CATALOG_BATCH_SIZE = 25;
+const MAX_JOB_RETRIES = 3;
 const RUN_JOB_RETRY_DELAY_MS = 10_000;
 
 const PUBLIC_CATALOG_QUERY = `
@@ -313,6 +316,26 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T) {
 	) as T;
 }
 
+async function insertWorkflowLog(
+	ctx: MutationCtx,
+	args: {
+		detail?: string;
+		jobId: Id<"syncJobs">;
+		level: "error" | "info" | "success" | "watch";
+		message: string;
+		shopId: Id<"shops">;
+	},
+) {
+	await ctx.db.insert("workflowLogs", {
+		createdAt: Date.now(),
+		detail: args.detail,
+		jobId: args.jobId,
+		level: args.level,
+		message: args.message,
+		shopId: args.shopId,
+	});
+}
+
 function normalizeShopDomain(shopDomain: string) {
 	return shopDomain.trim().toLowerCase();
 }
@@ -419,6 +442,10 @@ function getCacheStaleAfter(cacheKey: string, now: number) {
 		default:
 			return now + MERCHANT_METRICS_STALE_MS;
 	}
+}
+
+function getRetryDelayMs(retryCount: number) {
+	return RUN_JOB_RETRY_DELAY_MS * Math.max(1, retryCount + 1);
 }
 
 function getRecentOrdersQuery(days: number) {
@@ -779,6 +806,7 @@ async function runCatalogIndexRebuild(
 		jobId: job._id,
 		payloadPreview: `Indexed ${products.length} public products and ${collections.length} public collections from Shopify.`,
 		recordCount: products.length + collections.length,
+		resultSummary: `Catalog index rebuilt with ${products.length} product row(s) and ${collections.length} collection row(s).`,
 		sourceUpdatedAt: [...products, ...collections].reduce<number | undefined>((latest, record) => {
 			if (latest === undefined || record.sourceUpdatedAt > latest) {
 				return record.sourceUpdatedAt;
@@ -812,6 +840,7 @@ async function runMetricsCacheRefresh(
 		jobId: job._id,
 		payloadPreview: `Refreshed merchant metrics cache with ${metrics.productCount} products and ${metrics.recentOrderCount} recent orders.`,
 		recordCount: 1,
+		resultSummary: `Merchant metrics cache refreshed from Shopify for ${metrics.recentOrderCount} recent order(s).`,
 		sourceUpdatedAt: metrics.lastOrderAt,
 	});
 }
@@ -871,6 +900,10 @@ async function runReconciliationScan(ctx: ActionCtx, job: Doc<"syncJobs">, shop:
 			shouldRefreshCatalog || shouldRefreshMetrics
 				? "Queued follow-up cache refresh work from reconciliation."
 				: "Reconciliation confirmed the current cache state is fresh enough.",
+		resultSummary:
+			shouldRefreshCatalog || shouldRefreshMetrics
+				? "Reconciliation queued follow-up cache refresh work."
+				: "Reconciliation confirmed existing cache state is fresh enough.",
 	});
 }
 
@@ -889,6 +922,36 @@ async function runShopUninstallCleanup(ctx: ActionCtx, job: Doc<"syncJobs">, sho
 	await ctx.runMutation(internal.shopifySync.completeJob, {
 		jobId: job._id,
 		payloadPreview: "Disabled cached Shopify data and storefront widget settings after uninstall.",
+		resultSummary:
+			"Shop uninstall cleanup removed cached Shopify state and disabled the widget surface.",
+	});
+}
+
+async function runDashboardRegeneration(ctx: ActionCtx, job: Doc<"syncJobs">, shop: Doc<"shops">) {
+	await ctx.runMutation(internal.merchantWorkspace.recordDashboardRegeneration, {
+		jobId: job._id,
+		shopId: shop._id,
+	});
+
+	await ctx.runMutation(internal.shopifySync.completeJob, {
+		jobId: job._id,
+		payloadPreview: "Regenerated the merchant dashboard view.",
+		recordCount: 1,
+		resultSummary: "Merchant dashboard regeneration finished.",
+	});
+}
+
+async function runDocumentReindex(ctx: ActionCtx, job: Doc<"syncJobs">, shop: Doc<"shops">) {
+	const recordCount = await ctx.runMutation(internal.merchantWorkspace.reindexDocuments, {
+		jobId: job._id,
+		shopId: shop._id,
+	});
+
+	await ctx.runMutation(internal.shopifySync.completeJob, {
+		jobId: job._id,
+		payloadPreview: `Re-indexed ${recordCount} merchant document(s).`,
+		recordCount,
+		resultSummary: `Merchant document index refreshed for ${recordCount} record(s).`,
 	});
 }
 
@@ -1027,6 +1090,13 @@ export const queueSyncJob = internalMutation({
 						args.triggeredByDeliveryId ?? existingPendingJob[0].triggeredByDeliveryId,
 				}),
 			);
+			await insertWorkflowLog(ctx, {
+				detail: args.pendingReason,
+				jobId: existingPendingJob[0]._id,
+				level: "watch",
+				message: "Queue request refreshed an existing pending workflow.",
+				shopId: args.shopId,
+			});
 
 			return existingPendingJob[0]._id;
 		}
@@ -1036,9 +1106,11 @@ export const queueSyncJob = internalMutation({
 			withoutUndefined({
 				cacheKey: args.cacheKey,
 				domain: args.domain,
+				attemptCount: 0,
 				lastUpdatedAt: now,
 				payloadPreview: args.payloadPreview,
 				requestedAt: now,
+				retryCount: 0,
 				shopId: args.shopId,
 				source: args.source,
 				status: JOB_STATUS_PENDING,
@@ -1046,6 +1118,13 @@ export const queueSyncJob = internalMutation({
 				type: args.type,
 			}),
 		);
+		await insertWorkflowLog(ctx, {
+			detail: args.pendingReason ?? args.payloadPreview,
+			jobId,
+			level: "info",
+			message: "Workflow queued.",
+			shopId: args.shopId,
+		});
 
 		await ctx.scheduler.runAfter(0, internal.shopifySync.runJob, {
 			jobId,
@@ -1074,6 +1153,20 @@ export const claimJob = internalMutation({
 			.take(1);
 
 		if (competingRunningJob[0]) {
+			const retryCount = (job.retryCount ?? 0) + 1;
+			const retryAt = Date.now() + getRetryDelayMs(retryCount);
+			await ctx.db.patch(job._id, {
+				lastUpdatedAt: Date.now(),
+				retryAt,
+				retryCount,
+			});
+			await insertWorkflowLog(ctx, {
+				detail: `Retry scheduled for ${new Date(retryAt).toISOString()}.`,
+				jobId: job._id,
+				level: "watch",
+				message: "Another workflow of the same type is already running for this shop.",
+				shopId: job.shopId,
+			});
 			await ctx.scheduler.runAfter(RUN_JOB_RETRY_DELAY_MS, internal.shopifySync.runJob, {
 				jobId: job._id,
 			});
@@ -1095,11 +1188,20 @@ export const claimJob = internalMutation({
 		await ctx.db.patch(
 			job._id,
 			withoutUndefined({
+				attemptCount: (job.attemptCount ?? 0) + 1,
 				lastUpdatedAt: now,
+				retryAt: undefined,
 				startedAt: now,
 				status: JOB_STATUS_RUNNING,
 			}),
 		);
+		await insertWorkflowLog(ctx, {
+			detail: job.payloadPreview,
+			jobId: job._id,
+			level: "info",
+			message: "Workflow started.",
+			shopId: job.shopId,
+		});
 
 		if (job.cacheKey) {
 			await upsertCacheState(ctx, {
@@ -1314,6 +1416,7 @@ export const completeJob = internalMutation({
 		jobId: v.id("syncJobs"),
 		payloadPreview: v.optional(v.string()),
 		recordCount: v.optional(v.number()),
+		resultSummary: v.optional(v.string()),
 		sourceUpdatedAt: v.optional(v.number()),
 	},
 	handler: async (ctx, args) => {
@@ -1329,11 +1432,21 @@ export const completeJob = internalMutation({
 			job._id,
 			withoutUndefined({
 				completedAt: now,
+				error: undefined,
 				lastUpdatedAt: now,
 				payloadPreview: args.payloadPreview ?? job.payloadPreview,
+				resultSummary: args.resultSummary ?? args.payloadPreview ?? job.resultSummary,
+				retryAt: undefined,
 				status: JOB_STATUS_COMPLETED,
 			}),
 		);
+		await insertWorkflowLog(ctx, {
+			detail: args.resultSummary ?? args.payloadPreview,
+			jobId: job._id,
+			level: "success",
+			message: "Workflow completed.",
+			shopId: job.shopId,
+		});
 
 		if (job.cacheKey) {
 			await upsertCacheState(ctx, {
@@ -1371,15 +1484,71 @@ export const failJob = internalMutation({
 		}
 
 		const now = Date.now();
+		const nextRetryCount = (job.retryCount ?? 0) + 1;
+		const shouldRetry = nextRetryCount <= MAX_JOB_RETRIES;
+
+		if (shouldRetry) {
+			const retryAt = now + getRetryDelayMs(nextRetryCount);
+
+			await ctx.db.patch(
+				job._id,
+				withoutUndefined({
+					error: args.error,
+					lastUpdatedAt: now,
+					resultSummary: `Retry ${nextRetryCount} of ${MAX_JOB_RETRIES} scheduled after failure.`,
+					retryAt,
+					retryCount: nextRetryCount,
+					status: JOB_STATUS_PENDING,
+				}),
+			);
+			await insertWorkflowLog(ctx, {
+				detail: args.error,
+				jobId: job._id,
+				level: "error",
+				message: "Workflow failed and was scheduled to retry.",
+				shopId: job.shopId,
+			});
+
+			if (job.cacheKey) {
+				await upsertCacheState(ctx, {
+					cacheKey: job.cacheKey,
+					domain: job.domain,
+					patch: {
+						enabled: true,
+						lastError: args.error,
+						lastFailedAt: now,
+						pendingReason: `Retry ${nextRetryCount} scheduled after workflow failure.`,
+						status: CACHE_STATUS_PENDING,
+					},
+					shopId: job.shopId,
+				});
+			}
+
+			await ctx.scheduler.runAfter(getRetryDelayMs(nextRetryCount), internal.shopifySync.runJob, {
+				jobId: job._id,
+			});
+
+			return job._id;
+		}
 
 		await ctx.db.patch(
 			job._id,
 			withoutUndefined({
 				error: args.error,
 				lastUpdatedAt: now,
+				resultSummary: "Workflow failed after exhausting retries.",
+				retryAt: undefined,
+				retryCount: nextRetryCount,
 				status: JOB_STATUS_FAILED,
 			}),
 		);
+		await insertWorkflowLog(ctx, {
+			detail: args.error,
+			jobId: job._id,
+			level: "error",
+			message: "Workflow failed.",
+			shopId: job.shopId,
+		});
 
 		if (job.cacheKey) {
 			await upsertCacheState(ctx, {
@@ -1537,6 +1706,14 @@ export const runJob = internalAction({
 				}
 				case RECONCILIATION_SCAN_JOB: {
 					await runReconciliationScan(ctx, job, shop);
+					break;
+				}
+				case DASHBOARD_REGENERATION_JOB: {
+					await runDashboardRegeneration(ctx, job, shop);
+					break;
+				}
+				case DOCUMENT_REINDEX_JOB: {
+					await runDocumentReindex(ctx, job, shop);
 					break;
 				}
 				case SHOP_UNINSTALL_CLEANUP_JOB: {

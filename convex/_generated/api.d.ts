@@ -13,6 +13,7 @@ import type * as http from "../http.js";
 import type * as merchantApp from "../merchantApp.js";
 import type * as merchantAuth from "../merchantAuth.js";
 import type * as merchantSessionToken from "../merchantSessionToken.js";
+import type * as merchantWorkspace from "../merchantWorkspace.js";
 import type * as shopify from "../shopify.js";
 import type * as shopifyAdmin from "../shopifyAdmin.js";
 import type * as shopifySync from "../shopifySync.js";
@@ -33,6 +34,7 @@ declare const fullApi: ApiFromModules<{
   merchantApp: typeof merchantApp;
   merchantAuth: typeof merchantAuth;
   merchantSessionToken: typeof merchantSessionToken;
+  merchantWorkspace: typeof merchantWorkspace;
   shopify: typeof shopify;
   shopifyAdmin: typeof shopifyAdmin;
   shopifySync: typeof shopifySync;
