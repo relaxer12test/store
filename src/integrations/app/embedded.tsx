@@ -23,6 +23,32 @@ export interface EmbeddedAppManager {
 	subscribe: (listener: Listener) => () => void;
 }
 
+const HOST_STORAGE_KEY = "shopify-admin-host";
+
+function getPersistedHost() {
+	if (isServer) {
+		return null;
+	}
+
+	return window.sessionStorage.getItem(HOST_STORAGE_KEY);
+}
+
+function persistHost(host: string | null) {
+	if (isServer || !host) {
+		return;
+	}
+
+	window.sessionStorage.setItem(HOST_STORAGE_KEY, host);
+}
+
+function getShopifyGlobal() {
+	if (isServer) {
+		return undefined;
+	}
+
+	return window.shopify ?? globalThis.shopify;
+}
+
 function createInitialState(): EmbeddedBootstrapState {
 	return {
 		apiKey: getOptionalShopifyApiKey() ?? null,
@@ -67,10 +93,32 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 
 		bootPromise = (async () => {
 			const searchParams = new URLSearchParams(window.location.search);
-			const host = searchParams.get("host");
-			const sessionToken = searchParams.get("id_token");
+			const hostFromUrl = searchParams.get("host");
+			const host = hostFromUrl ?? getPersistedHost();
+			const fallbackToken = searchParams.get("id_token");
 			const shop = searchParams.get("shop");
 			const isEmbedded = searchParams.get("embedded") === "1" || Boolean(host);
+			let sessionToken = fallbackToken;
+			let source: EmbeddedBootstrapSource = sessionToken ? "url" : "none";
+
+			if (hostFromUrl) {
+				persistHost(hostFromUrl);
+			}
+
+			if (isEmbedded) {
+				const shopify = getShopifyGlobal();
+
+				if (shopify?.idToken) {
+					try {
+						sessionToken = await shopify.idToken();
+						source = "app-bridge";
+					} catch {
+						source = fallbackToken ? "url" : "app-bridge";
+					}
+				} else if (!fallbackToken) {
+					source = "app-bridge";
+				}
+			}
 
 			setState({
 				...state,
@@ -78,7 +126,7 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 				isEmbedded,
 				sessionToken,
 				shop,
-				source: isEmbedded ? "app-bridge" : "none",
+				source,
 				status: "booting",
 			});
 
@@ -89,7 +137,7 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 				isEmbedded,
 				sessionToken,
 				shop,
-				source: sessionToken ? "url" : isEmbedded ? "app-bridge" : "none",
+				source,
 				status: "ready",
 			};
 

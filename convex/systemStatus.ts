@@ -15,13 +15,22 @@ function sortByNumberDesc<T>(items: T[], getValue: (item: T) => number | undefin
 	return [...items].sort((left, right) => (getValue(right) ?? 0) - (getValue(left) ?? 0));
 }
 
-function toShopRecord(shop: Doc<"shops">): TableRecord {
+function toShopRecord(
+	shop: Doc<"shops">,
+	installation?: Doc<"shopifyInstallations">,
+	actorCount = 0,
+): TableRecord {
 	return {
 		id: shop._id,
 		created_at: formatTimestamp(shop.createdAt),
 		domain: shop.domain,
 		install_status: shop.installStatus,
+		last_authenticated_at: formatTimestamp(shop.lastAuthenticatedAt),
+		last_token_exchange_at: formatTimestamp(installation?.lastTokenExchangeAt),
 		name: shop.name,
+		scope_count: String(installation?.scopes.length ?? 0),
+		token_status: installation?.status ?? "missing",
+		merchant_actor_count: String(actorCount),
 	};
 }
 
@@ -40,7 +49,7 @@ function toWebhookDeliveryRecord(webhookDelivery: Doc<"webhookDeliveries">): Tab
 	return {
 		id: webhookDelivery._id,
 		received_at: formatTimestamp(webhookDelivery.receivedAt),
-		shop_id: webhookDelivery.shopId,
+		shop_id: webhookDelivery.shopId ?? "n/a",
 		status: webhookDelivery.status,
 		topic: webhookDelivery.topic,
 		webhook_id: webhookDelivery.webhookId ?? "n/a",
@@ -53,6 +62,7 @@ function toAuditLogRecord(auditLog: Doc<"auditLogs">): TableRecord {
 		action: auditLog.action,
 		actor_id: auditLog.actorId ?? "n/a",
 		created_at: formatTimestamp(auditLog.createdAt),
+		status: auditLog.status ?? "n/a",
 		shop_id: auditLog.shopId ?? "n/a",
 	};
 }
@@ -60,12 +70,14 @@ function toAuditLogRecord(auditLog: Doc<"auditLogs">): TableRecord {
 function buildMetrics({
 	auditLogCount,
 	connectedShopCount,
+	connectedInstallationCount,
 	shopCount,
 	syncJobCount,
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
 	connectedShopCount: number;
+	connectedInstallationCount: number;
 	shopCount: number;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
@@ -79,11 +91,11 @@ function buildMetrics({
 			tone: connectedShopCount > 0 ? "success" : "blocked",
 		},
 		{
-			label: "Webhook deliveries",
-			value: String(webhookDeliveryCount),
-			delta: webhookDeliveryCount > 0 ? "Recorded" : "None yet",
-			hint: "Inbound webhook diagnostics only show deliveries that have really been stored.",
-			tone: webhookDeliveryCount > 0 ? "success" : "watch",
+			label: "Offline installs",
+			value: String(connectedInstallationCount),
+			delta: connectedInstallationCount > 0 ? "Token ready" : "Missing",
+			hint: "A connected install means Convex has stored a Shopify offline token for the shop.",
+			tone: connectedInstallationCount > 0 ? "success" : "blocked",
 		},
 		{
 			label: "Sync jobs",
@@ -93,10 +105,17 @@ function buildMetrics({
 			tone: syncJobCount > 0 ? "accent" : "neutral",
 		},
 		{
+			label: "Webhook deliveries",
+			value: String(webhookDeliveryCount),
+			delta: webhookDeliveryCount > 0 ? "Recorded" : "None yet",
+			hint: "Inbound webhook diagnostics only show deliveries that have really been stored.",
+			tone: webhookDeliveryCount > 0 ? "success" : "watch",
+		},
+		{
 			label: "Action audits",
 			value: String(auditLogCount),
 			delta: auditLogCount > 0 ? "Recorded" : "None yet",
-			hint: "Merchant action traces stay empty until real approval and mutation logging is wired.",
+			hint: "Bootstrap, webhook, and future approval flows all land in the audit table.",
 			tone: auditLogCount > 0 ? "accent" : "watch",
 		},
 	];
@@ -105,12 +124,16 @@ function buildMetrics({
 function buildSignals({
 	auditLogCount,
 	connectedShopCount,
+	connectedInstallationCount,
+	merchantActorCount,
 	shopCount,
 	syncJobCount,
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
 	connectedShopCount: number;
+	connectedInstallationCount: number;
+	merchantActorCount: number;
 	shopCount: number;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
@@ -123,6 +146,22 @@ function buildSignals({
 					? `${shopCount} shop record(s) exist in Convex and ${connectedShopCount} are marked connected.`
 					: "No shop installation records exist in Convex yet.",
 			tone: shopCount > 0 ? "success" : "blocked",
+		},
+		{
+			label: "Offline token lifecycle",
+			detail:
+				connectedInstallationCount > 0
+					? `${connectedInstallationCount} installation record(s) have an active offline token state.`
+					: "No connected Shopify installation token record exists yet.",
+			tone: connectedInstallationCount > 0 ? "success" : "blocked",
+		},
+		{
+			label: "Merchant actors",
+			detail:
+				merchantActorCount > 0
+					? `${merchantActorCount} merchant actor record(s) have authenticated through the embedded app.`
+					: "No merchant actor has been created from a real embedded session yet.",
+			tone: merchantActorCount > 0 ? "success" : "watch",
 		},
 		{
 			label: "Webhook ingestion",
@@ -154,20 +193,35 @@ function buildSignals({
 function buildBlockers({
 	auditLogCount,
 	connectedShopCount,
+	connectedInstallationCount,
+	merchantActorCount,
 	shopCount,
 	syncJobCount,
+	widgetConfigCount,
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
 	connectedShopCount: number;
+	connectedInstallationCount: number;
+	merchantActorCount: number;
 	shopCount: number;
 	syncJobCount: number;
+	widgetConfigCount: number;
 	webhookDeliveryCount: number;
 }) {
 	return [
 		shopCount === 0 ? "No Shopify installation record exists in Convex yet." : null,
 		shopCount > 0 && connectedShopCount === 0
 			? "A shop record exists, but nothing is marked `connected` yet."
+			: null,
+		shopCount > 0 && connectedInstallationCount === 0
+			? "A shop record exists, but there is still no stored offline Admin API token."
+			: null,
+		shopCount > 0 && merchantActorCount === 0
+			? "No merchant actor has authenticated through a verified embedded session yet."
+			: null,
+		shopCount > 0 && widgetConfigCount === 0
+			? "No widget configuration row exists yet for the connected shop."
 			: null,
 		webhookDeliveryCount === 0 ? "No real webhook deliveries have been ingested yet." : null,
 		syncJobCount === 0 ? "No sync workflow has run yet." : null,
@@ -178,18 +232,46 @@ function buildBlockers({
 export const snapshot = query({
 	args: {},
 	handler: async (ctx): Promise<SystemStatusSnapshot> => {
-		const [shops, syncJobs, webhookDeliveries, auditLogs] = await Promise.all([
-			ctx.db.query("shops").collect(),
-			ctx.db.query("syncJobs").collect(),
-			ctx.db.query("webhookDeliveries").collect(),
-			ctx.db.query("auditLogs").collect(),
+		const [
+			shops,
+			installations,
+			merchantActors,
+			widgetConfigs,
+			syncJobs,
+			webhookDeliveries,
+			auditLogs,
+		] = await Promise.all([
+			ctx.db.query("shops").take(50),
+			ctx.db.query("shopifyInstallations").take(50),
+			ctx.db.query("merchantActors").take(50),
+			ctx.db.query("widgetConfigs").take(50),
+			ctx.db.query("syncJobs").take(50),
+			ctx.db.query("webhookDeliveries").take(50),
+			ctx.db.query("auditLogs").take(50),
 		]);
 
+		const installationByShopId = new Map(
+			installations.map((installation) => [installation.shopId, installation]),
+		);
+		const actorCountByShopId = merchantActors.reduce<Map<Doc<"shops">["_id"], number>>(
+			(map, actor) => {
+				map.set(actor.shopId, (map.get(actor.shopId) ?? 0) + 1);
+
+				return map;
+			},
+			new Map(),
+		);
+		const connectedInstallationCount = installations.filter(
+			(installation) => installation.status === "connected",
+		).length;
+		const merchantActorCount = merchantActors.length;
+		const widgetConfigCount = widgetConfigs.length;
 		const connectedShopCount = shops.filter((shop) => shop.installStatus === "connected").length;
 
 		return {
 			metrics: buildMetrics({
 				auditLogCount: auditLogs.length,
+				connectedInstallationCount,
 				connectedShopCount,
 				shopCount: shops.length,
 				syncJobCount: syncJobs.length,
@@ -197,19 +279,26 @@ export const snapshot = query({
 			}),
 			signals: buildSignals({
 				auditLogCount: auditLogs.length,
+				connectedInstallationCount,
 				connectedShopCount,
+				merchantActorCount,
 				shopCount: shops.length,
 				syncJobCount: syncJobs.length,
 				webhookDeliveryCount: webhookDeliveries.length,
 			}),
 			blockers: buildBlockers({
 				auditLogCount: auditLogs.length,
+				connectedInstallationCount,
 				connectedShopCount,
+				merchantActorCount,
 				shopCount: shops.length,
 				syncJobCount: syncJobs.length,
+				widgetConfigCount,
 				webhookDeliveryCount: webhookDeliveries.length,
 			}),
-			shops: sortByNumberDesc(shops, (shop) => shop.createdAt).map(toShopRecord),
+			shops: sortByNumberDesc(shops, (shop) => shop.createdAt).map((shop) =>
+				toShopRecord(shop, installationByShopId.get(shop._id), actorCountByShopId.get(shop._id)),
+			),
 			syncJobs: sortByNumberDesc(syncJobs, (syncJob) => syncJob.lastUpdatedAt).map(toSyncJobRecord),
 			webhookDeliveries: sortByNumberDesc(
 				webhookDeliveries,

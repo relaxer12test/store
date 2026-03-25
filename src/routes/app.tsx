@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
+import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 
 const appNav: SurfaceNavItem[] = [
@@ -37,7 +38,7 @@ export const Route = createFileRoute("/app")({
 });
 
 function MerchantLayoutRoute() {
-	const { session } = Route.useRouteContext();
+	const session = useSessionEnvelope();
 	const embeddedApp = useEmbeddedAppBootstrap();
 
 	return (

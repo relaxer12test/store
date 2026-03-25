@@ -8,6 +8,23 @@ embedded = true
 [webhooks]
 api_version = "2026-01"
 
+[[webhooks.subscriptions]]
+topics = [
+	"app/scopes_update",
+	"app/uninstalled",
+	"products/create",
+	"products/update",
+	"products/delete",
+	"collections/create",
+	"collections/update",
+	"collections/delete",
+	"orders/create",
+	"orders/updated",
+	"orders/cancelled",
+	"inventory_levels/update",
+]
+uri = "/api/shopify/webhooks"
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
 scopes = "read_products,write_products,read_orders,read_inventory,write_inventory,read_locations,read_themes"

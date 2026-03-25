@@ -1,5 +1,6 @@
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
+import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { getOptionalConvexUrl, getOptionalShopifyApiKey, isInternalToolsEnabled } from "@/lib/env";
 
@@ -13,6 +14,7 @@ const checklistItems = [
 
 export function InstallPage() {
 	const embeddedApp = useEmbeddedAppBootstrap();
+	const session = useSessionEnvelope();
 	const hasConvexUrl = Boolean(getOptionalConvexUrl());
 	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
 	const internalToolsEnabled = isInternalToolsEnabled();
@@ -65,6 +67,29 @@ export function InstallPage() {
 							<p className="mt-3 text-sm leading-6 text-slate-600">
 								These values only appear when the shell is loaded by Shopify admin with real embed
 								parameters.
+							</p>
+						</div>
+						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+							<div className="flex items-center gap-3">
+								<StatusPill
+									tone={
+										session.authMode === "embedded" && session.state === "ready"
+											? "success"
+											: "watch"
+									}
+								>
+									{session.authMode === "embedded" && session.state === "ready"
+										? "Convex bootstrap complete"
+										: "Convex bootstrap pending"}
+								</StatusPill>
+								{session.activeShop ? (
+									<StatusPill tone="neutral">{session.activeShop.domain}</StatusPill>
+								) : null}
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-600">
+								{session.activeShop
+									? `The current embedded session resolved the active shop as ${session.activeShop.name}.`
+									: "The app shell has not resolved an embedded shop context yet."}
 							</p>
 						</div>
 						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">

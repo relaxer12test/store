@@ -7,9 +7,9 @@ export function EmbeddedAppShellBanner() {
 
 	const description = embeddedApp.isEmbedded
 		? embeddedApp.sessionToken
-			? "The shell captured a Shopify session token from the initial embedded load. Future protected requests can reuse the shared request helper instead of forcing document redirects."
-			: "The shell is running inside Shopify admin. Request helpers are already bootstrapped so App Bridge token acquisition can be swapped in without rewriting routes or feature components."
-		: "This route renders as a local development shell outside Shopify admin. Inside Shopify admin, the same shell will bootstrap request headers and keep client navigation smooth.";
+			? "The shell has a fresh Shopify session token from App Bridge. Protected backend calls can now ride the shared bearer-token request helper instead of forcing auth redirects or URL token parsing."
+			: "The shell is inside Shopify admin and is waiting for a fresh App Bridge session token before protected backend requests begin."
+		: "This route renders as a local development shell outside Shopify admin. Inside Shopify admin, the same shell bootstraps bearer-authenticated requests without resetting the SPA shell.";
 
 	return (
 		<Panel
@@ -24,7 +24,7 @@ export function EmbeddedAppShellBanner() {
 					{embeddedApp.isEmbedded ? "Embedded admin" : "Local development"}
 				</StatusPill>
 				<StatusPill tone={embeddedApp.sessionToken ? "success" : "watch"}>
-					{embeddedApp.sessionToken ? "Session token detected" : "Token handoff deferred"}
+					{embeddedApp.sessionToken ? "Bearer ready" : "Waiting for token"}
 				</StatusPill>
 				{embeddedApp.shop ? <StatusPill tone="neutral">{embeddedApp.shop}</StatusPill> : null}
 				{embeddedApp.host ? <StatusPill tone="neutral">host set</StatusPill> : null}

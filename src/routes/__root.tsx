@@ -5,14 +5,14 @@ import { getSessionEnvelope } from "@/features/auth/session/server";
 import { GlobalChrome } from "@/features/shell/components/global-chrome";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
-import { getOptionalShopifyApiKey } from "@/lib/env";
+import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
 import appCss from "../styles.css?url";
 
 const shopifyApiKey = getOptionalShopifyApiKey();
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context }) => {
-		const session = await getSessionEnvelope();
+		const session = isServer ? await getSessionEnvelope() : context.sessionManager.getState();
 		context.setSession(session);
 
 		return {
@@ -60,15 +60,19 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		<html lang="en">
 			<head>
 				<HeadContent />
+				{shopifyApiKey ? <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" /> : null}
 			</head>
 			<body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
 					queryClient={context.queryClient}
+					request={context.request}
+					sessionManager={context.sessionManager}
+					setSession={context.setSession}
 				>
 					<div className="min-h-screen">
-						<GlobalChrome session={context.session} />
+						<GlobalChrome />
 						<main>{children}</main>
 						<TanStackDevtools
 							config={{

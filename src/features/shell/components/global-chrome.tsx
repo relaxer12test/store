@@ -1,12 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
+import { useSessionEnvelope } from "@/features/auth/session/client";
 import { isInternalToolsEnabled } from "@/lib/env";
-import type { SessionEnvelope } from "@/shared/contracts/session";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
 
-export function GlobalChrome({ session }: { session: SessionEnvelope }) {
+export function GlobalChrome() {
+	const session = useSessionEnvelope();
 	const showInternalLink = isInternalToolsEnabled() || session.roles.includes("internal_staff");
 
 	return (

@@ -4,6 +4,22 @@ import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integration
 import { getRequiredConvexUrl, isServer } from "@/lib/env";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
+type Listener = () => void;
+
+const guestSession: SessionEnvelope = {
+	authMode: "none",
+	state: "ready",
+	viewer: null,
+	activeShop: null,
+	roles: [],
+	convexToken: null,
+};
+
+export interface SessionManager {
+	getState: () => SessionEnvelope;
+	subscribe: (listener: Listener) => () => void;
+}
+
 export interface AppRouterContext {
 	embeddedApp: EmbeddedAppManager;
 	queryClient: QueryClient;
@@ -15,11 +31,35 @@ export interface AppRouterContext {
 		fetch: typeof fetch;
 		getEmbeddedHeaders: () => Promise<Headers>;
 	};
+	sessionManager: SessionManager;
 	setSession: (session: SessionEnvelope) => void;
 }
 
 interface ManagedAppRouterContext extends AppRouterContext {
 	sessionFingerprint: string | null;
+}
+
+function createSessionManager(initialSession: SessionEnvelope) {
+	let state = initialSession;
+	const listeners = new Set<Listener>();
+
+	return {
+		getState: () => state,
+		setState: (nextState: SessionEnvelope) => {
+			state = nextState;
+
+			for (const listener of listeners) {
+				listener();
+			}
+		},
+		subscribe: (listener: Listener) => {
+			listeners.add(listener);
+
+			return () => {
+				listeners.delete(listener);
+			};
+		},
+	};
 }
 
 function getSessionFingerprint(session: SessionEnvelope) {
@@ -66,9 +106,11 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	let currentToken: string | null = null;
 	let sessionFingerprint: string | null = null;
+	const sessionManager = createSessionManager(guestSession);
 
 	const setSession = (session: SessionEnvelope) => {
 		const nextFingerprint = getSessionFingerprint(session);
+		sessionManager.setState(session);
 
 		if (!isServer && sessionFingerprint && sessionFingerprint !== nextFingerprint) {
 			queryClient.clear();
@@ -132,6 +174,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			},
 			getEmbeddedHeaders,
 		},
+		sessionManager,
 		setSession,
 		sessionFingerprint,
 	};
