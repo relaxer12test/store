@@ -1,5 +1,6 @@
 import type { Session } from "@shopify/shopify-api";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { Id } from "./_generated/dataModel";
 import {
 	buildPersistBootstrapResult,
 	buildWebhookDeliveryKey,
@@ -104,12 +105,12 @@ describe("shopify installation helpers", () => {
 	it("builds token claims and ready session summaries without reading from the database", () => {
 		expect(
 			buildPersistBootstrapResult({
-				actorId: "actor_123" as never,
+				actorId: "actor_123" as Id<"merchantActors">,
 				actorInitials: "JD",
 				actorName: "Jane Doe",
 				roles: ["shop_admin"],
 				shopDomain: "acme.myshopify.com",
-				shopId: "shop_123" as never,
+				shopId: "shop_123" as Id<"shops">,
 				shopName: "Acme",
 				shopifyUserId: "gid://shopify/User/1",
 			}),
