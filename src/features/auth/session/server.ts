@@ -158,6 +158,9 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 		typeof viewer.shopId === "string" &&
 		typeof viewer.shopDomain === "string"
 	) {
+		const shopDomain = viewer.shopDomain;
+		const shopName = viewer.shopName ?? shopDomain;
+
 		return {
 			authMode: "embedded",
 			state: "ready",
@@ -169,10 +172,10 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 				roles,
 			},
 			activeShop: {
-				domain: viewer.shopDomain,
+				domain: shopDomain,
 				id: viewer.shopId,
 				installStatus: "connected",
-				name: viewer.shopName ?? viewer.shopDomain,
+				name: shopName,
 			},
 			roles,
 			convexToken: token,
