@@ -22,6 +22,36 @@ export function getOptionalConvexUrl() {
 	return import.meta.env.VITE_CONVEX_URL as string | undefined;
 }
 
+export function toConvexHttpUrl(url: string) {
+	const parsedUrl = new URL(url);
+
+	if (parsedUrl.hostname.endsWith(".convex.cloud")) {
+		parsedUrl.hostname = parsedUrl.hostname.replace(/\.convex\.cloud$/, ".convex.site");
+	}
+
+	parsedUrl.pathname = "/";
+	parsedUrl.search = "";
+	parsedUrl.hash = "";
+
+	return parsedUrl.toString();
+}
+
+export function getOptionalConvexHttpUrl() {
+	const siteUrl = import.meta.env.VITE_CONVEX_SITE_URL as string | undefined;
+
+	if (siteUrl) {
+		return toConvexHttpUrl(siteUrl);
+	}
+
+	const convexUrl = getOptionalConvexUrl();
+
+	if (!convexUrl) {
+		return undefined;
+	}
+
+	return toConvexHttpUrl(convexUrl);
+}
+
 export function getOptionalShopifyApiKey() {
 	return (
 		getMetaContent("shopify-api-key") ??
@@ -40,6 +70,18 @@ export function getRequiredConvexUrl() {
 	if (!url) {
 		throw new Error(
 			"Missing VITE_CONVEX_URL. Run `CONVEX_AGENT_MODE=anonymous npx convex dev --once` or connect a Convex deployment first.",
+		);
+	}
+
+	return url;
+}
+
+export function getRequiredConvexHttpUrl() {
+	const url = getOptionalConvexHttpUrl();
+
+	if (!url) {
+		throw new Error(
+			"Missing Convex HTTP URL. Set `VITE_CONVEX_SITE_URL` or `VITE_CONVEX_URL` before calling HTTP actions.",
 		);
 	}
 

@@ -34,6 +34,7 @@ export interface AppRouterContext {
 		getEmbeddedHeaders: () => Promise<Headers>;
 	};
 	sessionApi: {
+		enableEmbeddedSessionBootstrap: () => void;
 		ensureEmbeddedSession: (options?: { forceRefresh?: boolean }) => Promise<SessionEnvelope>;
 	};
 	sessionManager: SessionManager;
@@ -121,6 +122,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 	convexQueryClient.connect(queryClient);
 
 	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
+	let canBootstrapEmbeddedSession = isServer;
 	let sessionFingerprint: string | null = null;
 	const sessionManager = createSessionManager(guestSession);
 
@@ -165,6 +167,10 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			return sessionManager.getState();
 		}
 
+		if (!canBootstrapEmbeddedSession) {
+			return sessionManager.getState();
+		}
+
 		const currentSession = sessionManager.getState();
 
 		if (!options?.forceRefresh && hasFreshMerchantToken(currentSession)) {
@@ -179,6 +185,10 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			const embeddedState = await embeddedApp.ensureReady();
 
 			if (!embeddedState.isEmbedded) {
+				return sessionManager.getState();
+			}
+
+			if (!embeddedState.sessionToken) {
 				return sessionManager.getState();
 			}
 
@@ -226,6 +236,12 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		return bootstrapPromise;
 	};
 
+	const enableEmbeddedSessionBootstrap = () => {
+		if (!isServer) {
+			canBootstrapEmbeddedSession = true;
+		}
+	};
+
 	if (!isServer) {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
 			const session = await ensureEmbeddedSession({
@@ -255,6 +271,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			getEmbeddedHeaders,
 		},
 		sessionApi: {
+			enableEmbeddedSessionBootstrap,
 			ensureEmbeddedSession,
 		},
 		sessionManager,

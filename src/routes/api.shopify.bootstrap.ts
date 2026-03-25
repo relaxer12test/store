@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexUrl } from "@/lib/env";
+import { getRequiredConvexHttpUrl } from "@/lib/env";
 
 export async function forwardShopifyBootstrapRequest(
 	request: Request,
@@ -24,7 +24,7 @@ export async function forwardShopifyBootstrapRequest(
 	const fetchImpl = options?.fetchImpl ?? fetch;
 	const convexEndpoint = new URL(
 		"/shopify/bootstrap",
-		options?.convexUrl ?? getRequiredConvexUrl(),
+		options?.convexUrl ?? getRequiredConvexHttpUrl(),
 	);
 
 	return fetchImpl(convexEndpoint.toString(), {

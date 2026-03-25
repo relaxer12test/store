@@ -66,6 +66,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
+					enableEmbeddedSessionBootstrap={context.sessionApi.enableEmbeddedSessionBootstrap}
 					ensureEmbeddedSession={context.sessionApi.ensureEmbeddedSession}
 					queryClient={context.queryClient}
 					sessionManager={context.sessionManager}

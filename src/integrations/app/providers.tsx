@@ -12,6 +12,7 @@ interface AppProvidersProps {
 	children: React.ReactNode;
 	convexQueryClient: ConvexQueryClient;
 	embeddedApp: EmbeddedAppManager;
+	enableEmbeddedSessionBootstrap: AppRouterContext["sessionApi"]["enableEmbeddedSessionBootstrap"];
 	ensureEmbeddedSession: AppRouterContext["sessionApi"]["ensureEmbeddedSession"];
 	queryClient: QueryClient;
 	sessionManager: SessionManager;
@@ -21,13 +22,15 @@ export function AppProviders({
 	children,
 	convexQueryClient,
 	embeddedApp,
+	enableEmbeddedSessionBootstrap,
 	ensureEmbeddedSession,
 	queryClient,
 	sessionManager,
 }: AppProvidersProps) {
 	useEffect(() => {
+		enableEmbeddedSessionBootstrap();
 		void ensureEmbeddedSession();
-	}, [ensureEmbeddedSession]);
+	}, [enableEmbeddedSessionBootstrap, ensureEmbeddedSession]);
 
 	return (
 		<ConvexProvider client={convexQueryClient.convexClient}>
