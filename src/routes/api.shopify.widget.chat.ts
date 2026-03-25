@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexUrl } from "@/lib/env";
+import { getRequiredConvexHttpUrl } from "@/lib/env";
 import { storefrontWidgetRequestSchema } from "@/shared/contracts/storefront-widget";
 
 const PUBLIC_CORS_HEADERS = {
@@ -7,10 +7,6 @@ const PUBLIC_CORS_HEADERS = {
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	"Access-Control-Allow-Origin": "*",
 };
-
-function getConvexEndpoint(path: string) {
-	return new URL(path, getRequiredConvexUrl()).toString();
-}
 
 function getClientIp(request: Request) {
 	const forwardedFor = request.headers.get("x-forwarded-for");
@@ -73,6 +69,85 @@ function withCors(response: Response) {
 	});
 }
 
+async function normalizeWidgetChatError(response: Response) {
+	if (response.ok) {
+		return withCors(response);
+	}
+
+	const contentType = response.headers.get("Content-Type") ?? "";
+
+	if (contentType.toLowerCase().includes("application/json")) {
+		return withCors(response);
+	}
+
+	return jsonWithCors(
+		{
+			error: `Storefront widget chat failed upstream with status ${response.status}.`,
+		},
+		{
+			status: response.status,
+			statusText: response.statusText,
+		},
+	);
+}
+
+export async function forwardStorefrontWidgetChatRequest(
+	request: Request,
+	options?: {
+		convexUrl?: string;
+		fetchImpl?: typeof fetch;
+	},
+) {
+	let payload: unknown;
+
+	try {
+		payload = await request.json();
+	} catch {
+		return jsonWithCors(
+			{
+				error: "Widget chat requests must be valid JSON.",
+			},
+			{
+				status: 400,
+			},
+		);
+	}
+
+	const parsedPayload = storefrontWidgetRequestSchema.safeParse(payload);
+
+	if (!parsedPayload.success) {
+		return jsonWithCors(
+			{
+				error:
+					"Widget chat requests require `shopDomain` and `message`, with optional `pageTitle` and `sessionId` strings.",
+			},
+			{
+				status: 400,
+			},
+		);
+	}
+
+	const clientFingerprint = await getClientFingerprint(request);
+	const fetchImpl = options?.fetchImpl ?? fetch;
+	const convexEndpoint = new URL(
+		"/shopify/widget/chat",
+		options?.convexUrl ?? getRequiredConvexHttpUrl(),
+	);
+	const upstreamResponse = await fetchImpl(convexEndpoint.toString(), {
+		body: JSON.stringify({
+			...parsedPayload.data,
+			clientFingerprint,
+		}),
+		headers: {
+			Accept: "text/event-stream",
+			"Content-Type": "application/json",
+		},
+		method: "POST",
+	});
+
+	return normalizeWidgetChatError(upstreamResponse);
+}
+
 export const Route = createFileRoute("/api/shopify/widget/chat")({
 	server: {
 		handlers: {
@@ -81,51 +156,7 @@ export const Route = createFileRoute("/api/shopify/widget/chat")({
 					headers: PUBLIC_CORS_HEADERS,
 					status: 204,
 				}),
-			POST: async ({ request }) => {
-				let payload: unknown;
-
-				try {
-					payload = await request.json();
-				} catch {
-					return jsonWithCors(
-						{
-							error: "Widget chat requests must be valid JSON.",
-						},
-						{
-							status: 400,
-						},
-					);
-				}
-
-				const parsedPayload = storefrontWidgetRequestSchema.safeParse(payload);
-
-				if (!parsedPayload.success) {
-					return jsonWithCors(
-						{
-							error:
-								"Widget chat requests require `shopDomain` and `message`, with optional `pageTitle` and `sessionId` strings.",
-						},
-						{
-							status: 400,
-						},
-					);
-				}
-
-				const clientFingerprint = await getClientFingerprint(request);
-				const upstreamResponse = await fetch(getConvexEndpoint("/shopify/widget/chat"), {
-					body: JSON.stringify({
-						...parsedPayload.data,
-						clientFingerprint,
-					}),
-					headers: {
-						Accept: "text/event-stream",
-						"Content-Type": "application/json",
-					},
-					method: "POST",
-				});
-
-				return withCors(upstreamResponse);
-			},
+			POST: async ({ request }) => forwardStorefrontWidgetChatRequest(request),
 		},
 	},
 });
