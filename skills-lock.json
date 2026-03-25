@@ -6,6 +6,11 @@
       "sourceType": "github",
       "computedHash": "c97d71b524ea9f784d344af20a766de5d48f14b7b824bf791fa517d1da753aca"
     },
+    "convex-migration-helper": {
+      "source": "get-convex/agent-skills",
+      "sourceType": "github",
+      "computedHash": "bfb51e5b743ac31b313e5e1d206faee7d46bbbc9195360ce9636eead6f13fd3a"
+    },
     "convex-performance-audit": {
       "source": "get-convex/agent-skills",
       "sourceType": "github",
