@@ -5,7 +5,7 @@ import type { Id } from "./_generated/dataModel";
 const AUTH_ALGORITHM = "ES256";
 const DEFAULT_TOKEN_TTL_SECONDS = 60 * 15;
 
-interface MerchantSessionTokenClaims {
+export interface MerchantSessionTokenClaims {
 	email?: string;
 	merchantActorId: Id<"merchantActors">;
 	name: string;

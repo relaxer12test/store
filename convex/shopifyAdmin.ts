@@ -1,5 +1,10 @@
 import { ApiVersion, shopifyApi } from "@shopify/shopify-api";
+import { webApiAdapterInitialized } from "@shopify/shopify-api/adapters/web-api";
 import type { ThemeAppEmbedStatus } from "../src/shared/contracts/merchant-settings";
+
+if (!webApiAdapterInitialized) {
+	throw new Error("Failed to initialize Shopify Web API adapter.");
+}
 
 const THEME_APP_EMBED_DIAGNOSTICS_QUERY = `
 	query ThemeEmbedDiagnostics {

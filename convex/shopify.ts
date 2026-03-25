@@ -9,9 +9,9 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 } from "../src/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
-import { issueMerchantSessionToken } from "./merchantSessionToken";
+import { issueMerchantSessionToken, type MerchantSessionTokenClaims } from "./merchantSessionToken";
 import {
 	createShopifyClient,
 	SHOPIFY_API_VERSION,
@@ -150,52 +150,77 @@ function getActorName(options: {
 	return `Shopify user ${options.fallbackUserId}`;
 }
 
-function toShopSummary(shop: Doc<"shops">): ShopSummary {
-	return {
-		id: shop._id,
-		name: shop.name,
-		domain: shop.domain,
-		installStatus: shop.installStatus,
-	};
-}
-
-function toViewerSummary(actor: Doc<"merchantActors">): ViewerSummary {
-	return {
-		id: actor._id,
-		name: actor.name,
-		email: actor.email ?? "",
-		initials: actor.initials,
-		roles: ["shop_admin"],
-	};
+interface PersistBootstrapResult {
+	activeShop: ShopSummary;
+	roles: SessionEnvelope["roles"];
+	tokenClaims: MerchantSessionTokenClaims;
+	viewer: ViewerSummary;
 }
 
 async function createSessionEnvelope({
-	actor,
+	activeShop,
 	roles,
-	shop,
-}: {
-	actor: Doc<"merchantActors">;
-	roles: SessionEnvelope["roles"];
-	shop: Doc<"shops">;
-}): Promise<SessionEnvelope> {
-	const merchantToken = await issueMerchantSessionToken({
-		email: actor.email,
-		merchantActorId: actor._id,
-		name: actor.name,
-		roles,
-		shopDomain: shop.domain,
-		shopId: shop._id,
-		shopifyUserId: actor.shopifyUserId,
-	});
+	tokenClaims,
+	viewer,
+}: PersistBootstrapResult): Promise<SessionEnvelope> {
+	const merchantToken = await issueMerchantSessionToken(tokenClaims);
 
 	return {
 		authMode: "embedded",
 		state: "ready",
-		viewer: toViewerSummary(actor),
-		activeShop: toShopSummary(shop),
+		viewer,
+		activeShop,
 		roles,
 		convexToken: merchantToken.token,
 		convexTokenExpiresAt: merchantToken.expiresAt,
+	};
+}
+
+export function buildPersistBootstrapResult({
+	actorEmail,
+	actorId,
+	actorInitials,
+	actorName,
+	roles,
+	shopDomain,
+	shopId,
+	shopName,
+	shopifyUserId,
+}: {
+	actorEmail?: string;
+	actorId: Id<"merchantActors">;
+	actorInitials: string;
+	actorName: string;
+	roles: SessionEnvelope["roles"];
+	shopDomain: string;
+	shopId: Id<"shops">;
+	shopName: string;
+	shopifyUserId: string;
+}): PersistBootstrapResult {
+	return {
+		activeShop: {
+			domain: shopDomain,
+			id: shopId,
+			installStatus: "connected",
+			name: shopName,
+		},
+		roles,
+		tokenClaims: {
+			email: actorEmail,
+			merchantActorId: actorId,
+			name: actorName,
+			roles,
+			shopDomain,
+			shopId,
+			shopifyUserId,
+		},
+		viewer: {
+			email: actorEmail ?? "",
+			id: actorId,
+			initials: actorInitials,
+			name: actorName,
+			roles,
+		},
 	};
 }
 
@@ -351,7 +376,7 @@ export const bootstrapSession = action({
 			lastName: associatedUser?.last_name,
 		});
 
-		return await ctx.runMutation(internal.shopify.persistBootstrap, {
+		const persistedBootstrap = await ctx.runMutation(internal.shopify.persistBootstrap, {
 			accessToken: offlineSession.accessToken,
 			accessTokenExpiresAt: offlineSession.accessTokenExpiresAt ?? undefined,
 			actorEmail: associatedUser?.email ?? undefined,
@@ -368,6 +393,8 @@ export const bootstrapSession = action({
 			shopifyShopId: metadata.shopifyShopId,
 			shopifyUserId: String(decoded.sub ?? "unknown"),
 		});
+
+		return await createSessionEnvelope(persistedBootstrap);
 	},
 });
 
@@ -547,7 +574,7 @@ export const persistBootstrap = internalMutation({
 		shopifyShopId: v.string(),
 		shopifyUserId: v.string(),
 	},
-	handler: async (ctx, args): Promise<SessionEnvelope> => {
+	handler: async (ctx, args): Promise<PersistBootstrapResult> => {
 		const now = Date.now();
 		const existingShop = await ctx.db
 			.query("shops")
@@ -685,13 +712,16 @@ export const persistBootstrap = internalMutation({
 			type: "reconciliation_scan",
 		});
 
-		const shopDoc = (await ctx.db.get(shopId))!;
-		const actorDoc = (await ctx.db.get(actorId))!;
-
-		return await createSessionEnvelope({
-			actor: actorDoc,
+		return buildPersistBootstrapResult({
+			actorEmail: args.actorEmail,
+			actorId,
+			actorInitials: args.actorInitials,
+			actorName: args.actorName,
 			roles: ["shop_admin"],
-			shop: shopDoc,
+			shopDomain: args.shopDomain,
+			shopId,
+			shopName: args.shopName,
+			shopifyUserId: args.shopifyUserId,
 		});
 	},
 });

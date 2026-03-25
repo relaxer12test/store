@@ -1,6 +1,7 @@
 import type { Session } from "@shopify/shopify-api";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+	buildPersistBootstrapResult,
 	buildWebhookDeliveryKey,
 	getWebhookSyncPlans,
 	sessionToInstallation,
@@ -97,6 +98,45 @@ describe("shopify installation helpers", () => {
 			refreshToken: "refresh-token",
 			refreshTokenExpiresAt: new Date("2026-03-26T12:00:00Z").getTime(),
 			scopes: ["read_products", "write_products"],
+		});
+	});
+
+	it("builds token claims and ready session summaries without reading from the database", () => {
+		expect(
+			buildPersistBootstrapResult({
+				actorId: "actor_123" as never,
+				actorInitials: "JD",
+				actorName: "Jane Doe",
+				roles: ["shop_admin"],
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123" as never,
+				shopName: "Acme",
+				shopifyUserId: "gid://shopify/User/1",
+			}),
+		).toEqual({
+			activeShop: {
+				domain: "acme.myshopify.com",
+				id: "shop_123",
+				installStatus: "connected",
+				name: "Acme",
+			},
+			roles: ["shop_admin"],
+			tokenClaims: {
+				email: undefined,
+				merchantActorId: "actor_123",
+				name: "Jane Doe",
+				roles: ["shop_admin"],
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopifyUserId: "gid://shopify/User/1",
+			},
+			viewer: {
+				email: "",
+				id: "actor_123",
+				initials: "JD",
+				name: "Jane Doe",
+				roles: ["shop_admin"],
+			},
 		});
 	});
 });
