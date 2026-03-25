@@ -52,8 +52,10 @@ export function InstallPage() {
 								</StatusPill>
 							</div>
 							<p className="mt-3 text-sm leading-6 text-slate-600">
-								`VITE_SHOPIFY_API_KEY`{" "}
-								{hasShopifyApiKey ? "is available to the frontend shell." : "is not configured."}
+								`SHOPIFY_API_KEY`{" "}
+								{hasShopifyApiKey
+									? "is available to the frontend shell."
+									: "is not available to the frontend shell."}
 							</p>
 						</div>
 						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">

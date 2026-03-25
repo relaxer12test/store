@@ -113,7 +113,8 @@ Deploy command:
 npm run deploy:production
 ```
 
-That runs the app build, deploys Convex, then deploys the Worker with Wrangler.
+That runs the app build, pushes Convex to the configured dev deployment with
+`convex dev --once`, then deploys the Worker with Wrangler.
 
 ## Quality and security posture
 

@@ -19,6 +19,7 @@ import type * as merchantKnowledgeShared from "../merchantKnowledgeShared.js";
 import type * as merchantSessionToken from "../merchantSessionToken.js";
 import type * as merchantWorkspace from "../merchantWorkspace.js";
 import type * as shopify from "../shopify.js";
+import type * as shopifyAccess from "../shopifyAccess.js";
 import type * as shopifyAdmin from "../shopifyAdmin.js";
 import type * as shopifySync from "../shopifySync.js";
 import type * as storefrontConcierge from "../storefrontConcierge.js";
@@ -44,6 +45,7 @@ declare const fullApi: ApiFromModules<{
   merchantSessionToken: typeof merchantSessionToken;
   merchantWorkspace: typeof merchantWorkspace;
   shopify: typeof shopify;
+  shopifyAccess: typeof shopifyAccess;
   shopifyAdmin: typeof shopifyAdmin;
   shopifySync: typeof shopifySync;
   storefrontConcierge: typeof storefrontConcierge;

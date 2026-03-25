@@ -122,7 +122,7 @@ function getStorefrontModelId() {
 	return (
 		getEnv("CONVEX_STOREFRONT_CONCIERGE_MODEL") ??
 		getEnv("STOREFRONT_CONCIERGE_MODEL") ??
-		"gpt-5-mini"
+		"gpt-5.4-nano"
 	);
 }
 
