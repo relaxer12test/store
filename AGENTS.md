@@ -9,3 +9,4 @@ Convex agent skills for common tasks can be installed by running `npx convex ai-
 <!-- convex-ai-end -->
 
 we shoudn't use inline imports
+we should use @ imports only
