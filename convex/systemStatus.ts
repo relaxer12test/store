@@ -36,10 +36,15 @@ function toShopRecord(
 
 function toSyncJobRecord(syncJob: Doc<"syncJobs">): TableRecord {
 	return {
+		cache_key: syncJob.cacheKey ?? "n/a",
+		completed_at: formatTimestamp(syncJob.completedAt),
 		id: syncJob._id,
 		domain: syncJob.domain,
+		error: syncJob.error ?? "n/a",
 		last_updated_at: formatTimestamp(syncJob.lastUpdatedAt),
+		requested_at: formatTimestamp(syncJob.requestedAt),
 		shop_id: syncJob.shopId,
+		started_at: formatTimestamp(syncJob.startedAt),
 		status: syncJob.status,
 		type: syncJob.type,
 	};
@@ -47,7 +52,10 @@ function toSyncJobRecord(syncJob: Doc<"syncJobs">): TableRecord {
 
 function toWebhookDeliveryRecord(webhookDelivery: Doc<"webhookDeliveries">): TableRecord {
 	return {
+		delivery_key: webhookDelivery.deliveryKey ?? "n/a",
+		error: webhookDelivery.error ?? "n/a",
 		id: webhookDelivery._id,
+		processed_at: formatTimestamp(webhookDelivery.processedAt),
 		received_at: formatTimestamp(webhookDelivery.receivedAt),
 		shop_id: webhookDelivery.shopId ?? "n/a",
 		status: webhookDelivery.status,
@@ -67,8 +75,22 @@ function toAuditLogRecord(auditLog: Doc<"auditLogs">): TableRecord {
 	};
 }
 
+function toCacheStateRecord(cacheState: Doc<"shopifyCacheStates">): TableRecord {
+	return {
+		id: cacheState._id,
+		cache_key: cacheState.cacheKey,
+		last_completed_at: formatTimestamp(cacheState.lastCompletedAt),
+		last_error: cacheState.lastError ?? "n/a",
+		last_requested_at: formatTimestamp(cacheState.lastRequestedAt),
+		last_webhook_at: formatTimestamp(cacheState.lastWebhookAt),
+		record_count: String(cacheState.recordCount ?? 0),
+		status: cacheState.status,
+	};
+}
+
 function buildMetrics({
 	auditLogCount,
+	cacheStateCount,
 	connectedShopCount,
 	connectedInstallationCount,
 	shopCount,
@@ -76,6 +98,7 @@ function buildMetrics({
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
+	cacheStateCount: number;
 	connectedShopCount: number;
 	connectedInstallationCount: number;
 	shopCount: number;
@@ -96,6 +119,13 @@ function buildMetrics({
 			delta: connectedInstallationCount > 0 ? "Token ready" : "Missing",
 			hint: "A connected install means Convex has stored a Shopify offline token for the shop.",
 			tone: connectedInstallationCount > 0 ? "success" : "blocked",
+		},
+		{
+			label: "Cache states",
+			value: String(cacheStateCount),
+			delta: cacheStateCount > 0 ? "Tracked" : "Missing",
+			hint: "Cache state rows track freshness, errors, and webhook-to-refresh lag for Shopify-backed projections.",
+			tone: cacheStateCount > 0 ? "accent" : "watch",
 		},
 		{
 			label: "Sync jobs",
@@ -123,6 +153,7 @@ function buildMetrics({
 
 function buildSignals({
 	auditLogCount,
+	cacheStateCount,
 	connectedShopCount,
 	connectedInstallationCount,
 	merchantActorCount,
@@ -131,6 +162,7 @@ function buildSignals({
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
+	cacheStateCount: number;
 	connectedShopCount: number;
 	connectedInstallationCount: number;
 	merchantActorCount: number;
@@ -164,6 +196,14 @@ function buildSignals({
 			tone: merchantActorCount > 0 ? "success" : "watch",
 		},
 		{
+			label: "Cache freshness tracking",
+			detail:
+				cacheStateCount > 0
+					? `${cacheStateCount} cache state row(s) currently track refresh freshness and failures.`
+					: "No cache state rows exist yet, so stale-cache diagnostics are unavailable.",
+			tone: cacheStateCount > 0 ? "success" : "watch",
+		},
+		{
 			label: "Webhook ingestion",
 			detail:
 				webhookDeliveryCount > 0
@@ -192,6 +232,7 @@ function buildSignals({
 
 function buildBlockers({
 	auditLogCount,
+	cacheStateCount,
 	connectedShopCount,
 	connectedInstallationCount,
 	merchantActorCount,
@@ -201,6 +242,7 @@ function buildBlockers({
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
+	cacheStateCount: number;
 	connectedShopCount: number;
 	connectedInstallationCount: number;
 	merchantActorCount: number;
@@ -223,6 +265,9 @@ function buildBlockers({
 		shopCount > 0 && widgetConfigCount === 0
 			? "No widget configuration row exists yet for the connected shop."
 			: null,
+		shopCount > 0 && cacheStateCount === 0
+			? "No Shopify cache state row exists yet, so freshness diagnostics remain blind."
+			: null,
 		webhookDeliveryCount === 0 ? "No real webhook deliveries have been ingested yet." : null,
 		syncJobCount === 0 ? "No sync workflow has run yet." : null,
 		auditLogCount === 0 ? "No merchant action audit trail has been recorded yet." : null,
@@ -237,6 +282,7 @@ export const snapshot = query({
 			installations,
 			merchantActors,
 			widgetConfigs,
+			cacheStates,
 			syncJobs,
 			webhookDeliveries,
 			auditLogs,
@@ -245,6 +291,7 @@ export const snapshot = query({
 			ctx.db.query("shopifyInstallations").take(50),
 			ctx.db.query("merchantActors").take(50),
 			ctx.db.query("widgetConfigs").take(50),
+			ctx.db.query("shopifyCacheStates").take(50),
 			ctx.db.query("syncJobs").take(50),
 			ctx.db.query("webhookDeliveries").take(50),
 			ctx.db.query("auditLogs").take(50),
@@ -271,6 +318,7 @@ export const snapshot = query({
 		return {
 			metrics: buildMetrics({
 				auditLogCount: auditLogs.length,
+				cacheStateCount: cacheStates.length,
 				connectedInstallationCount,
 				connectedShopCount,
 				shopCount: shops.length,
@@ -279,6 +327,7 @@ export const snapshot = query({
 			}),
 			signals: buildSignals({
 				auditLogCount: auditLogs.length,
+				cacheStateCount: cacheStates.length,
 				connectedInstallationCount,
 				connectedShopCount,
 				merchantActorCount,
@@ -288,6 +337,7 @@ export const snapshot = query({
 			}),
 			blockers: buildBlockers({
 				auditLogCount: auditLogs.length,
+				cacheStateCount: cacheStates.length,
 				connectedInstallationCount,
 				connectedShopCount,
 				merchantActorCount,
@@ -298,6 +348,9 @@ export const snapshot = query({
 			}),
 			shops: sortByNumberDesc(shops, (shop) => shop.createdAt).map((shop) =>
 				toShopRecord(shop, installationByShopId.get(shop._id), actorCountByShopId.get(shop._id)),
+			),
+			cacheStates: sortByNumberDesc(cacheStates, (cacheState) => cacheState.updatedAt).map(
+				toCacheStateRecord,
 			),
 			syncJobs: sortByNumberDesc(syncJobs, (syncJob) => syncJob.lastUpdatedAt).map(toSyncJobRecord),
 			webhookDeliveries: sortByNumberDesc(

@@ -48,10 +48,19 @@ function buildReferenceLine(knowledgeSources: string[]) {
 }
 
 function buildStorefrontReply({
+	catalogMatches,
 	config,
 	message,
 	pageTitle,
 }: {
+	catalogMatches?: Array<{
+		availableForSale: boolean;
+		onlineStoreUrl: string;
+		priceLabel: string;
+		summary: string;
+		title: string;
+		vendor: string | null;
+	}>;
 	config: StorefrontWidgetConfig;
 	message: string;
 	pageTitle?: string;
@@ -98,6 +107,20 @@ function buildStorefrontReply({
 		normalizedMessage.includes("collection") ||
 		normalizedMessage.includes("recommend")
 	) {
+		if (catalogMatches && catalogMatches.length > 0) {
+			const topMatches = catalogMatches.slice(0, 3);
+
+			return {
+				answer: `I found ${topMatches.length} catalog match(es)${pageContext}: ${topMatches
+					.map((match) => `${match.title} (${match.priceLabel})`)
+					.join(
+						"; ",
+					)}. Use those as the first comparison set before checking shipping, availability, or fit. ${referenceLine}`,
+				references: topMatches.map((match) => match.onlineStoreUrl),
+				suggestedPrompts: topMatches.map((match) => `Tell me more about ${match.title}`),
+			};
+		}
+
 		return {
 			answer: `I can help narrow down products and collections${pageContext}. Start from the merchant's public merchandising sources, then compare shipping, availability, and fit questions from there. ${referenceLine}`,
 			references,
@@ -185,7 +208,20 @@ export const reply = action({
 			};
 		}
 
+		const normalizedMessage = trimmedMessage.toLowerCase();
+		const catalogMatches =
+			normalizedMessage.includes("product") ||
+			normalizedMessage.includes("collection") ||
+			normalizedMessage.includes("recommend")
+				? await ctx.runQuery(api.shopifySync.searchPublicCatalog, {
+						limit: 3,
+						query: trimmedMessage,
+						shopDomain: args.shopDomain,
+					})
+				: [];
+
 		return buildStorefrontReply({
+			catalogMatches,
 			config,
 			message: trimmedMessage,
 			pageTitle: args.pageTitle,

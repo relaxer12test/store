@@ -51,6 +51,22 @@ function statusTone(status: string) {
 	return "neutral";
 }
 
+function cacheStatusTone(status: string) {
+	if (status === "ready") {
+		return "success";
+	}
+
+	if (status === "pending" || status === "running") {
+		return "watch";
+	}
+
+	if (status === "error") {
+		return "blocked";
+	}
+
+	return "neutral";
+}
+
 function knowledgeSourcesToText(knowledgeSources: string[]) {
 	return knowledgeSources.join("\n");
 }
@@ -123,6 +139,9 @@ export function MerchantSettingsPage({
 						<StatusPill tone={data.webhookHealth.recentDeliveryCount > 0 ? "success" : "watch"}>
 							{data.webhookHealth.recentDeliveryCount} recent deliveries
 						</StatusPill>
+						<StatusPill tone={data.webhookHealth.failedDeliveryCount > 0 ? "blocked" : "neutral"}>
+							{data.webhookHealth.failedDeliveryCount} failed deliveries
+						</StatusPill>
 					</div>
 
 					<div className="mt-5">
@@ -153,6 +172,13 @@ export function MerchantSettingsPage({
 								data.webhookHealth.recentTopics.length > 0
 									? data.webhookHealth.recentTopics.join(", ")
 									: "No webhook topics have been recorded yet."
+							}
+						/>
+						<DetailRow
+							label="Last successful cache refresh"
+							value={
+								data.cacheHealth.lastSuccessfulRefreshAt ??
+								"No successful cache refresh has been recorded yet."
 							}
 						/>
 					</div>
@@ -229,6 +255,81 @@ export function MerchantSettingsPage({
 					</div>
 				</Panel>
 			</div>
+
+			<Panel
+				description="These caches exist only for repeated high-value reads. Shopify remains the source of truth for merchant mutations and canonical store state."
+				title="Cache freshness and workflows"
+			>
+				<div className="grid gap-4 md:grid-cols-2">
+					{data.cacheHealth.caches.map((cache) => (
+						<div className={detailCardClass} key={cache.cacheKey}>
+							<div className="flex flex-wrap items-center gap-2">
+								<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+									{cache.cacheKey.replaceAll("_", " ")}
+								</p>
+								<StatusPill tone={cacheStatusTone(cache.status)}>{cache.status}</StatusPill>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-900">
+								{cache.recordCount !== null
+									? `${cache.recordCount} cached record(s) tracked.`
+									: "No record count has been written for this cache yet."}
+							</p>
+							<p className="mt-2 text-sm leading-6 text-slate-600">
+								Requested: {cache.lastRequestedAt ?? "n/a"}
+							</p>
+							<p className="text-sm leading-6 text-slate-600">
+								Completed: {cache.lastCompletedAt ?? "n/a"}
+							</p>
+							<p className="text-sm leading-6 text-slate-600">
+								Last webhook: {cache.lastWebhookAt ?? "n/a"}
+							</p>
+							{cache.pendingReason ? (
+								<p className="mt-2 text-sm leading-6 text-slate-600">
+									Reason: {cache.pendingReason}
+								</p>
+							) : null}
+							{cache.lastError ? (
+								<p className="mt-2 text-sm leading-6 text-rose-700">Error: {cache.lastError}</p>
+							) : null}
+						</div>
+					))}
+				</div>
+
+				<div className="mt-5 grid gap-4 md:grid-cols-2">
+					<div className={detailCardClass}>
+						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+							Pending workflows
+						</p>
+						<p className="mt-3 text-sm leading-6 text-slate-900">
+							{data.cacheHealth.pendingJobCount} queued or running job(s) currently exist for this
+							shop.
+						</p>
+					</div>
+					<div className={detailCardClass}>
+						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+							Stale warnings
+						</p>
+						<p className="mt-3 text-sm leading-6 text-slate-900">
+							{data.cacheHealth.staleWarnings.length > 0
+								? `${data.cacheHealth.staleWarnings.length} warning(s) need review.`
+								: "No stale-cache warning is active right now."}
+						</p>
+					</div>
+				</div>
+
+				{data.cacheHealth.staleWarnings.length > 0 ? (
+					<div className="mt-5 space-y-3">
+						{data.cacheHealth.staleWarnings.map((warning) => (
+							<div
+								className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+								key={warning}
+							>
+								{warning}
+							</div>
+						))}
+					</div>
+				) : null}
+			</Panel>
 
 			<Panel
 				description="These settings drive the live storefront widget. Theme activation stays in the theme editor, while behavior and copy live here."

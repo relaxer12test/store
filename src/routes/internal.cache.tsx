@@ -18,14 +18,10 @@ function InternalCacheRoute() {
 
 	return (
 		<InternalModulePage
-			description="There is no dedicated projection-cache table in the schema yet. This route stays empty until real cache tables are introduced."
-			emptyBody={
-				data.syncJobs.length > 0
-					? "Sync jobs exist, but there is still no standalone cache/projection table to inspect here."
-					: "No projection-cache data exists yet."
-			}
-			emptyTitle="No cache dataset"
-			records={[]}
+			description="Cache-state rows show which Shopify-backed projections are fresh, stale, disabled, or failing."
+			emptyBody="No Shopify cache state has been recorded yet."
+			emptyTitle="No cache state"
+			records={data.cacheStates}
 			title="Cache"
 		/>
 	);

@@ -1,5 +1,5 @@
 import { v } from "convex/values";
-import type { MetricCard, SignalLine, TableRecord } from "../src/shared/contracts/app-shell";
+import type { MetricCard, SignalLine, TableRecord, Tone } from "../src/shared/contracts/app-shell";
 import type {
 	MerchantAssistantReply,
 	MerchantSettingsData,
@@ -89,10 +89,15 @@ function toShopRecord(
 
 function toSyncJobRecord(syncJob: Doc<"syncJobs">): TableRecord {
 	return {
+		cache_key: syncJob.cacheKey ?? "n/a",
+		completed_at: formatTimestamp(syncJob.completedAt),
 		id: syncJob._id,
 		domain: syncJob.domain,
+		error: syncJob.error ?? "n/a",
 		last_updated_at: formatTimestamp(syncJob.lastUpdatedAt),
+		requested_at: formatTimestamp(syncJob.requestedAt),
 		shop_id: syncJob.shopId,
+		started_at: formatTimestamp(syncJob.startedAt),
 		status: syncJob.status,
 		type: syncJob.type,
 	};
@@ -100,7 +105,10 @@ function toSyncJobRecord(syncJob: Doc<"syncJobs">): TableRecord {
 
 function toWebhookDeliveryRecord(webhookDelivery: Doc<"webhookDeliveries">): TableRecord {
 	return {
+		delivery_key: webhookDelivery.deliveryKey ?? "n/a",
+		error: webhookDelivery.error ?? "n/a",
 		id: webhookDelivery._id,
+		processed_at: formatTimestamp(webhookDelivery.processedAt),
 		received_at: formatTimestamp(webhookDelivery.receivedAt),
 		shop_id: webhookDelivery.shopId ?? "n/a",
 		status: webhookDelivery.status,
@@ -120,15 +128,69 @@ function toAuditLogRecord(auditLog: Doc<"auditLogs">): TableRecord {
 	};
 }
 
+function toCacheStateRecord(cacheState: Doc<"shopifyCacheStates">): TableRecord {
+	return {
+		id: cacheState._id,
+		cache_key: cacheState.cacheKey,
+		last_completed_at: formatTimestamp(cacheState.lastCompletedAt),
+		last_error: cacheState.lastError ?? "n/a",
+		last_requested_at: formatTimestamp(cacheState.lastRequestedAt),
+		last_webhook_at: formatTimestamp(cacheState.lastWebhookAt),
+		record_count: String(cacheState.recordCount ?? 0),
+		status: cacheState.status,
+	};
+}
+
+function cacheTone(status: string | undefined): Tone {
+	switch (status) {
+		case "ready":
+			return "success";
+		case "pending":
+		case "running":
+			return "accent";
+		case "error":
+			return "blocked";
+		case "disabled":
+			return "neutral";
+		default:
+			return "watch";
+	}
+}
+
+function getCacheStaleWarning(cacheState: Doc<"shopifyCacheStates">, now: number) {
+	if (cacheState.status === "error") {
+		return cacheState.lastError ?? "The cache entered an error state.";
+	}
+
+	if (
+		cacheState.lastWebhookAt &&
+		(!cacheState.lastCompletedAt || cacheState.lastWebhookAt > cacheState.lastCompletedAt)
+	) {
+		return "A newer webhook landed after the last successful refresh.";
+	}
+
+	if (cacheState.staleAfterAt && cacheState.staleAfterAt <= now) {
+		return "The refresh window has elapsed and the cache should be reconciled.";
+	}
+
+	return null;
+}
+
 function buildMetrics({
 	auditLogCount,
+	catalogCacheState,
 	installation,
+	metricsCache,
+	metricsCacheState,
 	shop,
 	syncJobCount,
 	webhookDeliveryCount,
 }: {
 	auditLogCount: number;
+	catalogCacheState: Doc<"shopifyCacheStates"> | null;
 	installation: Doc<"shopifyInstallations"> | null;
+	metricsCache: Doc<"shopifyMetricsCaches"> | null;
+	metricsCacheState: Doc<"shopifyCacheStates"> | null;
 	shop: Doc<"shops">;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
@@ -147,6 +209,20 @@ function buildMetrics({
 			delta: installation?.accessToken ? "Token ready" : "Missing",
 			hint: "Backend Shopify access relies on the stored offline Admin API token.",
 			tone: installation?.status === "connected" ? "success" : "blocked",
+		},
+		{
+			label: "Catalog index",
+			value: String(catalogCacheState?.recordCount ?? 0),
+			delta: catalogCacheState?.status ?? "missing",
+			hint: "Sanitized public products back storefront search and retrieval when the cache is enabled.",
+			tone: cacheTone(catalogCacheState?.status),
+		},
+		{
+			label: "Metrics cache",
+			value: String(metricsCache?.productCount ?? 0),
+			delta: metricsCacheState?.status ?? "missing",
+			hint: "Dashboard cards can reuse cached Shopify counts instead of refetching on every load.",
+			tone: cacheTone(metricsCacheState?.status),
 		},
 		{
 			label: "Sync jobs",
@@ -174,6 +250,7 @@ function buildMetrics({
 
 function buildSignals({
 	auditLogCount,
+	cacheStates,
 	installation,
 	shop,
 	syncJobCount,
@@ -181,12 +258,17 @@ function buildSignals({
 	widgetConfigExists,
 }: {
 	auditLogCount: number;
+	cacheStates: Doc<"shopifyCacheStates">[];
 	installation: Doc<"shopifyInstallations"> | null;
 	shop: Doc<"shops">;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
 	widgetConfigExists: boolean;
 }): SignalLine[] {
+	const staleWarnings = cacheStates
+		.map((cacheState) => getCacheStaleWarning(cacheState, Date.now()))
+		.filter((warning): warning is string => warning !== null);
+
 	return [
 		{
 			label: "Authenticated shop context",
@@ -206,6 +288,16 @@ function buildSignals({
 				? "A storefront widget configuration row exists for this shop."
 				: "The storefront widget configuration row has not been created for this shop yet.",
 			tone: widgetConfigExists ? "success" : "watch",
+		},
+		{
+			label: "Cache freshness",
+			detail:
+				cacheStates.length === 0
+					? "No Shopify cache state exists for this shop yet."
+					: staleWarnings.length > 0
+						? `${staleWarnings.length} cache warning(s) currently need attention.`
+						: "Catalog and metrics caches are fresh enough for the current merchant surfaces.",
+			tone: cacheStates.length === 0 ? "watch" : staleWarnings.length > 0 ? "watch" : "success",
 		},
 		{
 			label: "Webhook ingestion",
@@ -236,6 +328,7 @@ function buildSignals({
 
 function buildBlockers({
 	auditLogCount,
+	cacheStates,
 	installation,
 	shop,
 	syncJobCount,
@@ -243,12 +336,21 @@ function buildBlockers({
 	widgetConfigExists,
 }: {
 	auditLogCount: number;
+	cacheStates: Doc<"shopifyCacheStates">[];
 	installation: Doc<"shopifyInstallations"> | null;
 	shop: Doc<"shops">;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
 	widgetConfigExists: boolean;
 }) {
+	const cacheErrors = cacheStates
+		.map((cacheState) =>
+			cacheState.status === "error"
+				? `${cacheState.cacheKey} is in error: ${cacheState.lastError ?? "Unknown error."}`
+				: null,
+		)
+		.filter((value): value is string => value !== null);
+
 	return [
 		shop.installStatus !== "connected"
 			? "This shop is not marked connected, so protected merchant actions should stay blocked."
@@ -264,6 +366,7 @@ function buildBlockers({
 			: null,
 		syncJobCount === 0 ? "No workflow or sync rows exist for this shop yet." : null,
 		auditLogCount === 0 ? "No audit trail exists for this shop yet." : null,
+		...cacheErrors,
 	].filter((value): value is string => value !== null);
 }
 
@@ -333,6 +436,25 @@ function buildMerchantAssistantResponse({
 		};
 	}
 
+	if (
+		normalizedPrompt.includes("cache") ||
+		normalizedPrompt.includes("catalog") ||
+		normalizedPrompt.includes("stale")
+	) {
+		return {
+			answer: `The merchant surfaces currently have ${settings.cacheHealth.caches.length} cache state row(s). ${
+				settings.cacheHealth.lastSuccessfulRefreshAt
+					? `The most recent successful refresh finished at ${settings.cacheHealth.lastSuccessfulRefreshAt}.`
+					: "No successful cache refresh has been recorded yet."
+			}`,
+			nextActions: [
+				"Open workflows to inspect the current sync job queue and recent completions.",
+				"Use settings to review stale-cache warnings and the most recent webhook timestamp.",
+				"Trigger a product, inventory, or order change if you need to exercise a specific cache path.",
+			],
+		};
+	}
+
 	return {
 		answer: `${settings.installHealth.shopName} is connected, the storefront widget is ${
 			settings.widgetSettings.enabled ? "enabled" : "disabled"
@@ -345,6 +467,16 @@ function buildMerchantAssistantResponse({
 	};
 }
 
+interface MerchantSettingsState {
+	actor: Doc<"merchantActors">;
+	cacheStates: Doc<"shopifyCacheStates">[];
+	installation: Doc<"shopifyInstallations"> | null;
+	pendingJobs: Doc<"syncJobs">[];
+	recentWebhookDeliveries: Doc<"webhookDeliveries">[];
+	shop: Doc<"shops">;
+	widgetConfig: Doc<"widgetConfigs"> | null;
+}
+
 export const getSettingsState = internalQuery({
 	args: {
 		merchantActorId: v.id("merchantActors"),
@@ -352,7 +484,7 @@ export const getSettingsState = internalQuery({
 		shopId: v.id("shops"),
 		shopifyUserId: v.string(),
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<MerchantSettingsState> => {
 		const actor = await ctx.db.get(args.merchantActorId);
 
 		if (!actor || actor.shopId !== args.shopId || actor.shopifyUserId !== args.shopifyUserId) {
@@ -365,7 +497,14 @@ export const getSettingsState = internalQuery({
 			throw new Error("Authenticated shop could not be resolved for settings.");
 		}
 
-		const [installation, widgetConfig, recentWebhookDeliveries] = await Promise.all([
+		const [
+			installation,
+			widgetConfig,
+			recentWebhookDeliveries,
+			cacheStates,
+			pendingJobs,
+			runningJobs,
+		] = await Promise.all([
 			ctx.db
 				.query("shopifyInstallations")
 				.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
@@ -379,11 +518,30 @@ export const getSettingsState = internalQuery({
 				.withIndex("by_shop_and_received_at", (query) => query.eq("shopId", shop._id))
 				.order("desc")
 				.take(20),
+			ctx.db
+				.query("shopifyCacheStates")
+				.withIndex("by_shop_and_updated_at", (query) => query.eq("shopId", shop._id))
+				.order("desc")
+				.take(10),
+			ctx.db
+				.query("syncJobs")
+				.withIndex("by_shop_status", (query) =>
+					query.eq("shopId", shop._id).eq("status", "pending"),
+				)
+				.take(20),
+			ctx.db
+				.query("syncJobs")
+				.withIndex("by_shop_status", (query) =>
+					query.eq("shopId", shop._id).eq("status", "running"),
+				)
+				.take(20),
 		]);
 
 		return {
 			actor,
+			cacheStates,
 			installation,
+			pendingJobs: [...pendingJobs, ...runningJobs],
 			recentWebhookDeliveries,
 			shop,
 			widgetConfig,
@@ -393,11 +551,28 @@ export const getSettingsState = internalQuery({
 
 async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSettingsData> {
 	const claims = await requireMerchantClaims(ctx);
-	const state = await ctx.runQuery(internal.merchantApp.getSettingsState, claims);
+	const state: MerchantSettingsState = await ctx.runQuery(
+		internal.merchantApp.getSettingsState,
+		claims,
+	);
 	const widgetSettings = getWidgetSettingsRecord(state.widgetConfig as WidgetConfigRecord | null);
 	const recentTopics = Array.from(
 		new Set(state.recentWebhookDeliveries.map((delivery) => delivery.topic)),
 	).slice(0, 5);
+	const cacheStatuses = state.cacheStates.map((cacheState) => ({
+		cacheKey: cacheState.cacheKey,
+		lastCompletedAt: formatNullableTimestamp(cacheState.lastCompletedAt),
+		lastError: cacheState.lastError ?? null,
+		lastRequestedAt: formatNullableTimestamp(cacheState.lastRequestedAt),
+		lastWebhookAt: formatNullableTimestamp(cacheState.lastWebhookAt),
+		pendingReason: cacheState.pendingReason ?? null,
+		recordCount: cacheState.recordCount ?? null,
+		status: cacheState.status,
+		staleWarning: getCacheStaleWarning(cacheState, Date.now()),
+	}));
+	const successfulRefreshes = state.cacheStates
+		.map((cacheState) => cacheState.lastCompletedAt)
+		.filter((value): value is number => value !== undefined);
 	let extensionStatus: MerchantSettingsData["extensionStatus"] = {
 		activationUrl: null,
 		errorMessage: null,
@@ -433,6 +608,16 @@ async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSetting
 	}
 
 	return {
+		cacheHealth: {
+			caches: cacheStatuses,
+			lastSuccessfulRefreshAt: formatNullableTimestamp(
+				successfulRefreshes.length > 0 ? Math.max(...successfulRefreshes) : null,
+			),
+			pendingJobCount: state.pendingJobs.length,
+			staleWarnings: cacheStatuses
+				.map((cacheStatus) => cacheStatus.staleWarning)
+				.filter((warning): warning is string => warning !== null),
+		},
 		extensionStatus,
 		installHealth: {
 			apiVersion: state.installation?.apiVersion ?? null,
@@ -446,6 +631,9 @@ async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSetting
 			tokenStatus: state.installation?.status ?? "missing",
 		},
 		webhookHealth: {
+			failedDeliveryCount: state.recentWebhookDeliveries.filter(
+				(delivery) => delivery.status !== "processed",
+			).length,
 			lastDeliveryAt: formatNullableTimestamp(state.recentWebhookDeliveries[0]?.receivedAt),
 			recentDeliveryCount: state.recentWebhookDeliveries.length,
 			recentTopics,
@@ -563,13 +751,30 @@ export const snapshot = query({
 	args: {},
 	handler: async (ctx): Promise<SystemStatusSnapshot> => {
 		const { shop } = await requireMerchantActor(ctx);
-		const [installation, widgetConfig, syncJobs, webhookDeliveries, auditLogs] = await Promise.all([
+		const [
+			installation,
+			widgetConfig,
+			cacheStates,
+			metricsCache,
+			syncJobs,
+			webhookDeliveries,
+			auditLogs,
+		] = await Promise.all([
 			ctx.db
 				.query("shopifyInstallations")
 				.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
 				.unique(),
 			ctx.db
 				.query("widgetConfigs")
+				.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
+				.unique(),
+			ctx.db
+				.query("shopifyCacheStates")
+				.withIndex("by_shop_and_updated_at", (query) => query.eq("shopId", shop._id))
+				.order("desc")
+				.take(20),
+			ctx.db
+				.query("shopifyMetricsCaches")
 				.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
 				.unique(),
 			ctx.db
@@ -588,17 +793,25 @@ export const snapshot = query({
 				.order("desc")
 				.take(50),
 		]);
+		const catalogCacheState =
+			cacheStates.find((cacheState) => cacheState.cacheKey === "public_catalog_index") ?? null;
+		const metricsCacheState =
+			cacheStates.find((cacheState) => cacheState.cacheKey === "merchant_metrics_cache") ?? null;
 
 		return {
 			metrics: buildMetrics({
 				auditLogCount: auditLogs.length,
+				catalogCacheState,
 				installation,
+				metricsCache,
+				metricsCacheState,
 				shop,
 				syncJobCount: syncJobs.length,
 				webhookDeliveryCount: webhookDeliveries.length,
 			}),
 			signals: buildSignals({
 				auditLogCount: auditLogs.length,
+				cacheStates,
 				installation,
 				shop,
 				syncJobCount: syncJobs.length,
@@ -607,6 +820,7 @@ export const snapshot = query({
 			}),
 			blockers: buildBlockers({
 				auditLogCount: auditLogs.length,
+				cacheStates,
 				installation,
 				shop,
 				syncJobCount: syncJobs.length,
@@ -614,6 +828,7 @@ export const snapshot = query({
 				widgetConfigExists: Boolean(widgetConfig),
 			}),
 			shops: [toShopRecord(shop, installation)],
+			cacheStates: cacheStates.map(toCacheStateRecord),
 			syncJobs: syncJobs.map(toSyncJobRecord),
 			webhookDeliveries: webhookDeliveries.map(toWebhookDeliveryRecord),
 			auditLogs: auditLogs.map(toAuditLogRecord),

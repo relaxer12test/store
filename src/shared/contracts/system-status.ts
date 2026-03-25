@@ -5,6 +5,7 @@ export interface SystemStatusSnapshot {
 	signals: SignalLine[];
 	blockers: string[];
 	shops: TableRecord[];
+	cacheStates: TableRecord[];
 	syncJobs: TableRecord[];
 	webhookDeliveries: TableRecord[];
 	auditLogs: TableRecord[];

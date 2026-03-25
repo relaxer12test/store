@@ -23,9 +23,29 @@ export interface MerchantInstallHealth {
 }
 
 export interface MerchantWebhookHealth {
+	failedDeliveryCount: number;
 	lastDeliveryAt: string | null;
 	recentDeliveryCount: number;
 	recentTopics: string[];
+}
+
+export interface MerchantCacheStatus {
+	cacheKey: string;
+	lastCompletedAt: string | null;
+	lastError: string | null;
+	lastRequestedAt: string | null;
+	lastWebhookAt: string | null;
+	pendingReason: string | null;
+	recordCount: number | null;
+	status: string;
+	staleWarning: string | null;
+}
+
+export interface MerchantCacheHealth {
+	caches: MerchantCacheStatus[];
+	lastSuccessfulRefreshAt: string | null;
+	pendingJobCount: number;
+	staleWarnings: string[];
 }
 
 export interface MerchantExtensionStatus {
@@ -37,6 +57,7 @@ export interface MerchantExtensionStatus {
 }
 
 export interface MerchantSettingsData {
+	cacheHealth: MerchantCacheHealth;
 	extensionStatus: MerchantExtensionStatus;
 	installHealth: MerchantInstallHealth;
 	webhookHealth: MerchantWebhookHealth;

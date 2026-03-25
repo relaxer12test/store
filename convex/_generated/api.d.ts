@@ -8,12 +8,14 @@
  * @module
  */
 
+import type * as crons from "../crons.js";
 import type * as http from "../http.js";
 import type * as merchantApp from "../merchantApp.js";
 import type * as merchantAuth from "../merchantAuth.js";
 import type * as merchantSessionToken from "../merchantSessionToken.js";
 import type * as shopify from "../shopify.js";
 import type * as shopifyAdmin from "../shopifyAdmin.js";
+import type * as shopifySync from "../shopifySync.js";
 import type * as storefrontWidget from "../storefrontWidget.js";
 import type * as systemStatus from "../systemStatus.js";
 
@@ -24,12 +26,14 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
+  crons: typeof crons;
   http: typeof http;
   merchantApp: typeof merchantApp;
   merchantAuth: typeof merchantAuth;
   merchantSessionToken: typeof merchantSessionToken;
   shopify: typeof shopify;
   shopifyAdmin: typeof shopifyAdmin;
+  shopifySync: typeof shopifySync;
   storefrontWidget: typeof storefrontWidget;
   systemStatus: typeof systemStatus;
 }>;

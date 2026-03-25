@@ -48,6 +48,35 @@ function getInitials(name: string) {
 	return words.map((word) => word.charAt(0).toUpperCase()).join("");
 }
 
+function normalizeWebhookHeaderValue(value: string | undefined) {
+	const trimmed = value?.trim();
+
+	return trimmed && trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildWebhookDeliveryKey({
+	domain,
+	eventId,
+	rawBody,
+	topic,
+	triggeredAt,
+	webhookId,
+}: {
+	domain?: string;
+	eventId?: string;
+	rawBody: string;
+	topic?: string;
+	triggeredAt?: string;
+	webhookId?: string;
+}) {
+	const identity =
+		normalizeWebhookHeaderValue(webhookId) ??
+		normalizeWebhookHeaderValue(eventId) ??
+		`${normalizeWebhookHeaderValue(triggeredAt) ?? "unknown"}:${rawBody.replace(/\s+/g, " ").slice(0, 128)}`;
+
+	return `${normalizeWebhookHeaderValue(domain) ?? "unknown"}::${normalizeWebhookHeaderValue(topic) ?? "unknown"}::${identity}`;
+}
+
 function getActorName(options: {
 	email?: string | null;
 	fallbackUserId: string;
@@ -305,6 +334,15 @@ export const processWebhook = action({
 	},
 	handler: async (ctx, args) => {
 		const shopify = createShopifyClient();
+		const payloadPreview = args.rawBody.slice(0, WEBHOOK_PAYLOAD_PREVIEW_LIMIT);
+		const attemptedDeliveryKey = buildWebhookDeliveryKey({
+			domain: args.headers.domain,
+			eventId: args.headers.eventId,
+			rawBody: args.rawBody,
+			topic: args.headers.topic,
+			triggeredAt: args.headers.triggeredAt,
+			webhookId: args.headers.webhookId,
+		});
 		const request = new Request("https://storeai.ldev.cloud/api/shopify/webhooks", {
 			method: "POST",
 			headers: new Headers(
@@ -329,6 +367,19 @@ export const processWebhook = action({
 		});
 
 		if (!validation.valid) {
+			await ctx.runMutation(internal.shopify.recordWebhookFailure, {
+				apiVersion: args.headers.apiVersion,
+				deliveryKey: attemptedDeliveryKey,
+				domain: normalizeWebhookHeaderValue(args.headers.domain) ?? "unknown",
+				error: validation.reason ?? "Shopify webhook validation failed.",
+				eventId: args.headers.eventId,
+				payloadPreview,
+				status: "rejected",
+				topic: normalizeWebhookHeaderValue(args.headers.topic) ?? "unknown",
+				triggeredAt: args.headers.triggeredAt,
+				webhookId: args.headers.webhookId,
+			});
+
 			return {
 				ok: false,
 				reason: validation.reason,
@@ -336,20 +387,58 @@ export const processWebhook = action({
 			};
 		}
 
-		await ctx.runMutation(internal.shopify.ingestWebhook, {
-			apiVersion: validation.apiVersion ?? SHOPIFY_API_VERSION,
-			domain: validation.domain,
-			eventId: "eventId" in validation ? validation.eventId : undefined,
-			payloadPreview: args.rawBody.slice(0, WEBHOOK_PAYLOAD_PREVIEW_LIMIT),
-			topic: validation.topic,
-			triggeredAt: validation.triggeredAt,
-			webhookId: "webhookId" in validation ? validation.webhookId : undefined,
-		});
+		try {
+			await ctx.runMutation(internal.shopify.ingestWebhook, {
+				apiVersion: validation.apiVersion ?? SHOPIFY_API_VERSION,
+				deliveryKey: buildWebhookDeliveryKey({
+					domain: validation.domain,
+					eventId: "eventId" in validation ? validation.eventId : undefined,
+					rawBody: args.rawBody,
+					topic: validation.topic,
+					triggeredAt: validation.triggeredAt,
+					webhookId: "webhookId" in validation ? validation.webhookId : undefined,
+				}),
+				domain: validation.domain,
+				eventId: "eventId" in validation ? validation.eventId : undefined,
+				payloadPreview,
+				topic: validation.topic,
+				triggeredAt: validation.triggeredAt,
+				webhookId: "webhookId" in validation ? validation.webhookId : undefined,
+			});
 
-		return {
-			ok: true,
-			status: 200,
-		};
+			return {
+				ok: true,
+				status: 200,
+			};
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Shopify webhook ingestion failed.";
+
+			await ctx.runMutation(internal.shopify.recordWebhookFailure, {
+				apiVersion: validation.apiVersion ?? SHOPIFY_API_VERSION,
+				deliveryKey: buildWebhookDeliveryKey({
+					domain: validation.domain,
+					eventId: "eventId" in validation ? validation.eventId : undefined,
+					rawBody: args.rawBody,
+					topic: validation.topic,
+					triggeredAt: validation.triggeredAt,
+					webhookId: "webhookId" in validation ? validation.webhookId : undefined,
+				}),
+				domain: validation.domain,
+				error: message,
+				eventId: "eventId" in validation ? validation.eventId : undefined,
+				payloadPreview,
+				status: "failed",
+				topic: validation.topic,
+				triggeredAt: validation.triggeredAt,
+				webhookId: "webhookId" in validation ? validation.webhookId : undefined,
+			});
+
+			return {
+				ok: false,
+				reason: message,
+				status: 500,
+			};
+		}
 	},
 });
 
@@ -533,6 +622,14 @@ export const persistBootstrap = internalMutation({
 			status: "success",
 		});
 
+		await ctx.runMutation(internal.shopifySync.queueSyncJob, {
+			domain: args.shopDomain,
+			pendingReason: "Bootstrap requested an initial Shopify cache reconciliation.",
+			shopId,
+			source: "bootstrap",
+			type: "reconciliation_scan",
+		});
+
 		const shopDoc = (await ctx.db.get(shopId))!;
 		const actorDoc = (await ctx.db.get(actorId))!;
 
@@ -547,6 +644,7 @@ export const persistBootstrap = internalMutation({
 export const ingestWebhook = internalMutation({
 	args: {
 		apiVersion: v.string(),
+		deliveryKey: v.string(),
 		domain: v.string(),
 		eventId: v.optional(v.string()),
 		payloadPreview: v.optional(v.string()),
@@ -556,6 +654,14 @@ export const ingestWebhook = internalMutation({
 	},
 	handler: async (ctx, args) => {
 		const now = Date.now();
+		const existingByDeliveryKey = await ctx.db
+			.query("webhookDeliveries")
+			.withIndex("by_delivery_key", (query) => query.eq("deliveryKey", args.deliveryKey))
+			.unique();
+
+		if (existingByDeliveryKey) {
+			return existingByDeliveryKey._id;
+		}
 
 		if (args.webhookId) {
 			const duplicateByWebhookId = await ctx.db
@@ -596,9 +702,9 @@ export const ingestWebhook = internalMutation({
 
 		const deliveryId = await ctx.db.insert("webhookDeliveries", {
 			apiVersion: args.apiVersion,
+			deliveryKey: args.deliveryKey,
 			domain: args.domain,
 			eventId: args.eventId,
-			payloadPreview: args.payloadPreview,
 			processedAt: now,
 			receivedAt: now,
 			shopId: shop?._id,
@@ -607,6 +713,14 @@ export const ingestWebhook = internalMutation({
 			triggeredAt: args.triggeredAt,
 			webhookId: args.webhookId,
 		});
+
+		if (args.payloadPreview) {
+			await ctx.db.insert("webhookPayloads", {
+				createdAt: now,
+				deliveryId,
+				payloadPreview: args.payloadPreview,
+			});
+		}
 
 		if (shop) {
 			await ctx.db.insert("auditLogs", {
@@ -642,28 +756,144 @@ export const ingestWebhook = internalMutation({
 				});
 			}
 
-			await ctx.db.insert("syncJobs", {
+			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
 				domain: shop.domain,
-				lastUpdatedAt: now,
 				payloadPreview: "Shop uninstall cleanup requested.",
+				pendingReason: "App uninstall webhook requested cache and token cleanup.",
 				shopId: shop._id,
 				source: "webhook",
-				status: "pending",
+				triggeredByDeliveryId: deliveryId,
 				type: "shop_uninstall_cleanup",
+				webhookReceivedAt: now,
 			});
 
 			return deliveryId;
 		}
 
-		await ctx.db.insert("syncJobs", {
-			domain: shop.domain,
-			lastUpdatedAt: now,
-			payloadPreview: args.payloadPreview,
-			shopId: shop._id,
-			source: "webhook",
-			status: "pending",
-			type: args.topic.replaceAll("/", "_"),
+		if (
+			args.topic.startsWith("products/") ||
+			args.topic.startsWith("collections/") ||
+			args.topic === "inventory_levels/update"
+		) {
+			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
+				cacheKey: "public_catalog_index",
+				domain: shop.domain,
+				payloadPreview: args.payloadPreview,
+				pendingReason: `Webhook ${args.topic} requested a deterministic catalog index rebuild.`,
+				shopId: shop._id,
+				source: "webhook",
+				triggeredByDeliveryId: deliveryId,
+				type: "catalog_index_rebuild",
+				webhookReceivedAt: now,
+			});
+			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
+				cacheKey: "merchant_metrics_cache",
+				domain: shop.domain,
+				payloadPreview: args.payloadPreview,
+				pendingReason: `Webhook ${args.topic} requested a merchant metrics refresh.`,
+				shopId: shop._id,
+				source: "webhook",
+				triggeredByDeliveryId: deliveryId,
+				type: "metrics_cache_refresh",
+				webhookReceivedAt: now,
+			});
+		}
+
+		if (args.topic.startsWith("orders/") || args.topic === "app/scopes_update") {
+			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
+				cacheKey: "merchant_metrics_cache",
+				domain: shop.domain,
+				payloadPreview: args.payloadPreview,
+				pendingReason: `Webhook ${args.topic} requested a merchant metrics refresh.`,
+				shopId: shop._id,
+				source: "webhook",
+				triggeredByDeliveryId: deliveryId,
+				type: "metrics_cache_refresh",
+				webhookReceivedAt: now,
+			});
+		}
+
+		if (args.topic === "app/scopes_update") {
+			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
+				domain: shop.domain,
+				payloadPreview: args.payloadPreview,
+				pendingReason: "Scope changes requested a Shopify cache reconciliation scan.",
+				shopId: shop._id,
+				source: "webhook",
+				triggeredByDeliveryId: deliveryId,
+				type: "reconciliation_scan",
+				webhookReceivedAt: now,
+			});
+		}
+
+		return deliveryId;
+	},
+});
+
+export const recordWebhookFailure = internalMutation({
+	args: {
+		apiVersion: v.optional(v.string()),
+		deliveryKey: v.string(),
+		domain: v.string(),
+		error: v.string(),
+		eventId: v.optional(v.string()),
+		payloadPreview: v.optional(v.string()),
+		status: v.string(),
+		topic: v.string(),
+		triggeredAt: v.optional(v.string()),
+		webhookId: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		const existing = await ctx.db
+			.query("webhookDeliveries")
+			.withIndex("by_delivery_key", (query) => query.eq("deliveryKey", args.deliveryKey))
+			.unique();
+
+		if (existing) {
+			return existing._id;
+		}
+
+		const now = Date.now();
+		const shop = await ctx.db
+			.query("shops")
+			.withIndex("by_domain", (query) => query.eq("domain", args.domain))
+			.unique();
+		const deliveryId = await ctx.db.insert("webhookDeliveries", {
+			apiVersion: args.apiVersion,
+			deliveryKey: args.deliveryKey,
+			domain: args.domain,
+			error: args.error,
+			eventId: args.eventId,
+			processedAt: now,
+			receivedAt: now,
+			shopId: shop?._id,
+			status: args.status,
+			topic: args.topic,
+			triggeredAt: args.triggeredAt,
+			webhookId: args.webhookId,
 		});
+
+		if (args.payloadPreview) {
+			await ctx.db.insert("webhookPayloads", {
+				createdAt: now,
+				deliveryId,
+				payloadPreview: args.payloadPreview,
+			});
+		}
+
+		if (shop) {
+			await ctx.db.insert("auditLogs", {
+				action: `shopify.webhook.${args.topic}`,
+				createdAt: now,
+				detail: "Inbound Shopify webhook failed validation or processing.",
+				payload: {
+					error: args.error,
+					webhookId: args.webhookId,
+				},
+				shopId: shop._id,
+				status: "error",
+			});
+		}
 
 		return deliveryId;
 	},
