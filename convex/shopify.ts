@@ -11,7 +11,7 @@ import {
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
-import { issueMerchantSessionToken, type MerchantSessionTokenClaims } from "./merchantSessionToken";
+import { ensureMerchantBetterAuthSession } from "./auth";
 import {
 	createShopifyClient,
 	SHOPIFY_API_VERSION,
@@ -153,26 +153,25 @@ function getActorName(options: {
 interface PersistBootstrapResult {
 	activeShop: ShopSummary;
 	roles: SessionEnvelope["roles"];
-	tokenClaims: MerchantSessionTokenClaims;
 	viewer: ViewerSummary;
 }
 
 async function createSessionEnvelope({
 	activeShop,
+	convexToken,
 	roles,
-	tokenClaims,
 	viewer,
-}: PersistBootstrapResult): Promise<SessionEnvelope> {
-	const merchantToken = await issueMerchantSessionToken(tokenClaims);
-
+}: PersistBootstrapResult & {
+	convexToken: string;
+}): Promise<SessionEnvelope> {
 	return {
 		authMode: "embedded",
 		state: "ready",
 		viewer,
 		activeShop,
 		roles,
-		convexToken: merchantToken.token,
-		convexTokenExpiresAt: merchantToken.expiresAt,
+		convexToken,
+		convexTokenExpiresAt: null,
 	};
 }
 
@@ -185,7 +184,6 @@ export function buildPersistBootstrapResult({
 	shopDomain,
 	shopId,
 	shopName,
-	shopifyUserId,
 }: {
 	actorEmail?: string;
 	actorId: Id<"merchantActors">;
@@ -195,7 +193,6 @@ export function buildPersistBootstrapResult({
 	shopDomain: string;
 	shopId: Id<"shops">;
 	shopName: string;
-	shopifyUserId: string;
 }): PersistBootstrapResult {
 	return {
 		activeShop: {
@@ -205,15 +202,6 @@ export function buildPersistBootstrapResult({
 			name: shopName,
 		},
 		roles,
-		tokenClaims: {
-			email: actorEmail,
-			merchantActorId: actorId,
-			name: actorName,
-			roles,
-			shopDomain,
-			shopId,
-			shopifyUserId,
-		},
 		viewer: {
 			email: actorEmail ?? "",
 			id: actorId,
@@ -393,8 +381,18 @@ export const bootstrapSession = action({
 			shopifyShopId: metadata.shopifyShopId,
 			shopifyUserId: String(decoded.sub ?? "unknown"),
 		});
+		const betterAuthSession = await ensureMerchantBetterAuthSession(ctx, {
+			contactEmail: associatedUser?.email ?? undefined,
+			merchantActorId: persistedBootstrap.viewer.id as Id<"merchantActors">,
+			name: persistedBootstrap.viewer.name,
+			shopDomain: persistedBootstrap.activeShop.domain,
+			shopifyUserId: String(decoded.sub ?? "unknown"),
+		});
 
-		return await createSessionEnvelope(persistedBootstrap);
+		return await createSessionEnvelope({
+			...persistedBootstrap,
+			convexToken: betterAuthSession.convexToken,
+		});
 	},
 });
 
@@ -721,7 +719,6 @@ export const persistBootstrap = internalMutation({
 			shopDomain: args.shopDomain,
 			shopId,
 			shopName: args.shopName,
-			shopifyUserId: args.shopifyUserId,
 		});
 	},
 });

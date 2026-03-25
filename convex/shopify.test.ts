@@ -112,7 +112,6 @@ describe("shopify installation helpers", () => {
 				shopDomain: "acme.myshopify.com",
 				shopId: "shop_123" as Id<"shops">,
 				shopName: "Acme",
-				shopifyUserId: "gid://shopify/User/1",
 			}),
 		).toEqual({
 			activeShop: {
@@ -122,15 +121,6 @@ describe("shopify installation helpers", () => {
 				name: "Acme",
 			},
 			roles: ["shop_admin"],
-			tokenClaims: {
-				email: undefined,
-				merchantActorId: "actor_123",
-				name: "Jane Doe",
-				roles: ["shop_admin"],
-				shopDomain: "acme.myshopify.com",
-				shopId: "shop_123",
-				shopifyUserId: "gid://shopify/User/1",
-			},
 			viewer: {
 				email: "",
 				id: "actor_123",

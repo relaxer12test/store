@@ -1,5 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
+import { ConvexHttpClient } from "convex/browser";
+import { getBetterAuthToken, fetchAuthQuery } from "@/lib/auth-server";
+import { api } from "@/lib/convex-api";
+import { getRequiredConvexDeploymentUrl } from "@/lib/env";
+import { deriveViewerRoles } from "@/shared/auth/better-auth";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
 const guestSession: SessionEnvelope = {
@@ -120,6 +125,92 @@ export function buildEmbeddedAppContentSecurityPolicy(
 	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl, options).join(" ")};`;
 }
 
+function getInitials(name: string) {
+	const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+
+	if (words.length === 0) {
+		return "IS";
+	}
+
+	return words.map((word) => word.charAt(0).toUpperCase()).join("");
+}
+
+async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
+	const token = await getBetterAuthToken();
+
+	if (!token) {
+		return null;
+	}
+
+	const viewer = await fetchAuthQuery(api.auth.getCurrentViewer, {});
+
+	if (!viewer) {
+		return null;
+	}
+
+	const roles = deriveViewerRoles({
+		isInternalStaff: viewer.isInternalStaff,
+		role: viewer.role,
+	});
+
+	if (
+		viewer.authKind === "merchant" &&
+		typeof viewer.shopId === "string" &&
+		typeof viewer.shopDomain === "string"
+	) {
+		return {
+			authMode: "embedded",
+			state: "ready",
+			viewer: {
+				email: viewer.contactEmail ?? viewer.email,
+				id: String(viewer.userId),
+				initials: getInitials(viewer.name),
+				name: viewer.name,
+				roles,
+			},
+			activeShop: {
+				domain: viewer.shopDomain,
+				id: viewer.shopId,
+				installStatus: "connected",
+				name: viewer.shopName ?? viewer.shopDomain,
+			},
+			roles,
+			convexToken: token,
+			convexTokenExpiresAt: null,
+		} satisfies SessionEnvelope;
+	}
+
+	if (viewer.isInternalStaff) {
+		return {
+			authMode: "internal",
+			state: "ready",
+			viewer: {
+				email: viewer.contactEmail ?? viewer.email,
+				id: String(viewer.userId ?? viewer.email),
+				initials: getInitials(viewer.name),
+				name: viewer.name,
+				roles,
+			},
+			activeShop: null,
+			roles,
+			convexToken: token,
+			convexTokenExpiresAt: null,
+		} satisfies SessionEnvelope;
+	}
+
+	return null;
+}
+
+export const ensureInternalStaffAccount = createServerFn({ method: "POST" }).handler(async () => {
+	const client = new ConvexHttpClient(getRequiredConvexDeploymentUrl());
+
+	await client.action(api.auth.ensureInternalStaffUser, {});
+
+	return {
+		ok: true,
+	};
+});
+
 export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
 	const requestUrl = getRequestUrl({
 		xForwardedHost: true,
@@ -133,5 +224,5 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 		}),
 	);
 
-	return guestSession;
+	return (await getBetterAuthSessionEnvelope()) ?? guestSession;
 });

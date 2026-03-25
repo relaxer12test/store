@@ -15,6 +15,13 @@ export interface MerchantSessionTokenClaims {
 	shopifyUserId: string;
 }
 
+export interface InternalSessionTokenClaims {
+	email?: string;
+	internalUserId: string;
+	name: string;
+	roles: ViewerRole[];
+}
+
 let signingKeyPromise: Promise<Awaited<ReturnType<typeof importJWK>>> | null = null;
 
 function getRequiredEnv(name: string) {
@@ -88,7 +95,13 @@ async function getSigningKey() {
 	return signingKeyPromise;
 }
 
-export async function issueMerchantSessionToken(claims: MerchantSessionTokenClaims) {
+async function issueSessionToken({
+	claims,
+	subject,
+}: {
+	claims: Record<string, string | string[] | undefined>;
+	subject: string;
+}) {
 	const issuedAt = Math.floor(Date.now() / 1000);
 	const expiresAt = issuedAt + getTokenTtlSeconds();
 	const issuer = getRequiredEnv("CONVEX_APP_AUTH_ISSUER");
@@ -96,15 +109,7 @@ export async function issueMerchantSessionToken(claims: MerchantSessionTokenClai
 	const signingJwk = getSigningJwk();
 	const signingKey = await getSigningKey();
 
-	const token = await new SignJWT({
-		email: claims.email,
-		merchantActorId: claims.merchantActorId,
-		name: claims.name,
-		roles: claims.roles,
-		shopDomain: claims.shopDomain,
-		shopId: claims.shopId,
-		shopifyUserId: claims.shopifyUserId,
-	})
+	const token = await new SignJWT(claims)
 		.setProtectedHeader({
 			alg: AUTH_ALGORITHM,
 			kid: signingJwk.kid,
@@ -112,7 +117,7 @@ export async function issueMerchantSessionToken(claims: MerchantSessionTokenClai
 		})
 		.setIssuer(issuer)
 		.setAudience(audience)
-		.setSubject(claims.merchantActorId)
+		.setSubject(subject)
 		.setIssuedAt(issuedAt)
 		.setExpirationTime(expiresAt)
 		.sign(signingKey);
@@ -121,4 +126,33 @@ export async function issueMerchantSessionToken(claims: MerchantSessionTokenClai
 		token,
 		expiresAt: expiresAt * 1000,
 	};
+}
+
+export async function issueMerchantSessionToken(claims: MerchantSessionTokenClaims) {
+	return await issueSessionToken({
+		claims: {
+			authMode: "embedded",
+			email: claims.email,
+			merchantActorId: claims.merchantActorId,
+			name: claims.name,
+			roles: claims.roles,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+			shopifyUserId: claims.shopifyUserId,
+		},
+		subject: claims.merchantActorId,
+	});
+}
+
+export async function issueInternalSessionToken(claims: InternalSessionTokenClaims) {
+	return await issueSessionToken({
+		claims: {
+			authMode: "internal",
+			email: claims.email,
+			internalUserId: claims.internalUserId,
+			name: claims.name,
+			roles: claims.roles,
+		},
+		subject: claims.internalUserId,
+	});
 }

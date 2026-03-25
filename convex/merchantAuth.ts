@@ -1,13 +1,10 @@
 import type { UserIdentity } from "convex/server";
+import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import type { MutationCtx, QueryCtx } from "./_generated/server";
+import type { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server";
 
 type MerchantDbCtx = QueryCtx | MutationCtx;
-type MerchantAuthCtx = {
-	auth: {
-		getUserIdentity: () => Promise<UserIdentity | null>;
-	};
-};
+type MerchantAuthCtx = QueryCtx | MutationCtx | ActionCtx;
 
 export interface MerchantClaims {
 	merchantActorId: Id<"merchantActors">;
@@ -24,6 +21,15 @@ export interface MerchantContext {
 	shop: Doc<"shops">;
 }
 
+function getOptionalStringClaim(
+	identity: UserIdentity,
+	key: keyof MerchantClaims | "authKind" | "role" | "userId",
+) {
+	const value = identity[key];
+
+	return typeof value === "string" && value.length > 0 ? value : null;
+}
+
 function getStringClaim(identity: UserIdentity, key: keyof MerchantClaims) {
 	const value = identity[key];
 
@@ -36,25 +42,31 @@ function getStringClaim(identity: UserIdentity, key: keyof MerchantClaims) {
 	return value;
 }
 
-function getStringArrayClaim(identity: UserIdentity, key: keyof MerchantClaims) {
-	const value = identity[key];
+export function getMerchantClaimsFromIdentity(identity: UserIdentity): MerchantClaims {
+	const explicitRoles =
+		Array.isArray(identity.roles) && identity.roles.every((entry) => typeof entry === "string")
+			? identity.roles
+			: null;
+	const singleRole = getOptionalStringClaim(identity, "role");
+	const roles = explicitRoles ?? (singleRole ? [singleRole] : []);
 
-	if (
-		!Array.isArray(value) ||
-		!value.every((entry): entry is string => typeof entry === "string")
-	) {
-		throw new Error(
-			`Authenticated merchant token is missing the required \`${String(key)}\` claim.`,
-		);
+	if (getOptionalStringClaim(identity, "authKind") === "internal") {
+		throw new Error("Internal staff sessions cannot be used for merchant-scoped data.");
 	}
 
-	return value;
-}
+	if (roles.length === 0) {
+		throw new Error("Authenticated merchant token is missing the required `roles` claim.");
+	}
 
-export function getMerchantClaimsFromIdentity(identity: UserIdentity): MerchantClaims {
 	return {
-		merchantActorId: getStringClaim(identity, "merchantActorId") as Id<"merchantActors">,
-		roles: getStringArrayClaim(identity, "roles"),
+		merchantActorId: (getOptionalStringClaim(identity, "merchantActorId") ??
+			getOptionalStringClaim(identity, "userId") ??
+			(() => {
+				throw new Error(
+					"Authenticated merchant token is missing the required `merchantActorId` claim.",
+				);
+			})()) as Id<"merchantActors">,
+		roles,
 		shopDomain: getStringClaim(identity, "shopDomain"),
 		shopId: getStringClaim(identity, "shopId") as Id<"shops">,
 		shopifyUserId: getStringClaim(identity, "shopifyUserId"),
@@ -68,7 +80,33 @@ export async function requireMerchantClaims(ctx: MerchantAuthCtx): Promise<Merch
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
 
-	return getMerchantClaimsFromIdentity(identity);
+	try {
+		return getMerchantClaimsFromIdentity(identity);
+	} catch {
+		const merchantActorId = getOptionalStringClaim(identity, "userId");
+
+		if (!merchantActorId) {
+			throw new Error(
+				"Protected merchant data requires an authenticated embedded Shopify session.",
+			);
+		}
+
+		const resolved = await ctx.runQuery(api.auth.resolveMerchantClaims, {
+			merchantActorId: merchantActorId as Id<"merchantActors">,
+		});
+
+		if (!resolved) {
+			throw new Error("Authenticated merchant actor could not be resolved from Better Auth.");
+		}
+
+		return {
+			merchantActorId: resolved.merchantActorId,
+			roles: [resolved.role],
+			shopDomain: resolved.shopDomain,
+			shopId: resolved.shopId,
+			shopifyUserId: resolved.shopifyUserId,
+		};
+	}
 }
 
 export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<MerchantContext> {

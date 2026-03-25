@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as InternalAuthRouteImport } from './routes/internal-auth'
 import { Route as InternalRouteImport } from './routes/internal'
 import { Route as InstallRouteImport } from './routes/install'
 import { Route as AppRouteImport } from './routes/app'
@@ -26,8 +27,14 @@ import { Route as AppCopilotRouteImport } from './routes/app.copilot'
 import { Route as ApiShopifyWidgetRouteImport } from './routes/api.shopify.widget'
 import { Route as ApiShopifyWebhooksRouteImport } from './routes/api.shopify.webhooks'
 import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bootstrap'
+import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
+const InternalAuthRoute = InternalAuthRouteImport.update({
+  id: '/internal-auth',
+  path: '/internal-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InternalRoute = InternalRouteImport.update({
   id: '/internal',
   path: '/internal',
@@ -113,6 +120,11 @@ const ApiShopifyBootstrapRoute = ApiShopifyBootstrapRouteImport.update({
   path: '/api/shopify/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
+  id: '/api/auth/$',
+  path: '/api/auth/$',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiShopifyWidgetChatRoute = ApiShopifyWidgetChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -124,6 +136,7 @@ export interface FileRoutesByFullPath {
   '/app': typeof AppRouteWithChildren
   '/install': typeof InstallRoute
   '/internal': typeof InternalRouteWithChildren
+  '/internal-auth': typeof InternalAuthRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -134,6 +147,7 @@ export interface FileRoutesByFullPath {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -142,6 +156,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/install': typeof InstallRoute
+  '/internal-auth': typeof InternalAuthRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -152,6 +167,7 @@ export interface FileRoutesByTo {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app': typeof AppIndexRoute
   '/internal': typeof InternalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -163,6 +179,7 @@ export interface FileRoutesById {
   '/app': typeof AppRouteWithChildren
   '/install': typeof InstallRoute
   '/internal': typeof InternalRouteWithChildren
+  '/internal-auth': typeof InternalAuthRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -173,6 +190,7 @@ export interface FileRoutesById {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
+  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -185,6 +203,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/install'
     | '/internal'
+    | '/internal-auth'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -195,6 +214,7 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
+    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -203,6 +223,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/install'
+    | '/internal-auth'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -213,6 +234,7 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app'
     | '/internal'
+    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -223,6 +245,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/install'
     | '/internal'
+    | '/internal-auth'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -233,6 +256,7 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
+    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -244,6 +268,8 @@ export interface RootRouteChildren {
   AppRoute: typeof AppRouteWithChildren
   InstallRoute: typeof InstallRoute
   InternalRoute: typeof InternalRouteWithChildren
+  InternalAuthRoute: typeof InternalAuthRoute
+  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiShopifyBootstrapRoute: typeof ApiShopifyBootstrapRoute
   ApiShopifyWebhooksRoute: typeof ApiShopifyWebhooksRoute
   ApiShopifyWidgetRoute: typeof ApiShopifyWidgetRouteWithChildren
@@ -251,6 +277,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/internal-auth': {
+      id: '/internal-auth'
+      path: '/internal-auth'
+      fullPath: '/internal-auth'
+      preLoaderRoute: typeof InternalAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/internal': {
       id: '/internal'
       path: '/internal'
@@ -370,6 +403,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopifyBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/auth/$': {
+      id: '/api/auth/$'
+      path: '/api/auth/$'
+      fullPath: '/api/auth/$'
+      preLoaderRoute: typeof ApiAuthSplatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/shopify/widget/chat': {
       id: '/api/shopify/widget/chat'
       path: '/chat'
@@ -434,6 +474,8 @@ const rootRouteChildren: RootRouteChildren = {
   AppRoute: AppRouteWithChildren,
   InstallRoute: InstallRoute,
   InternalRoute: InternalRouteWithChildren,
+  InternalAuthRoute: InternalAuthRoute,
+  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiShopifyBootstrapRoute: ApiShopifyBootstrapRoute,
   ApiShopifyWebhooksRoute: ApiShopifyWebhooksRoute,
   ApiShopifyWidgetRoute: ApiShopifyWidgetRouteWithChildren,

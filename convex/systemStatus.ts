@@ -2,6 +2,7 @@ import type { MetricCard, SignalLine, TableRecord } from "../src/shared/contract
 import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
+import { requireInternalStaff } from "./internalAuth";
 
 function formatTimestamp(value: number | undefined) {
 	if (!value) {
@@ -277,6 +278,8 @@ function buildBlockers({
 export const snapshot = query({
 	args: {},
 	handler: async (ctx): Promise<SystemStatusSnapshot> => {
+		await requireInternalStaff(ctx);
+
 		const [
 			shops,
 			installations,

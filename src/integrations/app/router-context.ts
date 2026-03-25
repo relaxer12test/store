@@ -1,5 +1,6 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
+import { getSessionEnvelope } from "@/features/auth/session/server";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
 import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
@@ -77,14 +78,16 @@ function getSessionFingerprint(session: SessionEnvelope) {
 	});
 }
 
-function hasFreshMerchantToken(session: SessionEnvelope) {
-	return (
-		hasEmbeddedMerchantSession(session) &&
-		Boolean(
-			session.convexTokenExpiresAt &&
-			session.convexTokenExpiresAt > Date.now() + CONVEX_TOKEN_REFRESH_BUFFER_MS,
-		)
+function hasFreshConvexToken(session: SessionEnvelope) {
+	return Boolean(
+		session.convexToken &&
+		session.convexTokenExpiresAt &&
+		session.convexTokenExpiresAt > Date.now() + CONVEX_TOKEN_REFRESH_BUFFER_MS,
 	);
+}
+
+function hasFreshMerchantToken(session: SessionEnvelope) {
+	return hasEmbeddedMerchantSession(session) && hasFreshConvexToken(session);
 }
 
 function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
@@ -173,6 +176,10 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 		const currentSession = sessionManager.getState();
 
+		if (currentSession.authMode === "internal" && !options?.forceRefresh) {
+			return currentSession;
+		}
+
 		if (!options?.forceRefresh && hasFreshMerchantToken(currentSession)) {
 			return currentSession;
 		}
@@ -244,6 +251,19 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	if (!isServer) {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
+			const currentSession = sessionManager.getState();
+
+			if (!forceRefreshToken && hasFreshConvexToken(currentSession)) {
+				return currentSession.convexToken;
+			}
+
+			if (currentSession.authMode === "internal") {
+				const session = await getSessionEnvelope();
+				setSession(session);
+
+				return session.convexToken;
+			}
+
 			const session = await ensureEmbeddedSession({
 				forceRefresh: forceRefreshToken,
 			});

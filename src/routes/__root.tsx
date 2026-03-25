@@ -12,7 +12,9 @@ const shopifyApiKey = getOptionalShopifyApiKey();
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context }) => {
-		const session = isServer ? await getSessionEnvelope() : context.sessionManager.getState();
+		const currentSession = context.sessionManager.getState();
+		const session =
+			isServer || currentSession.authMode === "none" ? await getSessionEnvelope() : currentSession;
 		context.setSession(session);
 
 		return {

@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { authComponent, createAuth } from "./auth";
 import { streamStorefrontWidgetReply } from "./storefrontWidgetRuntime";
 
 const http = httpRouter();
@@ -43,6 +44,8 @@ function withPublicCorsHeaders(headers?: HeadersInit) {
 
 	return mergedHeaders;
 }
+
+authComponent.registerRoutes(http, createAuth);
 
 http.route({
 	path: "/shopify/bootstrap",

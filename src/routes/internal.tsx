@@ -1,7 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
 import { useSessionEnvelope } from "@/features/auth/session/client";
+import { getSessionEnvelope } from "@/features/auth/session/server";
+import { hasInternalStaffSession } from "@/shared/contracts/session";
 
 const internalNav: SurfaceNavItem[] = [
 	{
@@ -31,7 +33,22 @@ const internalNav: SurfaceNavItem[] = [
 	},
 ];
 
-export const Route = createFileRoute("/internal")({ component: InternalLayoutRoute });
+export const Route = createFileRoute("/internal")({
+	beforeLoad: async ({ context }) => {
+		const currentSession = context.sessionManager.getState();
+		const session =
+			currentSession.authMode === "none" ? await getSessionEnvelope() : currentSession;
+
+		context.setSession(session);
+
+		if (!hasInternalStaffSession(session)) {
+			throw redirect({
+				to: "/internal-auth",
+			});
+		}
+	},
+	component: InternalLayoutRoute,
+});
 
 function InternalLayoutRoute() {
 	const session = useSessionEnvelope();

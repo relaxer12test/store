@@ -18,7 +18,7 @@ export interface ShopSummary {
 }
 
 export interface SessionEnvelope {
-	authMode: "none" | "embedded";
+	authMode: "none" | "embedded" | "internal";
 	state: "ready" | "offline";
 	viewer: ViewerSummary | null;
 	activeShop: ShopSummary | null;
@@ -32,5 +32,14 @@ export function hasEmbeddedMerchantSession(session: SessionEnvelope) {
 		session.authMode === "embedded" &&
 		session.state === "ready" &&
 		Boolean(session.viewer && session.activeShop && session.convexToken)
+	);
+}
+
+export function hasInternalStaffSession(session: SessionEnvelope) {
+	return (
+		session.authMode === "internal" &&
+		session.state === "ready" &&
+		session.roles.includes("internal_staff") &&
+		Boolean(session.viewer && session.convexToken)
 	);
 }
