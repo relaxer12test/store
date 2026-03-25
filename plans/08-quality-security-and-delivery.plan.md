@@ -19,6 +19,7 @@ Define the verification, deployment, auditability, and submission standards for 
 - Verify public AI endpoints can read only storefront-safe catalog data and `public` documents.
 - Verify merchant write actions require explicit approval before Shopify mutations run.
 - Verify uninstall blocks future sync and action execution for the removed shop.
+- Verify any `/internal` or equivalent dev console is disabled or strongly gated outside explicit development/staff environments.
 - Keep Shopify offline tokens, OpenAI keys, Cloudflare credentials, and any private storefront tokens only in server-side environment configuration.
 
 ## Observability

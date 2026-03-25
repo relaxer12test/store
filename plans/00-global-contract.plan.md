@@ -30,8 +30,11 @@ TanStack Start runs on Cloudflare Workers at `storeai.ldev.cloud`. Convex owns t
 - `store.ldev.cloud` and `storedev.ldev.cloud` are Shopify storefront domains.
 - `https://storeai.ldev.cloud/` is the public app shell for install/help/demo entry.
 - `https://storeai.ldev.cloud/app` is the embedded Shopify admin surface.
+- `https://storeai.ldev.cloud/internal` may exist as a dev-only debug/admin console for our own diagnostics and workflow support while building.
 - The storefront AI lives inside a Shopify theme app extension or app embed, not inside the app landing page.
 - There is no `/ops` surface in v1.
+
+The internal console is not a merchant product surface and must be hidden behind explicit development/staff-only access controls.
 
 ## UX Non-Negotiables
 - The embedded app must feel like a smooth SPA inside Shopify admin.

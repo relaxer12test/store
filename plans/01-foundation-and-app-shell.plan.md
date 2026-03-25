@@ -21,6 +21,7 @@ Create the application skeleton, routing model, embedded-app bootstrap pattern, 
 - `/app/explorer`
 - `/app/workflows`
 - `/app/settings`
+- `/internal` dev-only internal diagnostics/debug shell on `storeai.ldev.cloud`
 
 There is no `/ops` route family in v1.
 
@@ -50,6 +51,12 @@ There is no `/ops` route family in v1.
   - `ui/layout`
   - `ui/feedback`
 - Tailwind Plus and Catalyst code must be wrapped behind local components so licensed snippets can be swapped in without refactoring feature logic.
+
+## Internal Dev Console Rules
+- `/internal` exists only to help us inspect install state, webhook deliveries, cached data, action audits, and debug flows while building.
+- Keep it completely separate from merchant navigation and merchant authorization assumptions.
+- Gate it behind explicit environment checks and staff-only access controls before it ever exists outside local development.
+- Treat it as disposable support tooling, not a productized platform-admin surface.
 
 ## Form Composition Contract
 - Every significant form uses a top-level `MainForm` wrapper.
