@@ -1,7 +1,10 @@
+"use node";
+
 import { createOpenAI } from "@ai-sdk/openai";
 import { embed, embedMany } from "ai";
 import { v } from "convex/values";
 import JSZip from "jszip";
+import { PDFParse } from "pdf-parse";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, type ActionCtx } from "./_generated/server";
@@ -104,23 +107,6 @@ async function extractDocxText(data: ArrayBuffer) {
 	);
 }
 
-async function loadPdfParser() {
-	const originalStructuredClone = globalThis.structuredClone;
-
-	if (typeof originalStructuredClone === "function") {
-		globalThis.structuredClone = ((value: unknown) =>
-			originalStructuredClone(value)) as typeof structuredClone;
-	}
-
-	try {
-		return await import("pdf-parse");
-	} finally {
-		if (typeof originalStructuredClone === "function") {
-			globalThis.structuredClone = originalStructuredClone;
-		}
-	}
-}
-
 async function fetchDocumentBytes(document: Doc<"merchantDocuments">) {
 	if (document.r2Key) {
 		const url = await documentStorage.getUrl(document.r2Key, {
@@ -151,7 +137,6 @@ async function fetchDocumentBytes(document: Doc<"merchantDocuments">) {
 async function extractDocumentText(args: { data: ArrayBuffer; format: ExtractedDocumentFormat }) {
 	switch (args.format) {
 		case "pdf": {
-			const { PDFParse } = await loadPdfParser();
 			const parser = new PDFParse({
 				data: args.data,
 			});

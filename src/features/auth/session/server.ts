@@ -1,4 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
+import {
+	getRequestHeader,
+	getRequestUrl,
+	setResponseHeader,
+} from "@tanstack/react-start/server";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
 const guestSession: SessionEnvelope = {
@@ -120,9 +125,6 @@ export function buildEmbeddedAppContentSecurityPolicy(
 }
 
 export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
-	const { getRequestHeader, getRequestUrl, setResponseHeader } = await import(
-		"@tanstack/react-start/server"
-	);
 	const requestUrl = getRequestUrl({
 		xForwardedHost: true,
 		xForwardedProto: true,
