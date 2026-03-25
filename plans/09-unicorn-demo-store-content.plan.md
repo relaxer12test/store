@@ -16,7 +16,11 @@ None. Use the defaults in this file unless the user explicitly changes the store
 - Age focus: roughly ages `4-9`
 - Brand tone: whimsical, kind, storybook, polished enough for adult buyers
 - Visual direction: pastel but not chaotic, more moonbeam and rainbow than glitter explosion
-- Initial launch size: `24-30` products
+- Published catalog target: `650-850` products, with `500-1000` accepted as the practical range
+- Catalog composition target:
+  - `60-90` hero products with richer copy and fuller image sets
+  - `220-320` standard products with solid but lighter PDP treatment
+  - `220-440` long-tail products generated from approved family templates
 - Initial launch collections:
   - Dress-Up
   - Plush & Toys
@@ -24,6 +28,7 @@ None. Use the defaults in this file unless the user explicitly changes the store
   - Room Magic
   - Craft & Activity
   - Gift Bundles
+  - Seasonal Magic
 - Commerce posture: mid-market boutique, not bargain-bin and not Pottery Barn luxury
 - Product claims rule: do not invent certifications, hypoallergenic claims, sustainability claims, or safety claims unless they are actually sourced
 - Reviews rule: do not generate fake customer reviews
@@ -84,7 +89,45 @@ Use the middle of the current market, slightly above mass retail and below premi
 - When used, keep compare-at roughly `15-25%` above the actual selling price.
 - Do not put every item "on sale." The store should feel credible.
 
-## Launch Catalog
+## Scaled Catalog Strategy
+
+### Why The Store Should Scale By Families
+- A store looks real when collection pages are dense, filters are populated, and search returns many believable results.
+- It does not require `800` completely unique hero concepts.
+- The scalable pattern is: define strong product families, then expand each family through approved style, color, size, and occasion variants.
+- The catalog should feel broad, but still clearly owned by one brand.
+
+### Count Plan By Collection
+
+| Collection | Target Product Count | Notes |
+| --- | ---: | --- |
+| Dress-Up | 120-170 | Capes, tutu sets, pajamas, slippers, accessories, costumes |
+| Plush & Toys | 140-190 | Plush families, figure sets, tea sets, play kits, pillows |
+| Party Shop | 100-150 | Party bags, banners, plates, cupcake kits, favors, sets |
+| Room Magic | 80-120 | Lamps, decals, cushions, garlands, storage, bedding-adjacent decor |
+| Craft & Activity | 100-150 | Sticker kits, bracelet kits, paint kits, slime kits, terrariums |
+| Gift Bundles | 25-40 | Age, price, and occasion bundles |
+| Seasonal Magic | 40-80 | Halloween, holiday gifting, back-to-school, birthday capsule items |
+| Total | 605-900 | Leaves room to land inside the `500-1000` target |
+
+### Product Tiering
+
+#### Tier 1: Hero Products
+- Use for the best `60-90` products.
+- These need the richest copy, best imagery, strongest merchandising, and cross-sells.
+- These are homepage candidates and AI recommendation anchors.
+
+#### Tier 2: Standard Products
+- Use for the next `220-320` products.
+- These should still feel polished, but can reuse family-level copy structures and simpler image sets.
+
+#### Tier 3: Long-Tail Products
+- Use for the remaining `220-440` products.
+- These exist to make category pages, filters, search, and recommendation flows feel like a real store.
+- They should be believable and clean, not generic filler.
+- Long-tail products must still follow naming, pricing, and image-system rules.
+
+## Anchor Catalog
 
 ### Catalog Architecture Rules
 - Keep handles clean and descriptive.
@@ -92,8 +135,9 @@ Use the middle of the current market, slightly above mass retail and below premi
 - Prefer `color`, `size`, and `format` as option axes.
 - Avoid too many personalized products in v1.
 - Keep most products under `3` options so setup stays quick.
+- Treat the table below as anchor families and hero examples, not the full published catalog.
 
-### Launch SKU Table
+### Anchor SKU Table
 
 | Handle | Product | Collection | Price | Variants | Notes |
 | --- | --- | --- | ---: | --- | --- |
@@ -137,6 +181,61 @@ Use the middle of the current market, slightly above mass retail and below premi
 - Price bundles at roughly `10-12%` below individual item total.
 - Show the bundle savings clearly, but do not overdo the sale framing.
 
+## Family Expansion Rules
+
+### Expansion Principle
+Scale from a controlled set of approved families instead of inventing hundreds of random products.
+
+### Family Multipliers
+Each approved family can expand through:
+- style name
+- colorway
+- size band
+- pack size
+- occasion tag
+- seasonal finish
+
+### Example Expansion Pattern
+
+#### Dress-Up Capes
+- Families: `Stardust`, `Moonbeam`, `Rainbow Trail`, `Golden Horn`, `Sugar Cloud`, `Starfall`
+- Colorways per family: `2-4`
+- Sizes per family: `2-3`
+- Expected products from this family group: `24-72`
+
+#### Plush
+- Families: `Cuddly Cloud`, `Dreamy Mane`, `Twinkle Hoof`, `Moon Snuggle`, `Glow Spark`, `Rainbow Comet`
+- Size formats per family: `2-3`
+- Colorways per family: `2-4`
+- Expected products from this family group: `24-72`
+
+#### Party Supplies
+- Families: `Moonbeam Party`, `Meadow Unicorn`, `Starlight Birthday`, `Rainbow Castle`, `Sugar Cloud Celebration`
+- Components per family: `6-10`
+- Pack-size variants where reasonable: `1-2`
+- Expected products from this family group: `30-80`
+
+#### Crafts
+- Families: `Sticker Studio`, `Paint Box`, `Bracelet Box`, `Slime Lab`, `Sparkle Sketch`, `Terrarium Garden`
+- Formats per family: `3-6`
+- Expected products from this family group: `18-36`
+
+### Naming Formula
+Use:
+- `[Magic adjective] + [unicorn noun] + [product type]`
+- `[Occasion adjective] + [unicorn theme] + [product type]`
+
+Examples:
+- `Moonbeam Unicorn Cape`
+- `Rainbow Trail Dress-Up Wings`
+- `Starlight Birthday Cupcake Kit`
+- `Sugar Cloud Plush Unicorn`
+
+### Long-Tail Product Rule
+- At least `70%` of the large catalog should be generated from these family systems.
+- The remaining `30%` can be hero concepts, bundles, or seasonal one-offs.
+- Do not create isolated names that never repeat as a family.
+
 ## Collections And Merchandising Rules
 
 ### Dress-Up
@@ -169,10 +268,18 @@ Use the middle of the current market, slightly above mass retail and below premi
 - This collection exists to help the AI concierge recommend quick purchases.
 - Use tags like `giftable`, `birthday`, `sleepover`, `under-60`, `hero-bundle`.
 
+### Seasonal Magic
+- Use this for Halloween costumes, holiday gifts, birthday capsule sets, and back-to-school accessories.
+- Keep it tightly curated even if the product count is high.
+- Use seasonal tags instead of drifting into unrelated categories.
+
 ## Content To Generate
 
 ### Product Content
-Generate for every SKU:
+Generate by tier rather than forcing identical work on all `500-1000` products.
+
+#### Tier 1 Product Content
+Generate for every hero product:
 - Product title
 - Short subtitle, `6-10` words
 - `90-140` word product description
@@ -185,6 +292,28 @@ Generate for every SKU:
 - SEO title and meta description
 - `3-5` alt text strings per product image
 - `5-8` search tags
+
+#### Tier 2 Product Content
+Generate for every standard product:
+- Product title
+- Short subtitle, `4-8` words
+- `70-110` word description
+- `4-5` bullets
+- Included-in-box section when relevant
+- Age guidance line
+- SEO title and meta description
+- `2-3` alt text strings
+- `4-6` search tags
+
+#### Tier 3 Product Content
+Generate for every long-tail product:
+- Product title
+- One-sentence description, `35-70` words
+- `3-4` bullets
+- Age guidance line when relevant
+- SEO title and meta description
+- `1-2` alt text strings
+- `3-5` search tags
 
 ### Collection Content
 Generate for every collection:
@@ -393,38 +522,48 @@ Use generated product imagery for the actual catalog and licensed stock imagery 
 
 ### Image Set By Product Type
 
-#### Dress-Up Products
+#### Tier 1 Dress-Up Products
 - 1 front hero
 - 1 angled hero
 - 1 detail close-up
 - 1 styled lifestyle shot
 - 1 laid-out kit image
 
-#### Plush Products
+#### Tier 1 Plush Products
 - 1 front hero
 - 1 scale/context shot
 - 1 room/lifestyle shot
 - 1 detail close-up
 
-#### Party Products
+#### Tier 1 Party Products
 - 1 flat lay hero
 - 1 assembled party scene
 - 1 contents shot
 - 1 detail close-up
 - 1 packaging/giftability shot
 
-#### Craft Kits
+#### Tier 1 Craft Kits
 - 1 packaging hero
 - 1 contents flat lay
 - 1 in-progress scene
 - 1 finished-result scene
 - 1 close-up detail
 
-#### Room Decor
+#### Tier 1 Room Decor
 - 1 isolated product shot
 - 1 styled room vignette
 - 1 scale/detail shot
 - 1 alternate angle
+
+#### Tier 2 Standard Products
+- 1 hero image
+- 1 alternate angle or detail image
+- 1 lifestyle or context image for strong families only
+
+#### Tier 3 Long-Tail Products
+- 1 clean hero image
+- 1 optional secondary image reused from the family template if needed
+- Do not attempt five bespoke images for every long-tail item
 
 ### Alt Text Pattern
 Use:
@@ -465,34 +604,44 @@ storybook kids boutique product photography, pastel moonbeam palette, soft dayli
 
 ### Step 1: Create Structured Catalog Data
 - Build a spreadsheet or seed file from the launch SKU table in this plan.
-- Add handle, title, collection, price, variants, age band, bullets, cross-sells, and bundle membership.
+- Expand the anchor table into family matrices until the catalog lands between `500` and `1000` products.
+- Add handle, title, collection, tier, price, variants, age band, bullets, cross-sells, and bundle membership.
 
-### Step 2: Generate Product Copy
-- Run the product data through the copy prompt template.
+### Step 2: Approve Family Matrices
+- Lock family names, allowed colors, size bands, and pack formats before bulk generation.
+- Reject any family that feels off-brand or too repetitive.
+
+### Step 3: Generate Product Copy
+- Write Tier 1 hero products first.
+- Generate Tier 2 and Tier 3 products from approved family templates.
 - Human-review for repetitive language, unsafe claims, and fake specificity.
 
-### Step 3: Generate Collection And Homepage Copy
+### Step 4: Generate Collection And Homepage Copy
 - Generate collection blurbs and homepage blocks after the product names are locked.
 - Keep message hierarchy parent-friendly.
 
-### Step 4: Generate Image Prompts
-- Create one prompt family per collection.
+### Step 5: Generate Image Prompts
+- Create one prompt family per collection and subfamily.
 - Generate hero images first, then supporting angles.
+- Reuse approved family setups for long-tail items so the catalog stays visually consistent.
 
-### Step 5: Source Editorial Stock
+### Step 6: Source Editorial Stock
 - Pull only the editorial images the site actually needs.
 - Track URLs and licenses in a simple asset register.
 
-### Step 6: Import Into Shopify
+### Step 7: Import Into Shopify
 - Upload product data, variant media, alt text, and collections.
 - Make sure bundle components and tags are consistent for AI recommendations.
+- Populate enough pagination depth and filter coverage that the store reads as real on browse and search pages.
 
-### Step 7: Publish Public Docs
+### Step 8: Publish Public Docs
 - Upload the public markdown docs for the storefront AI.
 - Keep policy docs clear and plain-language.
 
-### Step 8: QA
+### Step 9: QA
 - Make sure the AI can answer gift, party, age, and bundle questions from public data only.
+- Check that no collection page looks thin.
+- Check that search for `unicorn`, `birthday`, `plush`, `cape`, `party`, and `gift` returns dense, believable results.
 
 ## Public Knowledge Doc Content Requirements
 
@@ -576,9 +725,10 @@ Add these tags consistently so the storefront AI and collections can use them:
 ## Acceptance Standard
 A fresh implementation agent should be able to use only this file to:
 - create a believable unicorn demo catalog
-- assign exact launch prices
-- generate consistent product and collection copy
-- produce a coherent image plan without licensing confusion
+- scale the catalog to `500-1000` published products without losing brand coherence
+- assign exact launch prices and family price bands
+- generate consistent product and collection copy across hero, standard, and long-tail tiers
+- produce a coherent image plan without licensing confusion or impossible art requirements
 - seed public knowledge docs for storefront AI
 - merchandize the store without asking follow-up premise questions
 
