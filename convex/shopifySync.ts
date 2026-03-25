@@ -66,10 +66,37 @@ const PUBLIC_CATALOG_QUERY = `
 				variants(first: 20) {
 					nodes {
 						availableForSale
-						sellableOnlineQuantity
+						legacyResourceId
 						title
 					}
 				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+`;
+
+const PUBLIC_COLLECTIONS_QUERY = `
+	query PublicCollectionPage($cursor: String) {
+		collections(
+			first: 100
+			after: $cursor
+			sortKey: UPDATED_AT
+			query: "published_status:published"
+		) {
+			nodes {
+				id
+				legacyResourceId
+				title
+				handle
+				description(truncateAt: 220)
+				productsCount {
+					count
+				}
+				updatedAt
 			}
 			pageInfo {
 				hasNextPage
@@ -136,7 +163,25 @@ const sanitizedCatalogProductValidator = v.object({
 	tags: v.array(v.string()),
 	title: v.string(),
 	variantTitles: v.array(v.string()),
+	variants: v.array(
+		v.object({
+			availableForSale: v.boolean(),
+			storefrontVariantId: v.string(),
+			title: v.string(),
+		}),
+	),
 	vendor: v.optional(v.string()),
+});
+
+const sanitizedCatalogCollectionValidator = v.object({
+	description: v.optional(v.string()),
+	handle: v.string(),
+	productCount: v.optional(v.number()),
+	searchText: v.string(),
+	shopifyCollectionId: v.string(),
+	sourceUpdatedAt: v.number(),
+	summary: v.string(),
+	title: v.string(),
 });
 
 type ShopifyCount = {
@@ -170,11 +215,29 @@ type CatalogPageResponse = {
 			variants?: {
 				nodes?: Array<{
 					availableForSale?: boolean | null;
-					sellableOnlineQuantity?: number | null;
+					legacyResourceId?: string | number | null;
 					title?: string | null;
 				}> | null;
 			} | null;
 			vendor?: string | null;
+		}> | null;
+		pageInfo?: {
+			endCursor?: string | null;
+			hasNextPage?: boolean | null;
+		} | null;
+	} | null;
+};
+
+type CollectionPageResponse = {
+	collections?: {
+		nodes?: Array<{
+			description?: string | null;
+			handle?: string | null;
+			id?: string | null;
+			legacyResourceId?: string | number | null;
+			productsCount?: ShopifyCount | null;
+			title?: string | null;
+			updatedAt?: string | null;
 		}> | null;
 		pageInfo?: {
 			endCursor?: string | null;
@@ -223,7 +286,23 @@ type SanitizedCatalogProduct = {
 	tags: string[];
 	title: string;
 	variantTitles: string[];
+	variants: Array<{
+		availableForSale: boolean;
+		storefrontVariantId: string;
+		title: string;
+	}>;
 	vendor?: string;
+};
+
+type SanitizedCatalogCollection = {
+	description?: string;
+	handle: string;
+	productCount?: number;
+	searchText: string;
+	shopifyCollectionId: string;
+	sourceUpdatedAt: number;
+	summary: string;
+	title: string;
 };
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T) {
@@ -287,6 +366,12 @@ function buildCatalogSearchText(product: Omit<SanitizedCatalogProduct, "searchTe
 		.join(" ");
 }
 
+function buildCollectionSearchText(
+	collection: Omit<SanitizedCatalogCollection, "searchText" | "summary">,
+) {
+	return [collection.title, collection.description].filter(Boolean).join(" ");
+}
+
 function buildCatalogSummary(product: Omit<SanitizedCatalogProduct, "searchText" | "summary">) {
 	const parts = [
 		product.title,
@@ -295,6 +380,22 @@ function buildCatalogSummary(product: Omit<SanitizedCatalogProduct, "searchText"
 		formatPriceLabel(product.minPrice, product.maxPrice, product.currencyCode),
 		product.availableForSale ? "Available online" : "Currently unavailable",
 	];
+
+	return parts.filter(Boolean).join(" · ");
+}
+
+function buildCollectionSummary(
+	collection: Omit<SanitizedCatalogCollection, "searchText" | "summary">,
+) {
+	const parts = [collection.title];
+
+	if (collection.productCount !== undefined) {
+		parts.push(`${collection.productCount} product${collection.productCount === 1 ? "" : "s"}`);
+	}
+
+	if (collection.description) {
+		parts.push(collection.description);
+	}
 
 	return parts.filter(Boolean).join(" · ");
 }
@@ -427,6 +528,26 @@ function sanitizeCatalogProduct(
 		.map((tag) => tag.trim())
 		.filter(Boolean)
 		.slice(0, 12);
+	const variants = (product.variants?.nodes ?? [])
+		.map((variant) => {
+			const storefrontVariantId =
+				variant.legacyResourceId !== undefined && variant.legacyResourceId !== null
+					? String(variant.legacyResourceId)
+					: null;
+			const title = variant.title?.trim() ?? "Default";
+
+			if (!storefrontVariantId) {
+				return null;
+			}
+
+			return {
+				availableForSale: Boolean(variant.availableForSale),
+				storefrontVariantId,
+				title,
+			};
+		})
+		.filter((variant): variant is NonNullable<typeof variant> => Boolean(variant))
+		.slice(0, 12);
 	const variantTitles = (product.variants?.nodes ?? [])
 		.map((variant) => variant.title?.trim() ?? "")
 		.filter((variantTitle) => Boolean(variantTitle) && variantTitle !== "Default Title")
@@ -455,6 +576,7 @@ function sanitizeCatalogProduct(
 		tags,
 		title,
 		variantTitles,
+		variants,
 		vendor: product.vendor?.trim() || undefined,
 	};
 
@@ -462,6 +584,35 @@ function sanitizeCatalogProduct(
 		...sanitized,
 		searchText: buildCatalogSearchText(sanitized),
 		summary: buildCatalogSummary(sanitized),
+	};
+}
+
+function sanitizeCatalogCollection(
+	collection: NonNullable<NonNullable<CollectionPageResponse["collections"]>["nodes"]>[number],
+) {
+	const title = collection.title?.trim();
+	const handle = collection.handle?.trim();
+	const collectionId = collection.id?.trim();
+	const sourceUpdatedAt = parseTimestamp(collection.updatedAt);
+
+	if (!title || !handle || !collectionId || sourceUpdatedAt === undefined) {
+		return null;
+	}
+
+	const description = collection.description?.trim() || undefined;
+	const sanitized: Omit<SanitizedCatalogCollection, "searchText" | "summary"> = {
+		description,
+		handle,
+		productCount: collection.productsCount?.count ?? undefined,
+		shopifyCollectionId: collectionId,
+		sourceUpdatedAt,
+		title,
+	};
+
+	return {
+		...sanitized,
+		searchText: buildCollectionSearchText(sanitized),
+		summary: buildCollectionSummary(sanitized),
 	};
 }
 
@@ -504,6 +655,45 @@ async function fetchPublicCatalogProducts({
 	return products;
 }
 
+async function fetchPublicCollections({
+	accessToken,
+	shopDomain,
+}: {
+	accessToken: string;
+	shopDomain: string;
+}) {
+	const collections: SanitizedCatalogCollection[] = [];
+	let cursor: string | undefined;
+
+	while (true) {
+		const payload = await shopifyAdminGraphqlRequest<CollectionPageResponse>({
+			accessToken,
+			query: PUBLIC_COLLECTIONS_QUERY,
+			shop: shopDomain,
+			variables: {
+				cursor,
+			},
+		});
+		const connection = payload.collections;
+
+		for (const node of connection?.nodes ?? []) {
+			const collection = sanitizeCatalogCollection(node);
+
+			if (collection) {
+				collections.push(collection);
+			}
+		}
+
+		if (!connection?.pageInfo?.hasNextPage || !connection.pageInfo.endCursor) {
+			break;
+		}
+
+		cursor = connection.pageInfo.endCursor;
+	}
+
+	return collections;
+}
+
 async function fetchMetricsOverview({
 	accessToken,
 	shopDomain,
@@ -542,10 +732,16 @@ async function runCatalogIndexRebuild(
 	accessToken: string,
 ) {
 	const refreshedAt = Date.now();
-	const products = await fetchPublicCatalogProducts({
-		accessToken,
-		shopDomain: shop.domain,
-	});
+	const [products, collections] = await Promise.all([
+		fetchPublicCatalogProducts({
+			accessToken,
+			shopDomain: shop.domain,
+		}),
+		fetchPublicCollections({
+			accessToken,
+			shopDomain: shop.domain,
+		}),
+	]);
 
 	for (const batch of chunkItems(products, MAX_CATALOG_BATCH_SIZE)) {
 		await ctx.runMutation(internal.shopifySync.upsertCatalogBatch, {
@@ -556,8 +752,17 @@ async function runCatalogIndexRebuild(
 		});
 	}
 
+	for (const batch of chunkItems(collections, MAX_CATALOG_BATCH_SIZE)) {
+		await ctx.runMutation(internal.shopifySync.upsertCollectionBatch, {
+			collections: batch,
+			domain: shop.domain,
+			refreshedAt,
+			shopId: shop._id,
+		});
+	}
+
 	while (true) {
-		const deletedCount: number = await ctx.runMutation(
+		const deletedCount: { collections: number; products: number } = await ctx.runMutation(
 			internal.shopifySync.deleteStaleCatalogBatch,
 			{
 				refreshedAt,
@@ -565,18 +770,18 @@ async function runCatalogIndexRebuild(
 			},
 		);
 
-		if (deletedCount === 0) {
+		if (deletedCount.products === 0 && deletedCount.collections === 0) {
 			break;
 		}
 	}
 
 	await ctx.runMutation(internal.shopifySync.completeJob, {
 		jobId: job._id,
-		payloadPreview: `Indexed ${products.length} public catalog product(s) from Shopify.`,
-		recordCount: products.length,
-		sourceUpdatedAt: products.reduce<number | undefined>((latest, product) => {
-			if (latest === undefined || product.sourceUpdatedAt > latest) {
-				return product.sourceUpdatedAt;
+		payloadPreview: `Indexed ${products.length} public products and ${collections.length} public collections from Shopify.`,
+		recordCount: products.length + collections.length,
+		sourceUpdatedAt: [...products, ...collections].reduce<number | undefined>((latest, record) => {
+			if (latest === undefined || record.sourceUpdatedAt > latest) {
+				return record.sourceUpdatedAt;
 			}
 
 			return latest;
@@ -938,6 +1143,7 @@ export const upsertCatalogBatch = internalMutation({
 				availableForSale: product.availableForSale,
 				currencyCode: product.currencyCode,
 				domain: args.domain,
+				featuredImageUrl: undefined,
 				handle: product.handle,
 				lastRefreshedAt: args.refreshedAt,
 				maxPrice: product.maxPrice,
@@ -955,6 +1161,7 @@ export const upsertCatalogBatch = internalMutation({
 				tags: product.tags,
 				title: product.title,
 				variantTitles: product.variantTitles,
+				variants: product.variants,
 				vendor: product.vendor,
 			});
 
@@ -971,24 +1178,80 @@ export const upsertCatalogBatch = internalMutation({
 	},
 });
 
+export const upsertCollectionBatch = internalMutation({
+	args: {
+		collections: v.array(sanitizedCatalogCollectionValidator),
+		domain: v.string(),
+		refreshedAt: v.number(),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		for (const collection of args.collections) {
+			const existing = await ctx.db
+				.query("shopifyCatalogCollections")
+				.withIndex("by_shop_and_shopify_collection_id", (query) =>
+					query.eq("shopId", args.shopId).eq("shopifyCollectionId", collection.shopifyCollectionId),
+				)
+				.unique();
+
+			const patch = withoutUndefined({
+				description: collection.description,
+				domain: args.domain,
+				handle: collection.handle,
+				lastRefreshedAt: args.refreshedAt,
+				productCount: collection.productCount,
+				searchText: collection.searchText,
+				shopId: args.shopId,
+				shopifyCollectionId: collection.shopifyCollectionId,
+				sourceUpdatedAt: collection.sourceUpdatedAt,
+				summary: collection.summary,
+				title: collection.title,
+			});
+
+			if (existing) {
+				await ctx.db.patch(existing._id, patch);
+			} else {
+				await ctx.db.insert("shopifyCatalogCollections", patch);
+			}
+		}
+
+		return {
+			ok: true,
+		};
+	},
+});
+
 export const deleteStaleCatalogBatch = internalMutation({
 	args: {
 		refreshedAt: v.number(),
 		shopId: v.id("shops"),
 	},
 	handler: async (ctx, args) => {
-		const staleRows = await ctx.db
+		const staleProducts = await ctx.db
 			.query("shopifyCatalogProducts")
 			.withIndex("by_shop_and_last_refreshed_at", (query) =>
 				query.eq("shopId", args.shopId).lt("lastRefreshedAt", args.refreshedAt),
 			)
 			.take(SHOPIFY_PAGE_SIZE);
+		const staleCollections = await ctx.db
+			.query("shopifyCatalogCollections")
+			.withIndex("by_shop_and_last_refreshed_at", (query) =>
+				query.eq("shopId", args.shopId).lt("lastRefreshedAt", args.refreshedAt),
+			)
+			.take(SHOPIFY_PAGE_SIZE);
 
-		for (const row of staleRows) {
+		for (const row of staleProducts) {
 			await ctx.db.delete(row._id);
 		}
 
-		return staleRows.length;
+		for (const row of staleCollections) {
+			await ctx.db.delete(row._id);
+		}
+
+		return {
+			collections: staleCollections.length,
+			products: staleProducts.length,
+		};
 	},
 });
 
@@ -1162,6 +1425,10 @@ export const cleanupShopDataBatch = internalMutation({
 			.query("shopifyCatalogProducts")
 			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
 			.take(SHOPIFY_PAGE_SIZE);
+		const collectionRows = await ctx.db
+			.query("shopifyCatalogCollections")
+			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+			.take(SHOPIFY_PAGE_SIZE);
 		const cacheStates = await ctx.db
 			.query("shopifyCacheStates")
 			.withIndex("by_shop_and_updated_at", (query) => query.eq("shopId", args.shopId))
@@ -1194,6 +1461,10 @@ export const cleanupShopDataBatch = internalMutation({
 			await ctx.db.delete(row._id);
 		}
 
+		for (const row of collectionRows) {
+			await ctx.db.delete(row._id);
+		}
+
 		for (const cacheState of cacheStates) {
 			await ctx.db.patch(
 				cacheState._id,
@@ -1210,17 +1481,23 @@ export const cleanupShopDataBatch = internalMutation({
 			args.jobId,
 			withoutUndefined({
 				lastUpdatedAt: now,
-				payloadPreview: `Deleted ${catalogRows.length} cached catalog row(s) during uninstall cleanup.`,
+				payloadPreview: `Deleted ${catalogRows.length} cached product row(s) and ${collectionRows.length} collection row(s) during uninstall cleanup.`,
 			}),
 		);
 
-		const remainingCatalogRows = await ctx.db
-			.query("shopifyCatalogProducts")
-			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
-			.take(1);
+		const [remainingCatalogRows, remainingCollectionRows] = await Promise.all([
+			ctx.db
+				.query("shopifyCatalogProducts")
+				.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+				.take(1),
+			ctx.db
+				.query("shopifyCatalogCollections")
+				.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+				.take(1),
+		]);
 
 		return {
-			hasMore: remainingCatalogRows.length > 0,
+			hasMore: remainingCatalogRows.length > 0 || remainingCollectionRows.length > 0,
 		};
 	},
 });

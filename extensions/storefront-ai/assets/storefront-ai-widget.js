@@ -1,4 +1,6 @@
 (function () {
+	var SESSION_KEY_PREFIX = "storefront-ai-session::";
+
 	function fetchJson(url, options) {
 		return fetch(url, options).then(function (response) {
 			return response.text().then(function (text) {
@@ -11,6 +13,92 @@
 
 				return data;
 			});
+		});
+	}
+
+	function fetchEventStream(url, options, handlers) {
+		return fetch(url, options).then(function (response) {
+			if (!response.ok) {
+				return response.text().then(function (text) {
+					var data = null;
+
+					try {
+						data = text ? JSON.parse(text) : null;
+					} catch {}
+
+					var message =
+						data && typeof data.error === "string"
+							? data.error
+							: "The storefront assistant could not respond.";
+					throw new Error(message);
+				});
+			}
+
+			if (!response.body) {
+				throw new Error("The storefront assistant did not return a stream.");
+			}
+
+			var reader = response.body.getReader();
+			var decoder = new TextDecoder();
+			var buffer = "";
+
+			function dispatchEvent(rawEvent) {
+				var eventName = "message";
+				var dataLines = [];
+
+				rawEvent.split(/\r?\n/).forEach(function (line) {
+					if (line.indexOf("event:") === 0) {
+						eventName = line.slice("event:".length).trim() || "message";
+						return;
+					}
+
+					if (line.indexOf("data:") === 0) {
+						dataLines.push(line.slice("data:".length).trim());
+					}
+				});
+
+				if (dataLines.length === 0) {
+					return;
+				}
+
+				var payload = null;
+
+				try {
+					payload = JSON.parse(dataLines.join("\n"));
+				} catch {
+					return;
+				}
+
+				var handler = handlers && handlers[eventName];
+
+				if (typeof handler === "function") {
+					handler(payload);
+				}
+			}
+
+			function pump() {
+				return reader.read().then(function (result) {
+					if (result.done) {
+						if (buffer.trim()) {
+							dispatchEvent(buffer);
+						}
+						return;
+					}
+
+					buffer += decoder.decode(result.value, { stream: true });
+					var separatorMatch = buffer.match(/\r?\n\r?\n/);
+
+					while (separatorMatch && typeof separatorMatch.index === "number") {
+						dispatchEvent(buffer.slice(0, separatorMatch.index));
+						buffer = buffer.slice(separatorMatch.index + separatorMatch[0].length);
+						separatorMatch = buffer.match(/\r?\n\r?\n/);
+					}
+
+					return pump();
+				});
+			}
+
+			return pump();
 		});
 	}
 
@@ -28,27 +116,253 @@
 		return element;
 	}
 
-	function createMessage(role, text, references) {
+	function createReferenceNode(reference) {
+		if (!reference || typeof reference.label !== "string") {
+			return null;
+		}
+
+		if (typeof reference.url === "string" && reference.url) {
+			var anchor = createElement("a", "storefront-ai-widget-reference", reference.label);
+			anchor.href = reference.url;
+			anchor.rel = "noopener noreferrer";
+			anchor.target = "_blank";
+			return anchor;
+		}
+
+		return createElement("span", "storefront-ai-widget-reference", reference.label);
+	}
+
+	function createProductCard(card) {
+		var item = createElement(
+			"article",
+			"storefront-ai-widget-card storefront-ai-widget-card--product",
+		);
+		var title = createElement("h4", "storefront-ai-widget-card-title", card.title);
+		var summary = createElement("p", "storefront-ai-widget-card-summary", card.summary);
+		var meta = createElement("div", "storefront-ai-widget-card-meta");
+		var price = createElement("span", "storefront-ai-widget-card-pill", card.priceLabel);
+		var availability = createElement(
+			"span",
+			"storefront-ai-widget-card-pill storefront-ai-widget-card-pill--availability",
+			card.availabilityLabel,
+		);
+
+		meta.appendChild(price);
+		meta.appendChild(availability);
+
+		if (card.vendor) {
+			meta.appendChild(createElement("span", "storefront-ai-widget-card-pill", card.vendor));
+		}
+
+		item.appendChild(title);
+		item.appendChild(summary);
+		item.appendChild(meta);
+
+		if (card.href) {
+			var cta = createElement("a", "storefront-ai-widget-card-link", "View product");
+			cta.href = card.href;
+			cta.rel = "noopener noreferrer";
+			cta.target = "_blank";
+			item.appendChild(cta);
+		}
+
+		return item;
+	}
+
+	function createCollectionCard(card) {
+		var item = createElement(
+			"article",
+			"storefront-ai-widget-card storefront-ai-widget-card--collection",
+		);
+		var title = createElement("h4", "storefront-ai-widget-card-title", card.title);
+		var summary = createElement("p", "storefront-ai-widget-card-summary", card.summary);
+
+		item.appendChild(title);
+		item.appendChild(summary);
+
+		if (typeof card.productCount === "number") {
+			item.appendChild(
+				createElement("span", "storefront-ai-widget-card-pill", card.productCount + " products"),
+			);
+		}
+
+		if (card.href) {
+			var cta = createElement("a", "storefront-ai-widget-card-link", "Browse collection");
+			cta.href = card.href;
+			cta.rel = "noopener noreferrer";
+			cta.target = "_blank";
+			item.appendChild(cta);
+		}
+
+		return item;
+	}
+
+	function createCartPlanCard(plan, onApply) {
+		var card = createElement("section", "storefront-ai-widget-cart-plan");
+		var title = createElement("h4", "storefront-ai-widget-card-title", "Cart plan");
+		var list = createElement("ul", "storefront-ai-widget-cart-plan-list");
+		var explanation =
+			plan && plan.explanation
+				? createElement("p", "storefront-ai-widget-card-summary", plan.explanation)
+				: null;
+
+		card.appendChild(title);
+
+		if (explanation) {
+			card.appendChild(explanation);
+		}
+
+		(plan.items || []).forEach(function (item) {
+			var entry = createElement("li", "storefront-ai-widget-cart-plan-item");
+			var name = createElement("span", "storefront-ai-widget-cart-plan-name", item.productTitle);
+			var detail = createElement(
+				"span",
+				"storefront-ai-widget-cart-plan-detail",
+				(item.variantTitle || "Default") + " x" + item.quantity,
+			);
+
+			entry.appendChild(name);
+			entry.appendChild(detail);
+			list.appendChild(entry);
+		});
+
+		card.appendChild(list);
+
+		if (plan.note) {
+			card.appendChild(createElement("p", "storefront-ai-widget-cart-plan-note", plan.note));
+		}
+
+		var button = createElement("button", "storefront-ai-widget-apply-cart", "Add plan to cart");
+		button.type = "button";
+		button.addEventListener("click", function () {
+			onApply(plan, button);
+		});
+		card.appendChild(button);
+
+		return card;
+	}
+
+	function createMessage(role, payload) {
 		var item = createElement(
 			"div",
 			"storefront-ai-widget-message storefront-ai-widget-message--" + role,
 		);
-		var body = createElement("p", "", text);
+		var body = createElement("p", "storefront-ai-widget-message-text", payload.text);
 		item.appendChild(body);
 
-		if (Array.isArray(references) && references.length > 0) {
-			var referenceRow = createElement("div", "storefront-ai-widget-references");
+		if (Array.isArray(payload.cards) && payload.cards.length > 0) {
+			var cards = createElement("div", "storefront-ai-widget-cards");
 
-			references.forEach(function (reference) {
-				referenceRow.appendChild(
-					createElement("span", "storefront-ai-widget-reference", reference),
-				);
+			payload.cards.forEach(function (card) {
+				if (card && card.kind === "product") {
+					cards.appendChild(createProductCard(card));
+					return;
+				}
+
+				if (card && card.kind === "collection") {
+					cards.appendChild(createCollectionCard(card));
+				}
 			});
 
-			item.appendChild(referenceRow);
+			if (cards.childNodes.length > 0) {
+				item.appendChild(cards);
+			}
+		}
+
+		if (
+			payload.cartPlan &&
+			Array.isArray(payload.cartPlan.items) &&
+			payload.cartPlan.items.length > 0
+		) {
+			item.appendChild(createCartPlanCard(payload.cartPlan, payload.onApplyCartPlan));
+		}
+
+		if (Array.isArray(payload.references) && payload.references.length > 0) {
+			var referenceRow = createElement("div", "storefront-ai-widget-references");
+
+			payload.references.forEach(function (reference) {
+				var node = createReferenceNode(reference);
+
+				if (node) {
+					referenceRow.appendChild(node);
+				}
+			});
+
+			if (referenceRow.childNodes.length > 0) {
+				item.appendChild(referenceRow);
+			}
 		}
 
 		return item;
+	}
+
+	function createStreamingAssistantMessage(onApplyCartPlan) {
+		var current = createMessage("assistant", {
+			cards: [],
+			cartPlan: null,
+			onApplyCartPlan: onApplyCartPlan,
+			references: [],
+			text: "Working on it...",
+		});
+		var body = current.querySelector(".storefront-ai-widget-message-text");
+		current.classList.add("storefront-ai-widget-message--streaming");
+
+		function setText(text) {
+			if (!body) {
+				return;
+			}
+
+			body.textContent = text || "";
+		}
+
+		function replace(reply) {
+			var next = createMessage(reply.tone === "refusal" ? "refusal" : "assistant", {
+				cards: reply.cards || [],
+				cartPlan: reply.cartPlan || null,
+				onApplyCartPlan: onApplyCartPlan,
+				references: reply.references || [],
+				text: reply.answer || "",
+			});
+
+			if (current.parentNode) {
+				current.parentNode.replaceChild(next, current);
+			}
+
+			current = next;
+			body = current.querySelector(".storefront-ai-widget-message-text");
+			return next;
+		}
+
+		return {
+			element: current,
+			remove: function () {
+				if (current.parentNode) {
+					current.parentNode.removeChild(current);
+				}
+			},
+			replace: replace,
+			setText: setText,
+		};
+	}
+
+	function getToolStatusText(toolName) {
+		switch (toolName) {
+			case "searchCatalog":
+			case "getProductDetail":
+				return "Checking published products...";
+			case "compareProducts":
+				return "Comparing public product options...";
+			case "searchCollections":
+				return "Looking through collections...";
+			case "answerPolicyQuestion":
+				return "Checking the store policy details...";
+			case "recommendBundle":
+				return "Building a bundle idea...";
+			case "buildCartPlan":
+				return "Preparing a safe cart plan...";
+			default:
+				return "Working on it...";
+		}
 	}
 
 	function buildThemeEditorNotice(message) {
@@ -58,6 +372,32 @@
 		notice.appendChild(title);
 		notice.appendChild(body);
 		return notice;
+	}
+
+	function createSessionId() {
+		if (window.crypto && typeof window.crypto.randomUUID === "function") {
+			return window.crypto.randomUUID();
+		}
+
+		return String(Date.now()) + "-" + String(Math.floor(Math.random() * 1000000));
+	}
+
+	function getSessionId(shopDomain) {
+		var storageKey = SESSION_KEY_PREFIX + shopDomain;
+
+		try {
+			var existing = window.localStorage.getItem(storageKey);
+
+			if (existing) {
+				return existing;
+			}
+
+			var next = createSessionId();
+			window.localStorage.setItem(storageKey, next);
+			return next;
+		} catch {
+			return createSessionId();
+		}
 	}
 
 	function bootstrapRoot(root) {
@@ -82,16 +422,18 @@
 		}
 
 		var state = {
+			applyingCart: false,
 			config: null,
 			greetingLoaded: false,
 			open: false,
 			pending: false,
+			sessionId: getSessionId(shopDomain),
 		};
 
 		var shell = createElement("section", "storefront-ai-widget-shell");
 		var toggle = createElement("button", "storefront-ai-widget-toggle");
 		var toggleDot = createElement("span", "storefront-ai-widget-toggle-dot");
-		var toggleText = createElement("span", "", "Ask AI");
+		var toggleText = createElement("span", "", "Ask concierge");
 		var panel = createElement("div", "storefront-ai-widget-panel");
 		var header = createElement("div", "storefront-ai-widget-header");
 		var title = createElement("div", "storefront-ai-widget-title");
@@ -106,7 +448,7 @@
 		var helper = createElement(
 			"p",
 			"storefront-ai-widget-helper",
-			"Ask about products, shipping, returns, or what to compare before ordering.",
+			"Ask about published products, collections, safe bundle ideas, shipping, or returns.",
 		);
 		var submit = createElement("button", "storefront-ai-widget-submit", "Send");
 
@@ -131,7 +473,6 @@
 		input.maxLength = 500;
 
 		submit.type = "submit";
-
 		suggestions.hidden = true;
 
 		header.appendChild(title);
@@ -157,36 +498,110 @@
 			feed.scrollTop = feed.scrollHeight;
 		}
 
-		function addAssistantMessage(text, references, promptSuggestions) {
-			feed.appendChild(createMessage("assistant", text, references));
+		function renderSuggestions(promptSuggestions) {
 			suggestions.innerHTML = "";
 
-			if (Array.isArray(promptSuggestions) && promptSuggestions.length > 0) {
-				promptSuggestions.forEach(function (promptText) {
-					var suggestion = createElement("button", "storefront-ai-widget-suggestion", promptText);
-					suggestion.type = "button";
-					suggestion.addEventListener("click", function () {
-						input.value = promptText;
-						void sendMessage(promptText);
-					});
-					suggestions.appendChild(suggestion);
-				});
-				suggestions.hidden = false;
-			} else {
+			if (!Array.isArray(promptSuggestions) || promptSuggestions.length === 0) {
 				suggestions.hidden = true;
+				return;
 			}
 
+			promptSuggestions.forEach(function (promptText) {
+				var suggestion = createElement("button", "storefront-ai-widget-suggestion", promptText);
+				suggestion.type = "button";
+				suggestion.addEventListener("click", function () {
+					input.value = promptText;
+					void sendMessage(promptText);
+				});
+				suggestions.appendChild(suggestion);
+			});
+
+			suggestions.hidden = false;
+		}
+
+		function setCartButtonPending(button, pending) {
+			button.disabled = pending;
+			button.textContent = pending ? "Adding..." : "Add plan to cart";
+		}
+
+		function addAssistantReply(reply) {
+			feed.appendChild(
+				createMessage(reply.tone === "refusal" ? "refusal" : "assistant", {
+					cards: reply.cards || [],
+					cartPlan: reply.cartPlan || null,
+					onApplyCartPlan: applyCartPlan,
+					references: reply.references || [],
+					text: reply.answer || "",
+				}),
+			);
+			renderSuggestions(reply.suggestedPrompts || []);
 			scrollFeedToBottom();
 		}
 
 		function addUserMessage(text) {
-			feed.appendChild(createMessage("user", text));
+			feed.appendChild(
+				createMessage("user", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
 			scrollFeedToBottom();
 		}
 
 		function addSystemMessage(text) {
-			feed.appendChild(createMessage("system", text));
+			feed.appendChild(
+				createMessage("system", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
 			scrollFeedToBottom();
+		}
+
+		function applyCartPlan(plan, button) {
+			if (state.applyingCart || !plan || !Array.isArray(plan.items) || plan.items.length === 0) {
+				return Promise.resolve();
+			}
+
+			state.applyingCart = true;
+			setCartButtonPending(button, true);
+
+			return fetchJson("/cart/add.js", {
+				body: JSON.stringify({
+					items: plan.items.map(function (item) {
+						return {
+							id: item.variantId,
+							quantity: item.quantity,
+						};
+					}),
+					note: plan.note || undefined,
+				}),
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+				},
+				method: "POST",
+			})
+				.then(function () {
+					addSystemMessage(
+						"Added the plan to your cart. Shopify will calculate final pricing, taxes, and eligibility in the live cart.",
+					);
+				})
+				.catch(function (error) {
+					addSystemMessage(
+						error instanceof Error
+							? error.message
+							: "The cart plan could not be applied right now.",
+					);
+				})
+				.finally(function () {
+					state.applyingCart = false;
+					setCartButtonPending(button, false);
+				});
 		}
 
 		function openPanel() {
@@ -197,15 +612,24 @@
 			state.open = true;
 			panel.hidden = false;
 			toggle.setAttribute("aria-expanded", "true");
-			toggleText.textContent = "Close AI";
+			toggleText.textContent = "Close concierge";
+			panel.classList.add("storefront-ai-widget-panel--open");
 
 			if (!state.greetingLoaded) {
 				state.greetingLoaded = true;
-				addAssistantMessage(state.config.greeting, state.config.knowledgeSources.slice(0, 3), [
-					"What should I know before ordering?",
-					"Can you help me choose a product?",
-					"Where can I find shipping details?",
-				]);
+				addAssistantReply({
+					answer: state.config.greeting,
+					cards: [],
+					cartPlan: null,
+					references: (state.config.knowledgeSources || []).slice(0, 4).map(function (source) {
+						return {
+							label: source,
+							url: /^https?:\/\//i.test(source) ? source : undefined,
+						};
+					}),
+					suggestedPrompts: state.config.quickPrompts || [],
+					tone: "answer",
+				});
 			}
 
 			window.setTimeout(function () {
@@ -218,7 +642,8 @@
 			state.open = false;
 			panel.hidden = true;
 			toggle.setAttribute("aria-expanded", "false");
-			toggleText.textContent = "Ask AI";
+			toggleText.textContent = "Ask concierge";
+			panel.classList.remove("storefront-ai-widget-panel--open");
 		}
 
 		function sendMessage(messageText) {
@@ -230,25 +655,56 @@
 
 			addUserMessage(trimmedMessage);
 			input.value = "";
-			suggestions.hidden = true;
-			suggestions.innerHTML = "";
+			renderSuggestions([]);
 			setPending(true);
+			var streamingMessage = createStreamingAssistantMessage(applyCartPlan);
+			var streamedText = "";
 
-			return fetchJson(apiBase + "/api/shopify/widget/chat", {
-				method: "POST",
-				headers: {
-					"Content-Type": "application/json",
+			feed.appendChild(streamingMessage.element);
+			scrollFeedToBottom();
+
+			return fetchEventStream(
+				apiBase + "/api/shopify/widget/chat",
+				{
+					method: "POST",
+					headers: {
+						Accept: "text/event-stream",
+						"Content-Type": "application/json",
+					},
+					body: JSON.stringify({
+						message: trimmedMessage,
+						pageTitle: document.title || undefined,
+						sessionId: state.sessionId,
+						shopDomain: shopDomain,
+					}),
 				},
-				body: JSON.stringify({
-					message: trimmedMessage,
-					pageTitle: document.title || undefined,
-					shopDomain: shopDomain,
-				}),
-			})
-				.then(function (reply) {
-					addAssistantMessage(reply.answer, reply.references || [], reply.suggestedPrompts || []);
-				})
+				{
+					chunk: function (payload) {
+						if (!payload || typeof payload.delta !== "string") {
+							return;
+						}
+
+						streamedText += payload.delta;
+						streamingMessage.setText(streamedText);
+						scrollFeedToBottom();
+					},
+					done: function (reply) {
+						streamingMessage.replace(reply || {});
+						renderSuggestions((reply && reply.suggestedPrompts) || []);
+						scrollFeedToBottom();
+					},
+					tool: function (payload) {
+						if (!payload || typeof payload.toolName !== "string" || streamedText) {
+							return;
+						}
+
+						streamingMessage.setText(getToolStatusText(payload.toolName));
+						scrollFeedToBottom();
+					},
+				},
+			)
 				.catch(function (error) {
+					streamingMessage.remove();
 					addSystemMessage(
 						error instanceof Error ? error.message : "The storefront assistant could not respond.",
 					);
@@ -279,7 +735,7 @@
 				state.config = config;
 				heading.textContent = config.shopName || "Store assistant";
 				helper.textContent = config.enabled
-					? "Ask about products, shipping, returns, or what to compare before ordering."
+					? "Ask about published products, collections, safe bundle ideas, shipping, or returns."
 					: "Enable the widget in merchant settings before shoppers can use it.";
 
 				shell.classList.add(
@@ -293,7 +749,7 @@
 					if (isThemeEditor) {
 						root.appendChild(
 							buildThemeEditorNotice(
-								"The app embed is installed, but the storefront widget is disabled in merchant settings.",
+								"The app embed is installed, but the storefront concierge is disabled in merchant settings.",
 							),
 						);
 					}

@@ -5,6 +5,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
 	DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 } from "../src/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
@@ -602,6 +603,7 @@ export const persistBootstrap = internalMutation({
 				enabled: true,
 				greeting: DEFAULT_STOREFRONT_WIDGET_GREETING,
 				knowledgeSources: DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+				policyAnswers: DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 				position: DEFAULT_STOREFRONT_WIDGET_POSITION,
 				shopId,
 				updatedAt: now,

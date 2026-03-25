@@ -1,4 +1,4 @@
-import type { WidgetPosition } from "./storefront-widget";
+import type { StorefrontPolicyAnswers, WidgetPosition } from "./storefront-widget";
 
 export type ThemeAppEmbedStatus = "enabled" | "disabled" | "not_detected" | "unavailable";
 
@@ -7,6 +7,7 @@ export interface MerchantWidgetSettings {
 	enabled: boolean;
 	greeting: string;
 	knowledgeSources: string[];
+	policyAnswers: StorefrontPolicyAnswers;
 	position: WidgetPosition;
 }
 

@@ -9,7 +9,9 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
 	DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
+	type StorefrontPolicyAnswers,
 	type WidgetPosition,
 } from "../src/shared/contracts/storefront-widget";
 import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status";
@@ -25,6 +27,7 @@ import {
 
 type WidgetConfigRecord = Doc<"widgetConfigs"> & {
 	knowledgeSources?: string[];
+	policyAnswers?: StorefrontPolicyAnswers;
 };
 
 function formatTimestamp(value: number | null | undefined) {
@@ -52,6 +55,7 @@ function getWidgetSettingsRecord(widgetConfig: WidgetConfigRecord | null) {
 		enabled: widgetConfig?.enabled ?? true,
 		greeting: widgetConfig?.greeting ?? DEFAULT_STOREFRONT_WIDGET_GREETING,
 		knowledgeSources: widgetConfig?.knowledgeSources ?? DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+		policyAnswers: widgetConfig?.policyAnswers ?? DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 		position: (widgetConfig?.position ?? DEFAULT_STOREFRONT_WIDGET_POSITION) as WidgetPosition,
 	};
 }
@@ -653,6 +657,11 @@ export const updateWidgetSettings = mutation({
 		enabled: v.boolean(),
 		greeting: v.string(),
 		knowledgeSources: v.array(v.string()),
+		policyAnswers: v.object({
+			contact: v.string(),
+			returns: v.string(),
+			shipping: v.string(),
+		}),
 		position: v.union(v.literal("bottom-right"), v.literal("bottom-left")),
 	},
 	handler: async (ctx, args) => {
@@ -660,6 +669,11 @@ export const updateWidgetSettings = mutation({
 		const greeting = args.greeting.trim();
 		const accentColor = args.accentColor.trim();
 		const knowledgeSources = normalizeKnowledgeSources(args.knowledgeSources);
+		const policyAnswers = {
+			contact: args.policyAnswers.contact.trim(),
+			returns: args.policyAnswers.returns.trim(),
+			shipping: args.policyAnswers.shipping.trim(),
+		};
 
 		if (greeting.length < 8) {
 			throw new Error("Greeting must be at least 8 characters.");
@@ -671,6 +685,16 @@ export const updateWidgetSettings = mutation({
 
 		if (knowledgeSources.some((source) => source.length > 160)) {
 			throw new Error("Each public knowledge source must be 160 characters or fewer.");
+		}
+
+		for (const [key, value] of Object.entries(policyAnswers)) {
+			if (value.length < 12) {
+				throw new Error(`${key} policy answer must be at least 12 characters.`);
+			}
+
+			if (value.length > 320) {
+				throw new Error(`${key} policy answer must be 320 characters or fewer.`);
+			}
 		}
 
 		const existingWidgetConfig = await ctx.db
@@ -685,6 +709,7 @@ export const updateWidgetSettings = mutation({
 				enabled: args.enabled,
 				greeting,
 				knowledgeSources,
+				policyAnswers,
 				position: args.position,
 				updatedAt: now,
 			});
@@ -695,6 +720,7 @@ export const updateWidgetSettings = mutation({
 				enabled: args.enabled,
 				greeting,
 				knowledgeSources,
+				policyAnswers,
 				position: args.position,
 				shopId: shop._id,
 				updatedAt: now,
@@ -710,6 +736,7 @@ export const updateWidgetSettings = mutation({
 				accentColor,
 				enabled: args.enabled,
 				knowledgeSourceCount: knowledgeSources.length,
+				policyTopicsConfigured: Object.keys(policyAnswers).length,
 				position: args.position,
 			},
 			shopId: shop._id,

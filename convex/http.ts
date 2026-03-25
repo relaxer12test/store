@@ -1,6 +1,7 @@
 import { httpRouter } from "convex/server";
 import { api } from "./_generated/api";
 import { httpAction } from "./_generated/server";
+import { streamStorefrontWidgetReply } from "./storefrontWidgetRuntime";
 
 const http = httpRouter();
 const PUBLIC_CORS_HEADERS = {
@@ -168,16 +169,20 @@ http.route({
 	path: "/shopify/widget/chat",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
-		const payload = (await request.json()) as {
+		let payload: {
+			clientFingerprint?: unknown;
 			message?: unknown;
 			pageTitle?: unknown;
+			sessionId?: unknown;
 			shopDomain?: unknown;
 		};
 
-		if (typeof payload.shopDomain !== "string" || typeof payload.message !== "string") {
+		try {
+			payload = (await request.json()) as typeof payload;
+		} catch {
 			return Response.json(
 				{
-					error: "Widget chat requests require `shopDomain` and `message` string fields.",
+					error: "Widget chat requests must be valid JSON.",
 				},
 				{
 					status: 400,
@@ -188,16 +193,34 @@ http.route({
 			);
 		}
 
-		const reply = await ctx.runAction(api.storefrontWidget.reply, {
+		if (typeof payload.shopDomain !== "string" || typeof payload.message !== "string") {
+			return new Response(
+				JSON.stringify({
+					error: "Widget chat requests require `shopDomain` and `message` string fields.",
+				}),
+				{
+					status: 400,
+					headers: withPublicCorsHeaders({
+						"Cache-Control": "no-store",
+						"Content-Type": "application/json",
+					}),
+				},
+			);
+		}
+
+		const response = await streamStorefrontWidgetReply(ctx, {
+			clientFingerprint:
+				typeof payload.clientFingerprint === "string" ? payload.clientFingerprint : undefined,
 			message: payload.message,
 			pageTitle: typeof payload.pageTitle === "string" ? payload.pageTitle : undefined,
+			sessionId: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
 			shopDomain: payload.shopDomain,
 		});
 
-		return Response.json(reply, {
-			headers: withPublicCorsHeaders({
-				"Cache-Control": "no-store",
-			}),
+		return new Response(response.body, {
+			headers: withPublicCorsHeaders(response.headers),
+			status: response.status,
+			statusText: response.statusText,
 		});
 	}),
 });

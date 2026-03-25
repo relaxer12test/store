@@ -105,6 +105,9 @@ export function MerchantSettingsPage({
 	const [knowledgeSources, setKnowledgeSources] = useState(
 		knowledgeSourcesToText(data.widgetSettings.knowledgeSources),
 	);
+	const [shippingPolicy, setShippingPolicy] = useState(data.widgetSettings.policyAnswers.shipping);
+	const [returnsPolicy, setReturnsPolicy] = useState(data.widgetSettings.policyAnswers.returns);
+	const [contactPolicy, setContactPolicy] = useState(data.widgetSettings.policyAnswers.contact);
 	const saveMutation = useMutation({
 		mutationFn: saveWidgetSettings,
 		onSuccess: async () => {
@@ -120,6 +123,9 @@ export function MerchantSettingsPage({
 		setPosition(data.widgetSettings.position);
 		setAccentColor(data.widgetSettings.accentColor);
 		setKnowledgeSources(knowledgeSourcesToText(data.widgetSettings.knowledgeSources));
+		setShippingPolicy(data.widgetSettings.policyAnswers.shipping);
+		setReturnsPolicy(data.widgetSettings.policyAnswers.returns);
+		setContactPolicy(data.widgetSettings.policyAnswers.contact);
 	}, [data]);
 
 	return (
@@ -344,6 +350,11 @@ export function MerchantSettingsPage({
 							enabled,
 							greeting,
 							knowledgeSources: textToKnowledgeSources(knowledgeSources),
+							policyAnswers: {
+								contact: contactPolicy,
+								returns: returnsPolicy,
+								shipping: shippingPolicy,
+							},
 							position,
 						});
 					}}
@@ -383,6 +394,33 @@ export function MerchantSettingsPage({
 								onChange={(event) => setKnowledgeSources(event.target.value)}
 								placeholder={"Shipping policy\nReturns page\nCollections overview"}
 								value={knowledgeSources}
+							/>
+						</label>
+					</div>
+
+					<div className="grid gap-5 lg:grid-cols-3">
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">Shipping policy answer</span>
+							<textarea
+								className={`${inputClass} min-h-28`}
+								onChange={(event) => setShippingPolicy(event.target.value)}
+								value={shippingPolicy}
+							/>
+						</label>
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">Returns policy answer</span>
+							<textarea
+								className={`${inputClass} min-h-28`}
+								onChange={(event) => setReturnsPolicy(event.target.value)}
+								value={returnsPolicy}
+							/>
+						</label>
+						<label className="grid gap-2">
+							<span className="text-sm font-semibold text-slate-900">Contact policy answer</span>
+							<textarea
+								className={`${inputClass} min-h-28`}
+								onChange={(event) => setContactPolicy(event.target.value)}
+								value={contactPolicy}
 							/>
 						</label>
 					</div>

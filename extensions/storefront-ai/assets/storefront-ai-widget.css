@@ -166,6 +166,20 @@
 	color: #0f172a;
 }
 
+.storefront-ai-widget-message--streaming {
+	position: relative;
+}
+
+.storefront-ai-widget-message--streaming::after {
+	content: "";
+	width: 8px;
+	height: 8px;
+	border-radius: 999px;
+	background: var(--storefront-ai-accent, #0f172a);
+	opacity: 0.6;
+	animation: storefront-ai-widget-pulse 1s ease-in-out infinite;
+}
+
 .storefront-ai-widget-message--user {
 	justify-self: end;
 	border-bottom-right-radius: 6px;
@@ -180,8 +194,92 @@
 	color: #991b1b;
 }
 
+.storefront-ai-widget-message--refusal {
+	justify-self: stretch;
+	max-width: 100%;
+	background: #fff7ed;
+	border: 1px solid rgba(194, 65, 12, 0.14);
+	color: #9a3412;
+}
+
 .storefront-ai-widget-message p {
 	margin: 0;
+}
+
+@keyframes storefront-ai-widget-pulse {
+	0%,
+	100% {
+		transform: scale(0.8);
+		opacity: 0.35;
+	}
+
+	50% {
+		transform: scale(1);
+		opacity: 0.85;
+	}
+}
+
+.storefront-ai-widget-cards {
+	display: grid;
+	gap: 10px;
+}
+
+.storefront-ai-widget-card,
+.storefront-ai-widget-cart-plan {
+	display: grid;
+	gap: 10px;
+	padding: 14px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 18px;
+	background: rgba(248, 250, 252, 0.92);
+}
+
+.storefront-ai-widget-card-title {
+	margin: 0;
+	font-size: 14px;
+	font-weight: 700;
+	line-height: 1.4;
+	color: #0f172a;
+}
+
+.storefront-ai-widget-card-summary {
+	margin: 0;
+	font-size: 12px;
+	line-height: 1.6;
+	color: #475569;
+}
+
+.storefront-ai-widget-card-meta {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 6px;
+}
+
+.storefront-ai-widget-card-pill {
+	display: inline-flex;
+	align-items: center;
+	border-radius: 999px;
+	background: rgba(15, 23, 42, 0.08);
+	color: #334155;
+	font-size: 11px;
+	font-weight: 700;
+	padding: 5px 9px;
+}
+
+.storefront-ai-widget-card-pill--availability {
+	background: rgba(15, 118, 110, 0.12);
+	color: #0f766e;
+}
+
+.storefront-ai-widget-card-link {
+	color: var(--storefront-ai-accent, #0f172a);
+	font-size: 12px;
+	font-weight: 700;
+	text-decoration: none;
+}
+
+.storefront-ai-widget-card-link:hover {
+	text-decoration: underline;
 }
 
 .storefront-ai-widget-references {
@@ -196,9 +294,70 @@
 	border-radius: 999px;
 	background: rgba(15, 23, 42, 0.08);
 	color: #334155;
+	text-decoration: none;
 	font-size: 11px;
 	font-weight: 700;
 	padding: 5px 9px;
+}
+
+.storefront-ai-widget-reference:hover {
+	background: rgba(15, 23, 42, 0.12);
+}
+
+.storefront-ai-widget-cart-plan-list {
+	display: grid;
+	gap: 8px;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.storefront-ai-widget-cart-plan-item {
+	display: flex;
+	align-items: flex-start;
+	justify-content: space-between;
+	gap: 12px;
+	font-size: 12px;
+	line-height: 1.5;
+	color: #0f172a;
+}
+
+.storefront-ai-widget-cart-plan-name {
+	font-weight: 700;
+}
+
+.storefront-ai-widget-cart-plan-detail,
+.storefront-ai-widget-cart-plan-note {
+	color: #475569;
+}
+
+.storefront-ai-widget-cart-plan-note {
+	margin: 0;
+	font-size: 11px;
+	line-height: 1.6;
+}
+
+.storefront-ai-widget-apply-cart {
+	border: 0;
+	border-radius: 999px;
+	background: var(--storefront-ai-accent, #0f172a);
+	color: #ffffff;
+	cursor: pointer;
+	font-size: 12px;
+	font-weight: 700;
+	padding: 10px 14px;
+	transition:
+		transform 160ms ease,
+		opacity 160ms ease;
+}
+
+.storefront-ai-widget-apply-cart:hover:not(:disabled) {
+	transform: translateY(-1px);
+}
+
+.storefront-ai-widget-apply-cart:disabled {
+	cursor: wait;
+	opacity: 0.7;
 }
 
 .storefront-ai-widget-suggestions {
@@ -333,6 +492,12 @@
 		width: 100%;
 	}
 
+	.storefront-ai-widget-panel {
+		max-height: calc(100dvh - 32px);
+		min-height: calc(100dvh - 32px);
+		border-radius: 28px;
+	}
+
 	.storefront-ai-widget-toolbar {
 		flex-direction: column;
 		align-items: stretch;
@@ -340,5 +505,9 @@
 
 	.storefront-ai-widget-submit {
 		width: 100%;
+	}
+
+	.storefront-ai-widget-cart-plan-item {
+		flex-direction: column;
 	}
 }

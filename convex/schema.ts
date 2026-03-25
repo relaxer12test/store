@@ -1,6 +1,62 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 
+const storefrontPolicyAnswersValidator = v.object({
+	contact: v.string(),
+	returns: v.string(),
+	shipping: v.string(),
+});
+
+const storefrontReferenceValidator = v.object({
+	label: v.string(),
+	url: v.optional(v.string()),
+});
+
+const storefrontProductCardValidator = v.object({
+	availabilityLabel: v.string(),
+	handle: v.string(),
+	href: v.string(),
+	kind: v.literal("product"),
+	priceLabel: v.string(),
+	summary: v.string(),
+	title: v.string(),
+	vendor: v.union(v.string(), v.null()),
+});
+
+const storefrontCollectionCardValidator = v.object({
+	handle: v.string(),
+	href: v.string(),
+	kind: v.literal("collection"),
+	productCount: v.union(v.number(), v.null()),
+	summary: v.string(),
+	title: v.string(),
+});
+
+const storefrontCartPlanItemValidator = v.object({
+	productHandle: v.string(),
+	productTitle: v.string(),
+	productUrl: v.string(),
+	quantity: v.number(),
+	variantId: v.string(),
+	variantTitle: v.string(),
+});
+
+const storefrontCartPlanValidator = v.object({
+	explanation: v.optional(v.string()),
+	items: v.array(storefrontCartPlanItemValidator),
+	note: v.optional(v.string()),
+});
+
+const storefrontWidgetReplyValidator = v.object({
+	answer: v.string(),
+	cards: v.array(v.union(storefrontProductCardValidator, storefrontCollectionCardValidator)),
+	cartPlan: v.union(storefrontCartPlanValidator, v.null()),
+	references: v.array(storefrontReferenceValidator),
+	refusalReason: v.union(v.string(), v.null()),
+	suggestedPrompts: v.array(v.string()),
+	tone: v.union(v.literal("answer"), v.literal("refusal")),
+});
+
 export default defineSchema({
 	auditLogs: defineTable({
 		actorId: v.optional(v.string()),
@@ -89,6 +145,7 @@ export default defineSchema({
 		availableForSale: v.boolean(),
 		currencyCode: v.optional(v.string()),
 		domain: v.string(),
+		featuredImageUrl: v.optional(v.string()),
 		handle: v.string(),
 		lastRefreshedAt: v.number(),
 		maxPrice: v.optional(v.number()),
@@ -106,11 +163,42 @@ export default defineSchema({
 		tags: v.array(v.string()),
 		title: v.string(),
 		variantTitles: v.array(v.string()),
+		variants: v.optional(
+			v.array(
+				v.object({
+					availableForSale: v.boolean(),
+					storefrontVariantId: v.string(),
+					title: v.string(),
+				}),
+			),
+		),
 		vendor: v.optional(v.string()),
 	})
 		.index("by_shop_and_handle", ["shopId", "handle"])
 		.index("by_shop_and_last_refreshed_at", ["shopId", "lastRefreshedAt"])
 		.index("by_shop_and_shopify_product_id", ["shopId", "shopifyProductId"])
+		.index("by_shop_and_source_updated_at", ["shopId", "sourceUpdatedAt"])
+		.searchIndex("search_text", {
+			filterFields: ["shopId"],
+			searchField: "searchText",
+		}),
+
+	shopifyCatalogCollections: defineTable({
+		description: v.optional(v.string()),
+		domain: v.string(),
+		handle: v.string(),
+		lastRefreshedAt: v.number(),
+		productCount: v.optional(v.number()),
+		searchText: v.string(),
+		shopId: v.id("shops"),
+		shopifyCollectionId: v.string(),
+		sourceUpdatedAt: v.number(),
+		summary: v.string(),
+		title: v.string(),
+	})
+		.index("by_shop_and_handle", ["shopId", "handle"])
+		.index("by_shop_and_last_refreshed_at", ["shopId", "lastRefreshedAt"])
+		.index("by_shop_and_shopify_collection_id", ["shopId", "shopifyCollectionId"])
 		.index("by_shop_and_source_updated_at", ["shopId", "sourceUpdatedAt"])
 		.searchIndex("search_text", {
 			filterFields: ["shopId"],
@@ -186,12 +274,81 @@ export default defineSchema({
 		payloadPreview: v.string(),
 	}).index("by_delivery", ["deliveryId"]),
 
+	storefrontAiEvents: defineTable({
+		cardCount: v.number(),
+		cartPlanItemCount: v.number(),
+		clientFingerprint: v.optional(v.string()),
+		createdAt: v.number(),
+		outcome: v.union(
+			v.literal("answer"),
+			v.literal("refusal"),
+			v.literal("rate_limited"),
+			v.literal("disabled"),
+		),
+		pageTitle: v.optional(v.string()),
+		promptCategory: v.string(),
+		promptPreview: v.string(),
+		refusalReason: v.optional(v.string()),
+		sessionId: v.optional(v.string()),
+		shopId: v.id("shops"),
+		suggestedPromptCount: v.number(),
+		toolNames: v.array(v.string()),
+	})
+		.index("by_shop_and_created_at", ["shopId", "createdAt"])
+		.index("by_shop_and_outcome_and_created_at", ["shopId", "outcome", "createdAt"]),
+
+	storefrontAiModerationFlags: defineTable({
+		clientFingerprint: v.optional(v.string()),
+		createdAt: v.number(),
+		fingerprintKey: v.string(),
+		lastPromptPreview: v.optional(v.string()),
+		lastTriggeredAt: v.number(),
+		reasonCounts: v.record(v.string(), v.number()),
+		sessionId: v.optional(v.string()),
+		shopId: v.id("shops"),
+		totalCount: v.number(),
+	})
+		.index("by_shop_and_fingerprint_key", ["shopId", "fingerprintKey"])
+		.index("by_shop_and_last_triggered_at", ["shopId", "lastTriggeredAt"]),
+
+	storefrontAiSessions: defineTable({
+		clientFingerprint: v.optional(v.string()),
+		createdAt: v.number(),
+		lastPromptAt: v.number(),
+		lastPromptPreview: v.optional(v.string()),
+		lastReply: v.optional(storefrontWidgetReplyValidator),
+		lastReplyAt: v.optional(v.number()),
+		lastReplyOrder: v.optional(v.number()),
+		sessionId: v.string(),
+		shopId: v.id("shops"),
+		threadId: v.string(),
+		updatedAt: v.number(),
+	})
+		.index("by_shop_and_session_id", ["shopId", "sessionId"])
+		.index("by_shop_and_thread_id", ["shopId", "threadId"])
+		.index("by_updated_at", ["updatedAt"]),
+
+	storefrontAiRateLimits: defineTable({
+		clientFingerprint: v.optional(v.string()),
+		count: v.number(),
+		key: v.string(),
+		scope: v.union(v.literal("client"), v.literal("session")),
+		sessionId: v.optional(v.string()),
+		shopId: v.id("shops"),
+		updatedAt: v.number(),
+		windowEndsAt: v.number(),
+		windowStartedAt: v.number(),
+	})
+		.index("by_shop_and_scope_and_key", ["shopId", "scope", "key"])
+		.index("by_window_ends_at", ["windowEndsAt"]),
+
 	widgetConfigs: defineTable({
 		accentColor: v.string(),
 		createdAt: v.number(),
 		enabled: v.boolean(),
 		greeting: v.string(),
 		knowledgeSources: v.optional(v.array(v.string())),
+		policyAnswers: v.optional(storefrontPolicyAnswersValidator),
 		position: v.union(v.literal("bottom-right"), v.literal("bottom-left")),
 		shopId: v.id("shops"),
 		updatedAt: v.number(),
