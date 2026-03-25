@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useSyncExternalStore } from "reac
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
 
 export type EmbeddedBootstrapStatus = "idle" | "booting" | "ready" | "error";
-export type EmbeddedBootstrapSource = "none" | "preview" | "url" | "app-bridge";
+export type EmbeddedBootstrapSource = "none" | "url" | "app-bridge";
 
 export interface EmbeddedBootstrapState {
 	apiKey: string | null;
@@ -78,7 +78,7 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 				isEmbedded,
 				sessionToken,
 				shop,
-				source: isEmbedded ? "app-bridge" : "preview",
+				source: isEmbedded ? "app-bridge" : "none",
 				status: "booting",
 			});
 
@@ -89,7 +89,7 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 				isEmbedded,
 				sessionToken,
 				shop,
-				source: sessionToken ? "url" : isEmbedded ? "app-bridge" : "preview",
+				source: sessionToken ? "url" : isEmbedded ? "app-bridge" : "none",
 				status: "ready",
 			};
 

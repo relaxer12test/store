@@ -4,15 +4,17 @@ import { createFileRoute } from "@tanstack/react-router";
 import { InternalHome } from "@/features/internal/components/internal-home";
 import { api } from "@/lib/convex-api";
 
+const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
+
 export const Route = createFileRoute("/internal/")({
 	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(convexQuery(api.appShell.internalOverview, {}));
+		await context.preload.ensureQueryData(snapshotQuery);
 	},
 	component: InternalOverviewRoute,
 });
 
 function InternalOverviewRoute() {
-	const { data } = useSuspenseQuery(convexQuery(api.appShell.internalOverview, {}));
+	const { data } = useSuspenseQuery(snapshotQuery);
 
 	return <InternalHome snapshot={data} />;
 }

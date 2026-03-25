@@ -53,7 +53,7 @@ export function GlobalChrome({ session }: { session: SessionEnvelope }) {
 							{session.viewer.name}
 						</StatusPill>
 					) : (
-						<StatusPill tone="neutral">Guest</StatusPill>
+						<StatusPill tone="neutral">Unauthenticated</StatusPill>
 					)}
 				</div>
 			</div>

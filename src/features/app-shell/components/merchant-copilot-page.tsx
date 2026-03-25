@@ -1,12 +1,21 @@
-import { AiThreadShell } from "@/components/ui/ai";
-import { MerchantModulePage } from "@/features/app-shell/components/merchant-module-page";
-import type { ModuleSnapshot } from "@/shared/contracts/app-shell";
+import { EmptyState } from "@/components/ui/feedback";
+import { Panel } from "@/components/ui/layout";
+import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
 
-export function MerchantCopilotPage({ snapshot }: { snapshot: ModuleSnapshot }) {
+export function MerchantCopilotPage({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 	return (
-		<div className="grid gap-5">
-			<AiThreadShell messages={snapshot.messages ?? []} title={snapshot.title} />
-			<MerchantModulePage snapshot={snapshot} />
-		</div>
+		<Panel
+			description="The merchant copilot should only appear once real shop data, tools, and audit logging are connected. There is no fabricated chat transcript here anymore."
+			title="Merchant copilot"
+		>
+			<EmptyState
+				body={
+					snapshot.shops.length === 0
+						? "No connected shop record exists yet, so there is nothing trustworthy for a copilot to answer from."
+						: "A shop record exists, but there is still no real AI toolchain or audit-backed merchant action flow wired."
+				}
+				title="Copilot not connected"
+			/>
+		</Panel>
 	);
 }

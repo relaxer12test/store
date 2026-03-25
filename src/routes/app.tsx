@@ -49,7 +49,7 @@ function MerchantLayoutRoute() {
 			statusLabel={
 				session.activeShop?.name ??
 				embeddedApp.shop ??
-				(embeddedApp.isEmbedded ? "Shopify admin shell" : "Local shell preview")
+				(embeddedApp.isEmbedded ? "Shopify admin shell" : "Local development shell")
 			}
 			title="Store operating cockpit"
 		/>

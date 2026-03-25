@@ -8,8 +8,8 @@
  * @module
  */
 
-import type * as appShell from "../appShell.js";
 import type * as http from "../http.js";
+import type * as systemStatus from "../systemStatus.js";
 
 import type {
   ApiFromModules,
@@ -18,8 +18,8 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  appShell: typeof appShell;
   http: typeof http;
+  systemStatus: typeof systemStatus;
 }>;
 
 /**

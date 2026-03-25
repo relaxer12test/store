@@ -1,16 +1,16 @@
-import { StatusPill } from "@/components/ui/feedback";
-import { MetricGrid, Panel, TimelineList } from "@/components/ui/layout";
-import type { MerchantOverviewSnapshot } from "@/shared/contracts/app-shell";
+import { EmptyState, StatusPill } from "@/components/ui/feedback";
+import { MetricGrid, Panel } from "@/components/ui/layout";
+import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
 
-export function MerchantHome({ snapshot }: { snapshot: MerchantOverviewSnapshot }) {
+export function MerchantHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 	return (
 		<div className="grid gap-5">
 			<MetricGrid metrics={snapshot.metrics} />
 
 			<div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
 				<Panel
-					description="Operational signals rendered from a Convex query. These are the above-the-fold facts we want SSR-loaded so the merchant overview never flashes."
-					title="Runway"
+					description="These signals are derived from the actual Convex tables in this repository."
+					title="Actual backend state"
 				>
 					<div className="space-y-3">
 						{snapshot.signals.map((signal) => (
@@ -29,10 +29,26 @@ export function MerchantHome({ snapshot }: { snapshot: MerchantOverviewSnapshot 
 				</Panel>
 
 				<Panel
-					description="Representative merchant tasks that later plans will back with real warehouse metrics, workflows, and audit records."
-					title="Next actions"
+					description="These are the real blockers keeping the merchant app from being meaningfully connected to Shopify."
+					title="Connection blockers"
 				>
-					<TimelineList items={snapshot.timeline} />
+					{snapshot.blockers.length > 0 ? (
+						<ul className="space-y-3">
+							{snapshot.blockers.map((blocker) => (
+								<li
+									className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900"
+									key={blocker}
+								>
+									{blocker}
+								</li>
+							))}
+						</ul>
+					) : (
+						<EmptyState
+							body="Convex has real records for the core installation, webhook, workflow, and audit surfaces."
+							title="No connection blockers detected"
+						/>
+					)}
 				</Panel>
 			</div>
 		</div>

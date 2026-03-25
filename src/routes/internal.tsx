@@ -52,7 +52,7 @@ function InternalLayoutRoute() {
 			description="Dev-only diagnostics shell for install state, webhook deliveries, projection cache, and action audits. It is intentionally separate from merchant navigation."
 			eyebrow="Internal tools"
 			navItems={internalNav}
-			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Staff preview")}
+			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Staff shell")}
 			title="Internal diagnostics"
 		/>
 	);

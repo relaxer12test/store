@@ -1,101 +1,91 @@
-import { useNavigate } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
-import { clearPreviewSession, setPreviewSession } from "@/features/auth/session/server";
-import type { InstallGuideSnapshot } from "@/shared/contracts/app-shell";
-import type { SessionEnvelope } from "@/shared/contracts/session";
+import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
+import { getOptionalConvexUrl, getOptionalShopifyApiKey, isInternalToolsEnabled } from "@/lib/env";
 
-const secondaryButtonClass =
-	"inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:opacity-70";
-const installModeCardClass =
-	"rounded-[1.6rem] border border-slate-200 bg-white p-6 text-left transition hover:-translate-y-0.5 hover:border-slate-300 disabled:cursor-not-allowed disabled:opacity-70";
+const checklistItems = [
+	"Shopify app API key available to the frontend shell",
+	"Shopify app secret available to the backend for token verification",
+	"App URL, callback URL, and scopes configured in the Partner Dashboard",
+	"Install/OAuth flow writing a real shop record into Convex",
+	"Webhook topics writing real deliveries into Convex",
+];
 
-export function InstallPreviewPage({
-	guide,
-	session,
-}: {
-	guide: InstallGuideSnapshot;
-	session: SessionEnvelope;
-}) {
-	const navigate = useNavigate();
-	const startPreviewSession = useServerFn(setPreviewSession);
-	const endPreviewSession = useServerFn(clearPreviewSession);
-	const [isPending, startTransition] = useTransition();
-
-	const runMode = (mode: "merchant" | "internal") => {
-		startTransition(async () => {
-			const result = await startPreviewSession({ data: { mode } });
-			await navigate({ to: result.redirectTo });
-		});
-	};
-
-	const clearMode = () => {
-		startTransition(async () => {
-			const result = await endPreviewSession();
-			await navigate({ to: result.redirectTo });
-		});
-	};
+export function InstallPage() {
+	const embeddedApp = useEmbeddedAppBootstrap();
+	const hasConvexUrl = Boolean(getOptionalConvexUrl());
+	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
+	const internalToolsEnabled = isInternalToolsEnabled();
 
 	return (
 		<div className="mx-auto max-w-6xl px-5 py-12 lg:px-8 lg:py-16">
 			<PageHeader
-				actions={
-					session.viewer ? (
-						<button className={secondaryButtonClass} onClick={clearMode} type="button">
-							{isPending ? "Resetting preview…" : "Reset preview"}
-						</button>
-					) : null
-				}
-				description={guide.summary}
+				description="This page now reports actual local/runtime prerequisites. It no longer offers preview-session shortcuts or invented install states."
 				eyebrow="Merchant onboarding"
-				title={guide.title}
+				title="Real connection checklist"
 			/>
 
 			<section className="mt-10 grid gap-5 lg:grid-cols-[1fr_0.9fr]">
 				<Panel
-					description="This route stands in for the real install/bootstrap flow. Right now it sets a same-origin preview cookie so `/app` and `/internal` can exercise the shell-first route model without inventing a separate browser-login system."
-					title="Preview surfaces"
+					description="Current runtime signals from the local app shell."
+					title="Runtime status"
 				>
-					<div className="grid gap-4 md:grid-cols-2">
-						<button
-							className={installModeCardClass}
-							disabled={isPending}
-							onClick={() => runMode("merchant")}
-							type="button"
-						>
-							<StatusPill tone="success">Merchant preview</StatusPill>
-							<h2 className="mt-4 font-serif text-3xl text-slate-950">Open `/app`</h2>
-							<p className="mt-3 text-sm leading-7 text-slate-600">
-								Simulates a merchant admin session so the embedded shell and merchant routes can be
-								exercised with preloaded data on first load.
+					<div className="grid gap-3">
+						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+							<div className="flex items-center gap-3">
+								<StatusPill tone={hasConvexUrl ? "success" : "blocked"}>
+									{hasConvexUrl ? "Convex URL set" : "Convex URL missing"}
+								</StatusPill>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-600">
+								`VITE_CONVEX_URL`{" "}
+								{hasConvexUrl ? "is available to the shell." : "is not configured."}
 							</p>
-						</button>
-
-						<button
-							className={installModeCardClass}
-							disabled={isPending}
-							onClick={() => runMode("internal")}
-							type="button"
-						>
-							<StatusPill tone="accent">Internal console preview</StatusPill>
-							<h2 className="mt-4 font-serif text-3xl text-slate-950">Open `/internal`</h2>
-							<p className="mt-3 text-sm leading-7 text-slate-600">
-								Simulates a staff-only diagnostics session so install state, webhooks, and
-								cache/debug tooling can be exercised while the real Shopify auth layer is still
-								being built.
+						</div>
+						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+							<div className="flex items-center gap-3">
+								<StatusPill tone={hasShopifyApiKey ? "success" : "blocked"}>
+									{hasShopifyApiKey ? "Shopify API key set" : "Shopify API key missing"}
+								</StatusPill>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-600">
+								`VITE_SHOPIFY_API_KEY`{" "}
+								{hasShopifyApiKey ? "is available to the frontend shell." : "is not configured."}
 							</p>
-						</button>
+						</div>
+						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+							<div className="flex items-center gap-3">
+								<StatusPill tone={embeddedApp.host ? "success" : "watch"}>
+									{embeddedApp.host ? "Embedded host detected" : "No embedded host"}
+								</StatusPill>
+								<StatusPill tone={embeddedApp.sessionToken ? "success" : "watch"}>
+									{embeddedApp.sessionToken ? "Session token present" : "No session token"}
+								</StatusPill>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-600">
+								These values only appear when the shell is loaded by Shopify admin with real embed
+								parameters.
+							</p>
+						</div>
+						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+							<div className="flex items-center gap-3">
+								<StatusPill tone={internalToolsEnabled ? "accent" : "neutral"}>
+									{internalToolsEnabled ? "Internal tools enabled" : "Internal tools disabled"}
+								</StatusPill>
+							</div>
+							<p className="mt-3 text-sm leading-6 text-slate-600">
+								The `/internal` console only exists for development/staff diagnostics.
+							</p>
+						</div>
 					</div>
 				</Panel>
 
 				<Panel
-					description="These items map directly to the later Shopify/auth plans."
+					description="These are the concrete prerequisites for a real Shopify connection."
 					title="Execution checklist"
 				>
 					<ol className="space-y-3">
-						{guide.checklist.map((item) => (
+						{checklistItems.map((item) => (
 							<li
 								className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900"
 								key={item}
@@ -104,19 +94,10 @@ export function InstallPreviewPage({
 							</li>
 						))}
 					</ol>
-					<div className="mt-6 grid gap-3">
-						{guide.notes.map((note) => (
-							<div
-								className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3"
-								key={note.label}
-							>
-								<div className="flex items-center gap-3">
-									<StatusPill tone={note.tone}>{note.label}</StatusPill>
-								</div>
-								<p className="mt-3 text-sm leading-6 text-slate-600">{note.detail}</p>
-							</div>
-						))}
-					</div>
+					<p className="mt-6 text-sm leading-6 text-slate-600">
+						No preview sessions, no mocked install flows, and no fabricated shop state remain on
+						this page.
+					</p>
 				</Panel>
 			</section>
 		</div>

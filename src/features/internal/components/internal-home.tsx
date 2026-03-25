@@ -1,14 +1,14 @@
 import { StatusPill } from "@/components/ui/feedback";
-import { MetricGrid, Panel, TimelineList } from "@/components/ui/layout";
-import type { InternalOverviewSnapshot } from "@/shared/contracts/app-shell";
+import { MetricGrid, Panel } from "@/components/ui/layout";
+import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
 
-export function InternalHome({ snapshot }: { snapshot: InternalOverviewSnapshot }) {
+export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 	return (
 		<div className="grid gap-5">
 			<MetricGrid metrics={snapshot.metrics} />
 			<div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
 				<Panel
-					description="Disposable diagnostics for install state, webhook posture, cache projections, and action traces. This console stays separate from merchant navigation and merchant auth assumptions."
+					description="Real diagnostics derived from Convex tables as they exist right now."
 					title="Watchlist"
 				>
 					<div className="space-y-3">
@@ -27,10 +27,25 @@ export function InternalHome({ snapshot }: { snapshot: InternalOverviewSnapshot 
 					</div>
 				</Panel>
 				<Panel
-					description="Representative debugging work that later plans will back with real install records, replay helpers, and action audit trails."
-					title="Debug queue"
+					description="These blockers come from the actual state of the backend, not a roadmap mock."
+					title="Current blockers"
 				>
-					<TimelineList items={snapshot.timeline} />
+					{snapshot.blockers.length > 0 ? (
+						<ul className="space-y-3">
+							{snapshot.blockers.map((blocker) => (
+								<li
+									className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900"
+									key={blocker}
+								>
+									{blocker}
+								</li>
+							))}
+						</ul>
+					) : (
+						<p className="text-sm leading-6 text-slate-600">
+							No backend blockers were detected from the current Convex tables.
+						</p>
+					)}
 				</Panel>
 			</div>
 		</div>

@@ -13,7 +13,7 @@ export default defineSchema({
 	shops: defineTable({
 		createdAt: v.number(),
 		domain: v.string(),
-		installStatus: v.union(v.literal("preview"), v.literal("connected"), v.literal("inactive")),
+		installStatus: v.union(v.literal("pending"), v.literal("connected"), v.literal("inactive")),
 		name: v.string(),
 	}).index("by_domain", ["domain"]),
 

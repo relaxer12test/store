@@ -1,22 +1,20 @@
 import { convexQuery } from "@convex-dev/react-query";
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { MerchantModulePage } from "@/features/app-shell/components/merchant-module-page";
+import { MerchantWorkflowsPage } from "@/features/app-shell/components/merchant-workflows-page";
 import { api } from "@/lib/convex-api";
+
+const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
 
 export const Route = createFileRoute("/app/workflows")({
 	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(
-			convexQuery(api.appShell.merchantModule, { module: "workflows" }),
-		);
+		await context.preload.ensureQueryData(snapshotQuery);
 	},
 	component: MerchantWorkflowsRoute,
 });
 
 function MerchantWorkflowsRoute() {
-	const { data } = useSuspenseQuery(
-		convexQuery(api.appShell.merchantModule, { module: "workflows" }),
-	);
+	const { data } = useSuspenseQuery(snapshotQuery);
 
-	return <MerchantModulePage snapshot={data} />;
+	return <MerchantWorkflowsPage snapshot={data} />;
 }

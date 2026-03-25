@@ -1,8 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { createColumnHelper } from "@tanstack/react-table";
 import { DataTableShell } from "@/components/ui/table";
-import { MerchantModulePage } from "@/features/app-shell/components/merchant-module-page";
-import type { ModuleSnapshot, TableRecord } from "@/shared/contracts/app-shell";
+import type { TableRecord } from "@/shared/contracts/app-shell";
 
 const columnHelper = createColumnHelper<TableRecord>();
 
@@ -18,22 +17,27 @@ function buildColumns(records: TableRecord[]): ColumnDef<TableRecord>[] {
 	) as ColumnDef<TableRecord>[];
 }
 
-export function InternalModulePage({ snapshot }: { snapshot: ModuleSnapshot }) {
-	const records = snapshot.records ?? [];
-
+export function InternalModulePage({
+	description,
+	emptyBody,
+	emptyTitle,
+	records,
+	title,
+}: {
+	description: string;
+	emptyBody: string;
+	emptyTitle: string;
+	records: TableRecord[];
+	title: string;
+}) {
 	return (
-		<div className="grid gap-5">
-			{records.length > 0 ? (
-				<DataTableShell
-					columns={buildColumns(records)}
-					data={records}
-					description="The same generic table shell supports internal diagnostics without introducing a second rendering stack."
-					emptyBody="This surface will fill once install records, webhook deliveries, cache snapshots, and audit trails are flowing through Convex."
-					emptyTitle="Nothing to inspect yet"
-					title={snapshot.title}
-				/>
-			) : null}
-			<MerchantModulePage snapshot={snapshot} />
-		</div>
+		<DataTableShell
+			columns={buildColumns(records)}
+			data={records}
+			description={description}
+			emptyBody={emptyBody}
+			emptyTitle={emptyTitle}
+			title={title}
+		/>
 	);
 }

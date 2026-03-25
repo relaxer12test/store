@@ -1,37 +1,21 @@
-import type { ColumnDef } from "@tanstack/react-table";
-import { createColumnHelper } from "@tanstack/react-table";
-import { DataTableShell } from "@/components/ui/table";
-import { MerchantModulePage } from "@/features/app-shell/components/merchant-module-page";
-import type { ModuleSnapshot, TableRecord } from "@/shared/contracts/app-shell";
+import { EmptyState } from "@/components/ui/feedback";
+import { Panel } from "@/components/ui/layout";
+import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
 
-const columnHelper = createColumnHelper<TableRecord>();
-
-function buildColumns(records: TableRecord[]): ColumnDef<TableRecord>[] {
-	const keys = Object.keys(records[0] ?? {}).filter((key) => key !== "id");
-
-	return keys.map((key) =>
-		columnHelper.accessor((row) => row[key], {
-			cell: (info) => info.getValue(),
-			header: key.replaceAll("_", " "),
-			id: key,
-		}),
-	) as ColumnDef<TableRecord>[];
-}
-
-export function MerchantExplorerPage({ snapshot }: { snapshot: ModuleSnapshot }) {
-	const records = snapshot.records ?? [];
-
+export function MerchantExplorerPage({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 	return (
-		<div className="grid gap-5">
-			<DataTableShell
-				columns={buildColumns(records)}
-				data={records}
-				description="A single reusable TanStack Table shell drives explorer-style surfaces. Feature-specific cell behavior can be layered in later without refactoring every route."
-				emptyBody="Once the warehouse sync lands, this grid will fill from normalized Shopify projections."
-				emptyTitle="No records yet"
-				title="Explorer grid"
+		<Panel
+			description="Explorer should only show real mirrored catalog and operations data. There is no fake product grid here anymore."
+			title="Explorer"
+		>
+			<EmptyState
+				body={
+					snapshot.syncJobs.length > 0
+						? "Workflow records exist, but there are still no real product, variant, inventory, or order mirror tables to explore."
+						: "No warehouse mirror tables exist yet, so there is nothing real to explore."
+				}
+				title="Explorer not connected"
 			/>
-			<MerchantModulePage snapshot={snapshot} />
-		</div>
+		</Panel>
 	);
 }
