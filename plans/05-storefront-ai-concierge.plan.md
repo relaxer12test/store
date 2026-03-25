@@ -1,10 +1,10 @@
 # Storefront AI Concierge
 
 ## Context
-The storefront AI is public and shopper-facing. It must improve product discovery and cart building without ever creating unsafe commerce outcomes such as free products, hidden discounts, or access to private merchant data.
+The storefront AI is public and shopper-facing. It runs on the live Shopify storefront through a theme app embed. It must improve product discovery and cart building without ever creating unsafe commerce outcomes such as free products, hidden discounts, or access to private merchant data.
 
 ## Objective
-Build a safe, useful shopper AI widget that runs on the live Shopify storefront and uses only a tightly constrained Convex toolset.
+Build a safe, useful shopper AI widget that runs on the live Shopify storefront and uses a tightly constrained Convex toolset backed by storefront-safe data sources.
 
 ## Shopper Use Cases
 - Ask product discovery questions.
@@ -19,7 +19,7 @@ Build a safe, useful shopper AI widget that runs on the live Shopify storefront 
 - The shopper AI must never mint or promise discounts.
 - The shopper AI must never invent price overrides or free items.
 - The shopper AI must never expose hidden inventory quantities or unpublished products.
-- The shopper AI must never access customer, order, or tenant-private data.
+- The shopper AI must never access order history, merchant-private documents, or private operational data.
 - The shopper AI must not execute checkout, payment, refund, or account actions.
 
 ## Allowed Tool Registry
@@ -31,7 +31,7 @@ Build a safe, useful shopper AI widget that runs on the live Shopify storefront 
 - `recommendBundle`
 - `buildCartPlan`
 
-Each tool must run on Convex and read only from public projections or public documents.
+Each tool must run on Convex and read only from storefront-safe sources such as Storefront API data, a sanitized public catalog index, and public documents.
 
 ## Cart Plan Contract
 - The model may output a structured `CartPlan` only.
@@ -47,12 +47,14 @@ Each tool must run on Convex and read only from public projections or public doc
 - Validate all model outputs against strict schemas before rendering or acting on them.
 
 ## Data Sources
-- Public catalog projection from Convex.
+- Storefront API product, collection, and cart-safe data.
+- Optional sanitized public catalog index in Convex for repeated retrieval.
 - Public policy and FAQ documents from the document ingestion pipeline.
-- Optional merchant-authored canned answers for shipping, returns, and contact policies.
+- Merchant-authored canned answers for shipping, returns, and contact policies.
 
 ## UI Requirements
-- The widget should support launcher, drawer, and mobile-friendly full-height states.
+- Ship the widget as a Shopify theme app embed, not as a standalone marketing-site component.
+- Support launcher, drawer, and mobile-friendly full-height states.
 - Show quick prompts and product chips for common entry points.
 - Render structured product recommendation cards and cart plan cards instead of long generic prose whenever possible.
 - Make refusal messages explicit and calm when requests cross policy boundaries.
@@ -67,4 +69,4 @@ Each tool must run on Convex and read only from public projections or public doc
 - Shoppers can discover products and add recommended items to cart through a safe cart plan.
 - Unsafe requests such as “make this free” or “generate a secret discount” are refused consistently.
 - The widget never exposes private merchant data.
-- The agent answers from public store data and public documents only.
+- The agent answers from storefront-safe product data and public documents only.

@@ -1,47 +1,47 @@
 # Foundation And App Shell
 
 ## Context
-This project is a TanStack Start application deployed to Cloudflare Workers, with Convex as the only real backend. The app must support three surfaces: marketing, embedded merchant admin, and hidden platform ops. First load must render with real data already available.
+This project is a TanStack Start application deployed to Cloudflare Workers at `storeai.ldev.cloud`, with Convex as the real backend. Shopify owns the storefront on `store.ldev.cloud` and `storedev.ldev.cloud`. The app itself needs two surfaces: a lightweight public shell and an embedded merchant admin surface inside Shopify.
 
 ## Objective
-Create the application skeleton, routing model, SSR preloading pattern, shared providers, and reusable UI architecture that all later features will build on.
+Create the application skeleton, routing model, embedded-app bootstrap pattern, shared providers, and reusable UI architecture that all later features will build on.
 
 ## Required Setup Decisions
-- Scaffold from the official TanStack Start starter, not from Shopify’s app template.
-- Use `pnpm` as the package manager unless the repo already standardizes differently.
-- Add Convex using the current official TanStack Start integration pattern with `@convex-dev/react-query`, `@tanstack/react-query`, and `@tanstack/react-router-with-query`.
+- Scaffold from the official TanStack Start starter, not from Shopify’s framework template.
+- Keep the repo’s existing `npm` and Vite+ toolchain unless a later migration is justified.
+- Add Convex using the current TanStack Start integration pattern with `@convex-dev/react-query`, `@tanstack/react-query`, and `@tanstack/react-router-with-query`.
 - Keep the app in a single web project plus `convex/` backend folder unless a later plan explicitly requires splitting.
+- Configure the worker app to serve from `storeai.ldev.cloud`.
 
 ## Route Inventory
-- `/` marketing landing page with Tailwind Plus hero, bento, and CTA sections.
-- `/install` merchant onboarding/install help.
-- `/app` merchant overview.
+- `/` app landing page and install/help surface on `storeai.ldev.cloud`
+- `/install` merchant onboarding/install help
+- `/app` embedded merchant overview
 - `/app/copilot`
 - `/app/explorer`
 - `/app/workflows`
 - `/app/settings`
-- `/ops`
-- `/ops/tenants`
-- `/ops/sync-jobs`
-- `/ops/webhooks`
-- `/ops/ai-traces`
+
+There is no `/ops` route family in v1.
 
 ## Provider Architecture
-- Build a root router context containing `queryClient`, `viewer`, and any request-scoped preload helpers.
-- Use a `ConvexQueryClient` wired into TanStack Query so route loaders can `ensureQueryData` and route components can `useSuspenseQuery`.
-- Keep a single long-lived Convex client on the client side so subscriptions resume cleanly after SSR.
-- Use Suspense-based query consumption in route components. Do not use undefined-loading branches for primary app routes.
+- Build a root router context containing `queryClient`, request helpers, and Shopify/App Bridge boot state.
+- Keep a single long-lived Convex client on the client side so subscriptions and query state survive embedded navigation.
+- Keep a single long-lived App Bridge integration on the client side for session token acquisition.
+- Use Suspense-based query consumption where it helps the embedded app feel smooth, but do not require SSR-authenticated data for embedded routes.
+- Prefer query prefetch and retained previous content during route transitions over spinner-heavy loading states.
 
-## SSR Read-Through Pattern
-- On initial request, the root route reads the request cookies and calls a Convex HTTP endpoint that returns a session envelope.
-- The session envelope must include the authenticated viewer summary and a Convex auth token if the request is authenticated.
-- The server-side Convex query client must be configured with that token before route loaders run.
-- Each app route loader preloads only above-the-fold critical data with `queryClient.ensureQueryData(convexQuery(...))`.
-- Each route component consumes the exact same query keys with `useSuspenseQuery` so the SSR result hydrates into live updates with no flash.
+## Embedded App Bootstrap Pattern
+- The initial request serves the app shell from `storeai.ldev.cloud`.
+- After load, the embedded frontend obtains a Shopify session token from App Bridge.
+- The frontend includes the session token on requests to backend endpoints.
+- Convex or worker-side request helpers verify the session token, resolve the active shop and merchant actor, and then load shop-scoped data.
+- Embedded route loaders and components should share the same query keys once auth state is established on the client.
+- Do not design the embedded app around cookie-based SSR session envelopes.
 
 ## UI Composition Rules
-- Route files stay thin. They preload data, mount feature components, and avoid feature-specific logic.
-- Feature code lives under domain folders such as `features/auth`, `features/storefront-ai`, `features/merchant-ai`, `features/shopify`, `features/documents`, and `features/ops`.
+- Route files stay thin. They mount feature components and avoid feature-specific logic.
+- Feature code lives under domain folders such as `features/shopify`, `features/storefront-ai`, `features/merchant-ai`, `features/documents`, and `features/settings`.
 - Shared UI primitives live under `components/ui`.
 - Create wrapper modules for:
   - `ui/form`
@@ -58,17 +58,18 @@ Create the application skeleton, routing model, SSR preloading pattern, shared p
 - Do not call raw TanStack Form hooks in page components or feature leaf components.
 
 ## Table Composition Contract
-- Build a single reusable table shell around TanStack Table for explorer grids, ops grids, and dashboard tables.
+- Build a single reusable table shell around TanStack Table for explorer grids, workflow queues, audit logs, and dashboard tables.
 - Support server-fed data, column definitions, filters, sorting, empty states, and row actions.
 - Keep table rendering generic and inject feature-specific cell renderers through props.
 
 ## Design System Direction
-- Marketing pages should intentionally use Tailwind Plus bento and strong visual hierarchy.
-- App pages should feel more operational and information-dense.
-- Define CSS variables and tokens early so the storefront widget, marketing site, and admin app remain coherent without sharing identical layouts.
+- The public app shell on `storeai.ldev.cloud` can use stronger marketing hierarchy.
+- Embedded app pages should feel operational, compact, and credible inside Shopify admin.
+- The storefront widget should share tokens and typography direction with the app without pretending to own the entire storefront design.
+- Define CSS variables and tokens early so the storefront widget and admin app remain coherent without sharing identical layouts.
 
 ## Acceptance Criteria
 - A fresh app boots with the route map above.
-- The root provider stack supports Convex SSR preloading and client reactivity.
-- At least one protected route demonstrates the no-spinner first-load pattern.
+- The root provider stack supports Convex client reactivity and embedded-app bootstrap.
+- At least one embedded route demonstrates smooth client-side data loading without full-page auth redirects.
 - The shared UI and form architecture is established before feature work begins.

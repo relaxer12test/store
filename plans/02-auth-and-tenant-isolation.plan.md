@@ -1,59 +1,58 @@
-# Auth And Tenant Isolation
+# Auth And Shop Context
 
 ## Context
-This product has merchant/admin users and platform-admin users. Shoppers use the storefront AI anonymously and do not use Better Auth. Better Auth is the canonical session system for human users who log into the app surfaces.
+This product is a single-store Shopify app in v1. Merchants use the app from Shopify admin. Shoppers use the storefront AI anonymously on the live store. Better Auth and multi-tenancy are out of scope for this version.
 
 ## Objective
-Implement Better Auth fully on Convex, map Shopify-installed shops to tenants, establish role-based membership, and make SSR-friendly authenticated first load possible.
+Authenticate embedded merchant requests with Shopify session tokens, store per-shop installation state and offline Admin API credentials, and map the current merchant user to a shop-scoped actor for approvals and audit logging.
 
 ## Canonical Identity Model
-- `Tenant` represents a merchant organization.
-- `Shop` represents a connected Shopify shop and belongs to one tenant.
-- `User` comes from Better Auth.
-- `TenantMembership` links a Better Auth user to a tenant with a role.
-- Roles are `platform_admin`, `tenant_admin`, and `tenant_member`.
-- `ShopifyInstallation` stores the offline token, scope set, installation status, and Shopify metadata for a shop.
+- `Shop` represents a connected Shopify shop.
+- `ShopifyInstallation` stores the offline token, scopes, installation status, and app metadata for the shop.
+- `MerchantActor` is a local shadow record for a Shopify admin user interacting with the embedded app.
+- `WidgetConfig` stores the storefront AI settings for the shop.
+- `ActionAudit` stores approvals, rejections, and executed mutations for the shop.
 
-## Better Auth Requirements
-- Use `@convex-dev/better-auth` and keep all Better Auth routes mounted on Convex HTTP actions.
-- Configure cookie settings for embedded Shopify use. The cookie policy must support iframe embedding, so production cookies must be `Secure` and compatible with `SameSite=None`.
-- Do not implement parallel ad hoc session tables outside the Better Auth integration unless required for app metadata.
-- Keep Better Auth as the canonical browser session even when the request originated from Shopify admin embedding.
+## Shopify Auth Requirements
+- Use Shopify App Bridge session tokens for embedded request authentication.
+- Use Shopify managed installation and token exchange where the stack supports it cleanly.
+- Store one offline Admin API access token per installed shop for backend Shopify calls.
+- Do not introduce Better Auth, browser login, or separate app-managed merchant credentials in v1.
+- Do not rely on third-party cookies as the primary embedded auth mechanism.
 
-## Session Envelope Pattern
-- Create a Convex HTTP endpoint that accepts the incoming request cookies and returns:
-  - authenticated user summary
-  - active tenant summary
-  - active shop summary if present
-  - role list
-  - Convex auth token for SSR preloading
-- TanStack Start must call this endpoint during SSR before route loaders execute.
-- Client hydration must reuse the same viewer context so the first interactive frame matches server-rendered state.
+## Request Authentication Pattern
+- The embedded frontend fetches a short-lived session token from App Bridge for backend requests.
+- Backend handlers verify the session token and resolve the active shop domain and Shopify user ID.
+- Backend handlers load or create the matching `MerchantActor` record for audit purposes.
+- Durable Shopify access uses the stored offline token, not the merchant session token.
+- Session tokens authenticate who is using the app right now; offline tokens authorize backend calls to Shopify.
 
 ## Onboarding And Bootstrapping
-- When the Shopify app is first installed for a shop, create or attach the tenant and shop records in Convex.
-- The installing merchant becomes the initial `tenant_admin`.
-- Platform admins are created through a controlled internal flow, not public signup.
-- Additional tenant users are invited from the merchant app and complete Better Auth onboarding before gaining access.
+- When the Shopify app is installed, create or update the `Shop` and `ShopifyInstallation` records in Convex.
+- When a merchant first opens the embedded app, create or update the `MerchantActor` record keyed to the shop and Shopify user.
+- Initialize widget defaults, document containers, and diagnostics records per shop.
+- Do not require a separate signup, invite, or account-creation flow for merchants in v1.
 
 ## Authorization Rules
-- Every Convex query, mutation, action, and HTTP action that touches tenant data must resolve the current viewer and tenant before proceeding.
-- Tenant-scoped reads and writes must always filter by tenant ID.
-- Platform admins may cross tenant boundaries only inside `/ops` or internal maintenance workflows.
-- Shopper-facing AI endpoints must never resolve to tenant-admin permissions just because a shop is public.
+- Every Convex query, mutation, action, and HTTP action that touches protected data must resolve the current shop before proceeding.
+- Shop-scoped reads and writes must always filter by shop ID.
+- There is no cross-shop admin surface in v1.
+- Shopper-facing AI endpoints must never inherit merchant-admin authority just because the same shop is installed.
 
 ## Embedded Shopify App Behavior
-- The embedded app uses Shopify App Bridge for UX integration, but App Bridge is not the canonical auth system.
-- If a merchant arrives through Shopify without an active Better Auth session, the app must run a one-time bootstrap flow that creates the Better Auth session and then returns to the embedded route.
-- Once the Better Auth cookie exists, SSR should be able to preload authenticated data with no loading flash.
+- The embedded app uses Shopify App Bridge for shell integration and session token handling.
+- If the app loads without an immediately usable token, render the shell, initialize App Bridge, and then fetch protected data.
+- Avoid full-page login redirects inside the embedded app after installation is complete.
+- Keep the embedded experience SPA-like, even if some initial content is a lightweight shell before authenticated data arrives.
 
 ## Security Requirements
-- Use helper functions in Convex to centralize `requireViewer`, `requireTenantMember`, `requireTenantAdmin`, and `requirePlatformAdmin`.
-- Add audit logging for invites, role changes, shop attachments, and session bootstrap actions.
-- Do not trust client-supplied tenant IDs, shop IDs, or roles.
+- Verify session tokens on every embedded request that touches protected state.
+- Use centralized Convex helpers to resolve `requireShopContext` and `requireMerchantActor`.
+- Add audit logging for install, reinstall, widget setting changes, document visibility changes, approvals, and executed mutations.
+- Do not trust client-supplied shop IDs, actor IDs, or roles.
 
 ## Acceptance Criteria
-- A merchant user can sign in, refresh a protected page, and see fully rendered authenticated data on first load.
-- A platform admin can access `/ops` and tenant users cannot.
-- Cross-tenant access is denied at the backend even if the client tampers with route params or payloads.
-- A shop installation can bootstrap a tenant and its first admin user without manual database editing.
+- A merchant user can open the app from Shopify admin and load protected data without a separate login screen.
+- Backend handlers reject tampered shop identifiers even if the client payload is modified.
+- The install flow stores the offline token, scopes, and installation metadata for the shop.
+- Approved merchant actions are audited against the shop and merchant actor without any tenant model.
