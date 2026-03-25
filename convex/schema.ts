@@ -410,12 +410,20 @@ export default defineSchema({
 		.index("by_shop_and_created_at", ["shopId", "createdAt"]),
 
 	merchantDocuments: defineTable({
-		content: v.string(),
+		byteLength: v.optional(v.number()),
+		chunkCount: v.optional(v.number()),
+		content: v.optional(v.string()),
 		contentPreview: v.string(),
+		contentTruncated: v.optional(v.boolean()),
 		createdAt: v.number(),
 		failureReason: v.optional(v.string()),
 		fileName: v.optional(v.string()),
+		lastProcessedAt: v.optional(v.number()),
 		mimeType: v.optional(v.string()),
+		parsedCharacterCount: v.optional(v.number()),
+		processingQueuedAt: v.optional(v.number()),
+		processingStartedAt: v.optional(v.number()),
+		r2Key: v.optional(v.string()),
 		searchText: v.string(),
 		shopId: v.id("shops"),
 		sourceType: v.string(),
@@ -427,10 +435,41 @@ export default defineSchema({
 		visibility: v.union(v.literal("public"), v.literal("shop_private")),
 	})
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
+		.index("by_shop_and_status_and_updated_at", ["shopId", "status", "updatedAt"])
 		.index("by_shop_and_visibility_and_updated_at", ["shopId", "visibility", "updatedAt"])
 		.searchIndex("search_text", {
 			filterFields: ["shopId", "status", "visibility"],
 			searchField: "searchText",
+		}),
+
+	merchantDocumentChunks: defineTable({
+		chunkNumber: v.number(),
+		charEnd: v.number(),
+		charStart: v.number(),
+		createdAt: v.number(),
+		documentId: v.id("merchantDocuments"),
+		embedding: v.array(v.number()),
+		embeddingModel: v.string(),
+		fileName: v.optional(v.string()),
+		scopeKey: v.string(),
+		searchText: v.string(),
+		shopId: v.id("shops"),
+		snippet: v.string(),
+		text: v.string(),
+		title: v.string(),
+		updatedAt: v.number(),
+		visibility: v.union(v.literal("public"), v.literal("shop_private")),
+	})
+		.index("by_document_and_chunk_number", ["documentId", "chunkNumber"])
+		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
+		.searchIndex("search_text", {
+			filterFields: ["shopId", "visibility", "documentId"],
+			searchField: "searchText",
+		})
+		.vectorIndex("by_embedding", {
+			dimensions: 1536,
+			filterFields: ["scopeKey"],
+			vectorField: "embedding",
 		}),
 
 	widgetConfigs: defineTable({

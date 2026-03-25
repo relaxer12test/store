@@ -7,7 +7,7 @@ export const merchantCopilotStateQuery = convexQuery(api.merchantWorkspace.copil
 export const merchantExplorerQuery = convexAction(api.merchantWorkspace.explorer, {});
 export const merchantWorkflowsQuery = convexQuery(api.merchantWorkspace.workflows, {});
 export const merchantKnowledgeDocumentsQuery = convexQuery(
-	api.merchantWorkspace.knowledgeDocuments,
+	api.merchantDocuments.knowledgeDocuments,
 	{},
 );
 
@@ -19,10 +19,7 @@ export function useMerchantOverview() {
 }
 
 export function useMerchantCopilotState() {
-	return useSuspenseQuery({
-		queryKey: merchantCopilotStateQuery.queryKey,
-		staleTime: merchantCopilotStateQuery.staleTime,
-	});
+	return useSuspenseQuery(merchantCopilotStateQuery);
 }
 
 export function useMerchantExplorer() {
@@ -33,16 +30,16 @@ export function useMerchantExplorer() {
 }
 
 export function useMerchantWorkflows() {
-	return useSuspenseQuery({
-		queryKey: merchantWorkflowsQuery.queryKey,
-		staleTime: merchantWorkflowsQuery.staleTime,
-	});
+	return useSuspenseQuery(merchantWorkflowsQuery);
 }
 
 export function useMerchantKnowledgeDocuments() {
 	return useSuspenseQuery({
-		queryKey: merchantKnowledgeDocumentsQuery.queryKey,
-		staleTime: merchantKnowledgeDocumentsQuery.staleTime,
+		...merchantKnowledgeDocumentsQuery,
+		refetchInterval: (query) =>
+			query.state.data?.documents.some((document) => document.status === "processing")
+				? 3_000
+				: false,
 	});
 }
 

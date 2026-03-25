@@ -167,9 +167,12 @@ export interface MerchantWorkflowsData {
 }
 
 export interface MerchantDocumentRecord {
+	chunkCount: number | null;
 	contentPreview: string;
+	failureReason: string | null;
 	fileName: string | null;
 	id: string;
+	sourceType: string;
 	status: "failed" | "processing" | "ready";
 	summary: string;
 	title: string;

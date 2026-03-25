@@ -1,6 +1,6 @@
-import { useConvexMutation } from "@convex-dev/react-query";
+import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { merchantSettingsQuery } from "@/features/app-shell/merchant-settings";
@@ -106,12 +106,15 @@ export function MerchantSettingsPage({
 }) {
 	const queryClient = useQueryClient();
 	const saveWidgetSettings = useConvexMutation(api.merchantApp.updateWidgetSettings);
-	const uploadDocument = useConvexMutation(api.merchantWorkspace.uploadDocument);
-	const deleteDocument = useConvexMutation(api.merchantWorkspace.deleteDocument);
+	const beginDocumentUpload = useConvexMutation(api.merchantDocuments.beginDocumentUpload);
+	const finalizeDocumentUpload = useConvexAction(api.merchantDocuments.finalizeDocumentUpload);
+	const uploadInlineDocument = useConvexAction(api.merchantDocuments.uploadInlineDocument);
+	const deleteDocument = useConvexMutation(api.merchantDocuments.deleteDocument);
 	const updateDocumentVisibility = useConvexMutation(
-		api.merchantWorkspace.updateDocumentVisibility,
+		api.merchantDocuments.updateDocumentVisibility,
 	);
-	const reprocessDocuments = useConvexMutation(api.merchantWorkspace.reprocessDocuments);
+	const reprocessDocument = useConvexMutation(api.merchantDocuments.reprocessDocument);
+	const reprocessDocuments = useConvexMutation(api.merchantDocuments.reprocessDocuments);
 	const [enabled, setEnabled] = useState(data.widgetSettings.enabled);
 	const [greeting, setGreeting] = useState(data.widgetSettings.greeting);
 	const [position, setPosition] = useState(data.widgetSettings.position);
@@ -128,6 +131,8 @@ export function MerchantSettingsPage({
 		"shop_private",
 	);
 	const [documentContent, setDocumentContent] = useState("");
+	const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
+	const documentFileInputRef = useRef<HTMLInputElement | null>(null);
 	async function invalidateSettingsQueries() {
 		await Promise.all([
 			queryClient.invalidateQueries({
@@ -149,12 +154,53 @@ export function MerchantSettingsPage({
 		},
 	});
 	const uploadDocumentMutation = useMutation({
-		mutationFn: uploadDocument,
+		mutationFn: async () => {
+			if (selectedDocumentFile) {
+				const upload = await beginDocumentUpload({
+					fileName: selectedDocumentFile.name,
+					mimeType: selectedDocumentFile.type || undefined,
+					size: selectedDocumentFile.size,
+				});
+				const response = await fetch(upload.url, {
+					body: selectedDocumentFile,
+					headers: selectedDocumentFile.type
+						? {
+								"Content-Type": selectedDocumentFile.type,
+							}
+						: undefined,
+					method: "PUT",
+				});
+
+				if (!response.ok) {
+					throw new Error("The file upload to Cloudflare R2 failed.");
+				}
+
+				return await finalizeDocumentUpload({
+					fileName: selectedDocumentFile.name,
+					key: upload.key,
+					mimeType: selectedDocumentFile.type || undefined,
+					size: selectedDocumentFile.size,
+					title: documentTitle,
+					visibility: documentVisibility,
+				});
+			}
+
+			return await uploadInlineDocument({
+				content: documentContent,
+				fileName: documentFileName || undefined,
+				title: documentTitle,
+				visibility: documentVisibility,
+			});
+		},
 		onSuccess: async () => {
 			setDocumentContent("");
 			setDocumentFileName("");
 			setDocumentTitle("");
 			setDocumentVisibility("shop_private");
+			setSelectedDocumentFile(null);
+			if (documentFileInputRef.current) {
+				documentFileInputRef.current.value = "";
+			}
 			await invalidateSettingsQueries();
 		},
 	});
@@ -172,6 +218,12 @@ export function MerchantSettingsPage({
 	});
 	const reprocessDocumentsMutation = useMutation({
 		mutationFn: reprocessDocuments,
+		onSuccess: async () => {
+			await invalidateSettingsQueries();
+		},
+	});
+	const reprocessDocumentMutation = useMutation({
+		mutationFn: reprocessDocument,
 		onSuccess: async () => {
 			await invalidateSettingsQueries();
 		},
@@ -525,7 +577,7 @@ export function MerchantSettingsPage({
 			</Panel>
 
 			<Panel
-				description="Merchant-private documents are searchable grounding sources for the copilot. Upload inline content, change visibility, or queue a re-index workflow when you refresh the knowledge base."
+				description="Upload PDF, TXT, Markdown, DOCX, or inline text. Raw blobs land in R2, Convex tracks processing state and visibility, and public docs can ground storefront-safe policy answers."
 				title="Knowledge documents"
 			>
 				<div className="flex flex-wrap items-center gap-3">
@@ -544,12 +596,7 @@ export function MerchantSettingsPage({
 					className="mt-6 grid gap-5"
 					onSubmit={(event) => {
 						event.preventDefault();
-						uploadDocumentMutation.mutate({
-							content: documentContent,
-							fileName: documentFileName || undefined,
-							title: documentTitle,
-							visibility: documentVisibility,
-						});
+						uploadDocumentMutation.mutate();
 					}}
 				>
 					<div className="grid gap-5 lg:grid-cols-3">
@@ -563,7 +610,7 @@ export function MerchantSettingsPage({
 							/>
 						</label>
 						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">File name</span>
+							<span className="text-sm font-semibold text-slate-900">Inline file name</span>
 							<input
 								className={inputClass}
 								onChange={(event) => setDocumentFileName(event.target.value)}
@@ -587,7 +634,26 @@ export function MerchantSettingsPage({
 					</div>
 
 					<label className="grid gap-2">
-						<span className="text-sm font-semibold text-slate-900">Document content</span>
+						<span className="text-sm font-semibold text-slate-900">Upload a file</span>
+						<input
+							accept=".pdf,.txt,.md,.markdown,.docx,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+							className={`${inputClass} file:mr-4 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white`}
+							onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
+							ref={documentFileInputRef}
+							type="file"
+						/>
+						<p className="text-sm leading-6 text-slate-600">
+							If a file is selected, the pasted text field below is ignored.
+						</p>
+						{selectedDocumentFile ? (
+							<StatusPill tone="accent">
+								{selectedDocumentFile.name} · {(selectedDocumentFile.size / 1024).toFixed(1)} KB
+							</StatusPill>
+						) : null}
+					</label>
+
+					<label className="grid gap-2">
+						<span className="text-sm font-semibold text-slate-900">Inline document content</span>
 						<textarea
 							className={`${inputClass} min-h-40`}
 							onChange={(event) => setDocumentContent(event.target.value)}
@@ -602,7 +668,7 @@ export function MerchantSettingsPage({
 							disabled={uploadDocumentMutation.isPending}
 							type="submit"
 						>
-							{uploadDocumentMutation.isPending ? "Uploading..." : "Upload document"}
+							{uploadDocumentMutation.isPending ? "Uploading..." : "Upload or index document"}
 						</button>
 						{uploadDocumentMutation.error ? (
 							<StatusPill tone="blocked">{uploadDocumentMutation.error.message}</StatusPill>
@@ -622,7 +688,9 @@ export function MerchantSettingsPage({
 										<p className="text-sm font-semibold text-slate-950">{document.title}</p>
 										<p className="mt-2 text-sm leading-6 text-slate-600">{document.summary}</p>
 										<p className="mt-2 text-sm leading-6 text-slate-600">
-											{document.fileName ?? "Inline upload"} · updated {document.updatedAt}
+											{document.fileName ?? "Inline upload"} · {document.sourceType} · updated{" "}
+											{document.updatedAt}
+											{document.chunkCount !== null ? ` · ${document.chunkCount} chunk(s)` : ""}
 										</p>
 									</div>
 									<div className="flex flex-wrap gap-2">
@@ -644,8 +712,25 @@ export function MerchantSettingsPage({
 								<p className="mt-4 rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900">
 									{document.contentPreview}
 								</p>
+								{document.failureReason ? (
+									<p className="mt-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900">
+										{document.failureReason}
+									</p>
+								) : null}
 
 								<div className="mt-4 flex flex-wrap items-center gap-3">
+									<button
+										className={secondaryButtonClass}
+										disabled={reprocessDocumentMutation.isPending}
+										onClick={() =>
+											reprocessDocumentMutation.mutate({
+												documentId: document.id as Id<"merchantDocuments">,
+											})
+										}
+										type="button"
+									>
+										Reprocess
+									</button>
 									<button
 										className={secondaryButtonClass}
 										disabled={updateDocumentVisibilityMutation.isPending}

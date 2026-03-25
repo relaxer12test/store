@@ -942,16 +942,21 @@ async function runDashboardRegeneration(ctx: ActionCtx, job: Doc<"syncJobs">, sh
 }
 
 async function runDocumentReindex(ctx: ActionCtx, job: Doc<"syncJobs">, shop: Doc<"shops">) {
-	const recordCount = await ctx.runMutation(internal.merchantWorkspace.reindexDocuments, {
+	const result = await ctx.runAction(internal.merchantDocumentsNode.processQueuedDocuments, {
 		jobId: job._id,
 		shopId: shop._id,
 	});
+	const recordCount = result.processedCount + result.failedCount;
+	const resultSummary =
+		result.failedCount > 0
+			? `Processed ${result.processedCount} document(s); ${result.failedCount} failed.`
+			: `Processed ${result.processedCount} document(s) successfully.`;
 
 	await ctx.runMutation(internal.shopifySync.completeJob, {
 		jobId: job._id,
-		payloadPreview: `Re-indexed ${recordCount} merchant document(s).`,
+		payloadPreview: `Processed ${recordCount} merchant document(s).`,
 		recordCount,
-		resultSummary: `Merchant document index refreshed for ${recordCount} record(s).`,
+		resultSummary,
 	});
 }
 

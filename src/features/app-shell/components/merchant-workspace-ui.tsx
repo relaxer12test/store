@@ -282,6 +282,19 @@ export function MerchantCitationList({ citations }: { citations: MerchantCitatio
 		return null;
 	}
 
+	function sourceLabel(sourceType: MerchantCitation["sourceType"]) {
+		switch (sourceType) {
+			case "approval":
+				return "Approval";
+			case "document":
+				return "Document";
+			case "workflow":
+				return "Workflow";
+			default:
+				return "Shopify";
+		}
+	}
+
 	return (
 		<div className="mt-4 flex flex-wrap gap-2">
 			{citations.map((citation) => (
@@ -289,6 +302,9 @@ export function MerchantCitationList({ citations }: { citations: MerchantCitatio
 					className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs leading-5 text-slate-700"
 					key={`${citation.sourceType}-${citation.label}-${citation.detail}`}
 				>
+					<span className="mr-2 rounded-full bg-white px-2 py-0.5 font-semibold text-slate-700">
+						{sourceLabel(citation.sourceType)}
+					</span>
 					<span className="font-semibold text-slate-900">{citation.label}:</span> {citation.detail}
 				</div>
 			))}

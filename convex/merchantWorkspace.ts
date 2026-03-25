@@ -395,6 +395,11 @@ type ProductSearchResponse = {
 	} | null;
 };
 
+type RetrievedKnowledgeMatch = {
+	citation: MerchantCitation;
+	snippet: string;
+};
+
 type OrderSearchResponse = {
 	orders?: {
 		nodes?: OrderNode[] | null;
@@ -838,9 +843,12 @@ function buildLowStockRows(products: ProductSearchNode[]) {
 
 function toDocumentRecord(document: Doc<"merchantDocuments">): MerchantDocumentRecord {
 	return {
+		chunkCount: document.chunkCount ?? null,
 		contentPreview: document.contentPreview,
+		failureReason: document.failureReason ?? null,
 		fileName: document.fileName ?? null,
 		id: document._id,
+		sourceType: document.sourceType,
 		status: document.status,
 		summary: document.summary,
 		title: document.title,
@@ -1328,16 +1336,9 @@ function dashboardForPrompt(
 
 function mergeCitations(
 	shopifyCitations: MerchantCitation[],
-	documentRows: Doc<"merchantDocuments">[],
+	documentCitations: MerchantCitation[],
 ) {
-	const documentCitations = documentRows.slice(0, 4).map((document) => ({
-		detail: document.summary,
-		href: null,
-		label: document.title,
-		sourceType: "document" as const,
-	}));
-
-	return [...shopifyCitations, ...documentCitations];
+	return [...shopifyCitations, ...documentCitations.slice(0, 4)];
 }
 
 export const getRuntimeStateInternal = internalQuery({
@@ -1590,15 +1591,16 @@ export const reindexDocuments = internalMutation({
 		const now = Date.now();
 
 		for (const row of rows) {
+			const content = row.content ?? row.summary;
 			await ctx.db.patch(row._id, {
-				contentPreview: previewText(row.content),
+				contentPreview: previewText(content),
 				searchText: searchTextForDocument({
-					content: row.content,
+					content,
 					fileName: row.fileName,
 					title: row.title,
 				}),
 				status: "ready",
-				summary: summarizeDocument(row.content),
+				summary: summarizeDocument(content),
 				updatedAt: now,
 			});
 		}
@@ -1841,7 +1843,7 @@ export const overview = action({
 		const claims = await requireMerchantClaims(ctx);
 		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, claims);
 		const [documents, workflowRecords, conversationState] = await Promise.all([
-			ctx.runQuery(api.merchantWorkspace.knowledgeDocuments, {}),
+			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(api.merchantWorkspace.workflows, {}),
 			ctx.runQuery(api.merchantWorkspace.copilotState, {}),
 		]);
@@ -1915,7 +1917,7 @@ export const explorer = action({
 		const claims = await requireMerchantClaims(ctx);
 		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, claims);
 		const [documents, recentAudits] = await Promise.all([
-			ctx.runQuery(api.merchantWorkspace.knowledgeDocuments, {}),
+			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(internal.merchantWorkspace.getRecentAuditRows, {
 				shopId: runtime.shop._id,
 			}),
@@ -2031,11 +2033,15 @@ export const askCopilot = action({
 
 		const quotedTerms = extractQuotedTerms(prompt);
 		const lowerPrompt = prompt.toLowerCase();
-		const documents = await ctx.runQuery(api.merchantWorkspace.knowledgeDocuments, {});
-		const documentMatches = await ctx.runQuery(internal.merchantWorkspace.searchDocumentsInternal, {
-			query: quotedTerms[0] ?? prompt,
-			shopId: runtime.shop._id,
-		});
+		const documents = await ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {});
+		const knowledgeMatches: RetrievedKnowledgeMatch[] = await ctx.runAction(
+			internal.merchantDocumentsNode.retrieveKnowledge,
+			{
+				audience: "merchant",
+				query: quotedTerms[0] ?? prompt,
+				shopId: runtime.shop._id,
+			},
+		);
 		let approvalIds: Id<"merchantActionApprovals">[] = [];
 		let toolNames: string[] = [];
 		let body = "";
@@ -2454,7 +2460,7 @@ export const askCopilot = action({
 						`${orderRows.length} order result(s) were considered.`,
 					),
 				],
-				documentMatches,
+				knowledgeMatches.map((match) => match.citation),
 			);
 			toolNames = [
 				"getOverviewMetrics",
@@ -2466,10 +2472,10 @@ export const askCopilot = action({
 				"searchDocuments",
 			];
 
-			if (/(document|policy|sop|knowledge)/i.test(prompt) && documentMatches.length > 0) {
-				body = `I found ${documentMatches.length} document match(es). The strongest summaries are: ${documentMatches
+			if (/(document|policy|sop|knowledge)/i.test(prompt) && knowledgeMatches.length > 0) {
+				body = `I found ${knowledgeMatches.length} document match(es). The strongest excerpts are: ${knowledgeMatches
 					.slice(0, 3)
-					.map((document: Doc<"merchantDocuments">) => document.summary)
+					.map((match) => match.snippet)
 					.join(" ")}`;
 			} else if (/(inventory|stock)/i.test(prompt)) {
 				body = lowStockRows.length
@@ -2485,7 +2491,7 @@ export const askCopilot = action({
 					orders[0]?.currentTotalPriceSet?.shopMoney?.currencyCode ?? "USD",
 				)}. I rendered the dashboard from grounded Shopify data rather than freeform model HTML.`;
 			} else {
-				body = `I grounded this answer using live Shopify reads plus ${documentMatches.length} matching merchant document(s). Use the dashboard cards and explorer datasets to drill into products, orders, inventory, or document context.`;
+				body = `I grounded this answer using live Shopify reads plus ${knowledgeMatches.length} matching merchant document excerpt(s). Use the dashboard cards and explorer datasets to drill into products, orders, inventory, or document context.`;
 			}
 		}
 

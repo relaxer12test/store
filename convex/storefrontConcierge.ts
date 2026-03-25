@@ -15,6 +15,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 	DEFAULT_STOREFRONT_WIDGET_QUICK_PROMPTS,
 } from "../src/shared/contracts/storefront-widget";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
 	internalMutation,
@@ -58,6 +59,19 @@ type SessionRecord = Doc<"storefrontAiSessions"> & {
 		suggestedPrompts: string[];
 		tone: "answer" | "refusal";
 	};
+};
+
+type PolicyAnswerResult = {
+	answer: string;
+	references: StorefrontReference[];
+	suggestedPrompts: string[];
+	topic: string;
+};
+
+type HydratedPublicKnowledgeChunk = {
+	document: Doc<"merchantDocuments"> | null;
+	documentId: Id<"merchantDocuments">;
+	snippet: string;
 };
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T) {
@@ -611,12 +625,54 @@ export const answerPolicyQuestion = internalQuery({
 		question: v.string(),
 		shopId: v.id("shops"),
 	},
-	handler: async (ctx, args) => {
+	handler: async (ctx, args): Promise<PolicyAnswerResult> => {
 		const shop = await ctx.db.get(args.shopId);
 		const widgetConfig = await getWidgetConfigByShopId(ctx, args.shopId);
 		const config = buildWidgetConfig(shop, widgetConfig, shop?.domain ?? "storefront");
 		const normalized = args.question.toLowerCase();
-		const references = buildKnowledgeSourceReferences(config.knowledgeSources);
+		const chunkMatches = await ctx.runQuery(
+			internal.merchantDocuments.searchKnowledgeChunksByText,
+			{
+				limit: 4,
+				query: args.question,
+				shopId: args.shopId,
+				visibility: "public",
+			},
+		);
+		const hydratedMatches: HydratedPublicKnowledgeChunk[] =
+			chunkMatches.length > 0
+				? await ctx.runQuery(internal.merchantDocuments.hydrateKnowledgeChunks, {
+						chunkIds: chunkMatches.map((row) => row._id),
+					})
+				: [];
+		const publicDocumentMatches = hydratedMatches.filter(
+			(row): row is HydratedPublicKnowledgeChunk & { document: Doc<"merchantDocuments"> } => {
+				const document = row.document;
+				return (
+					document !== null &&
+					document.status === "ready" &&
+					document.visibility === "public" &&
+					document.shopId === args.shopId
+				);
+			},
+		);
+		const publicDocumentReferences = Array.from(
+			new Map(
+				publicDocumentMatches.map((row) => [row.document._id, { label: row.document.title }]),
+			).values(),
+		).slice(0, 4);
+		const references =
+			publicDocumentReferences.length > 0
+				? publicDocumentReferences
+				: buildKnowledgeSourceReferences(config.knowledgeSources);
+		const documentAnswer =
+			publicDocumentMatches.length > 0
+				? publicDocumentMatches
+						.slice(0, 2)
+						.map((row) => row.snippet)
+						.join(" ")
+						.slice(0, 480)
+				: null;
 
 		if (
 			normalized.includes("shipping") ||
@@ -624,7 +680,7 @@ export const answerPolicyQuestion = internalQuery({
 			normalized.includes("ship")
 		) {
 			return {
-				answer: config.policyAnswers.shipping,
+				answer: documentAnswer ?? config.policyAnswers.shipping,
 				references,
 				suggestedPrompts: [
 					"What shipping options should I expect?",
@@ -641,7 +697,7 @@ export const answerPolicyQuestion = internalQuery({
 			normalized.includes("exchange")
 		) {
 			return {
-				answer: config.policyAnswers.returns,
+				answer: documentAnswer ?? config.policyAnswers.returns,
 				references,
 				suggestedPrompts: [
 					"What is the shipping policy?",
@@ -653,7 +709,7 @@ export const answerPolicyQuestion = internalQuery({
 		}
 
 		return {
-			answer: config.policyAnswers.contact,
+			answer: documentAnswer ?? config.policyAnswers.contact,
 			references,
 			suggestedPrompts: [
 				"How do returns work?",
