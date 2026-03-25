@@ -25,6 +25,7 @@ import {
 	type QueryCtx,
 } from "./_generated/server";
 import { requireMerchantActor, requireMerchantClaims } from "./merchantAuth";
+import { getShopifyAccessFailureReason } from "./shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 
 const DEFAULT_CONVERSATION_TITLE = "Merchant copilot";
@@ -2047,14 +2048,19 @@ export const askCopilot = action({
 		let body = "";
 		let dashboard: DashboardSpec | null = null;
 		let citations: MerchantCitation[] = [];
+		const installationAccessToken = runtime.installation?.accessToken;
+		const shopifyAccessFailure = getShopifyAccessFailureReason({
+			actionLabel: "use the merchant copilot",
+			installation: runtime.installation,
+			shop: runtime.shop,
+		});
 
-		if (!runtime.installation?.accessToken) {
-			body =
-				"The merchant copilot needs a connected offline Shopify Admin token before it can read live products, orders, or inventory. Re-run embedded bootstrap from Shopify admin first.";
+		if (shopifyAccessFailure || !installationAccessToken) {
+			body = `${shopifyAccessFailure} Re-run embedded bootstrap from Shopify admin after reinstalling the app if needed.`;
 			citations = [
 				buildShopifyCitation(
 					"Install health",
-					`Shop ${runtime.shop.domain} is missing a connected offline token.`,
+					`Shop ${runtime.shop.domain} is not currently in a connected embedded-admin state.`,
 				),
 			];
 		} else if (/(reindex|refresh|replay|rebuild|regenerate)/i.test(prompt)) {
@@ -2093,7 +2099,7 @@ export const askCopilot = action({
 			];
 		} else if (/(pause|draft|archive|publish|activate)/i.test(prompt)) {
 			const product = await findProductForPrompt({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				prompt,
 				shopDomain: runtime.shop.domain,
 			});
@@ -2148,7 +2154,7 @@ export const askCopilot = action({
 			}
 		} else if (/(add tag|remove tag)/i.test(prompt)) {
 			const product = await findProductForPrompt({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				prompt,
 				shopDomain: runtime.shop.domain,
 			});
@@ -2201,7 +2207,7 @@ export const askCopilot = action({
 			}
 		} else if (/(change title|change description|rewrite description)/i.test(prompt)) {
 			const product = await findProductForPrompt({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				prompt,
 				shopDomain: runtime.shop.domain,
 			});
@@ -2265,7 +2271,7 @@ export const askCopilot = action({
 			}
 		} else if (/set metafield/i.test(prompt)) {
 			const product = await findProductForPrompt({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				prompt,
 				shopDomain: runtime.shop.domain,
 			});
@@ -2278,7 +2284,7 @@ export const askCopilot = action({
 					'Use a full namespace.key instruction, for example: set metafield custom.hero_blurb to "New copy" on "Unicorn Sparkle Backpack".';
 			} else {
 				const context = await getProductEditContext({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					productId: product.id,
 					shopDomain: runtime.shop.domain,
 				});
@@ -2335,7 +2341,7 @@ export const askCopilot = action({
 			}
 		} else if (/adjust inventory/i.test(prompt)) {
 			const product = await findProductForPrompt({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				prompt,
 				shopDomain: runtime.shop.domain,
 			});
@@ -2346,7 +2352,7 @@ export const askCopilot = action({
 					'Use a direct delta instruction, for example: adjust inventory of "Unicorn Sparkle Backpack" by -4.';
 			} else {
 				const context = await getProductEditContext({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					productId: product.id,
 					shopDomain: runtime.shop.domain,
 				});
@@ -2409,16 +2415,16 @@ export const askCopilot = action({
 		} else {
 			const [overviewData, productRows, orderRows] = await Promise.all([
 				fetchShopifyOverview({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					shopDomain: runtime.shop.domain,
 				}),
 				searchShopifyProducts({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					query: quotedTerms[0] ?? "status:active",
 					shopDomain: runtime.shop.domain,
 				}),
 				searchShopifyOrders({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					query: recentOrdersQuery(),
 					shopDomain: runtime.shop.domain,
 				}),
@@ -2714,6 +2720,32 @@ export const approveAction = action({
 
 		if (state.approval.status !== "pending") {
 			throw new Error("Approval has already been handled.");
+		}
+
+		const accessFailure = getShopifyAccessFailureReason({
+			actionLabel: "execute this approval",
+			installation: state.installation,
+			shop: state.shop,
+		});
+
+		if (accessFailure) {
+			await ctx.runMutation(internal.merchantWorkspace.setApprovalState, {
+				approvalId: state.approval._id,
+				errorMessage: accessFailure,
+				status: "failed",
+			});
+			await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
+				action: `merchant.approval.${state.approval.tool}.failed`,
+				actorId: state.actor._id,
+				detail: state.approval.summary,
+				payload: {
+					approvalId: state.approval._id,
+					error: accessFailure,
+				},
+				shopId: state.shop._id,
+				status: "failed",
+			});
+			throw new Error(accessFailure);
 		}
 
 		await ctx.runMutation(internal.merchantWorkspace.setApprovalState, {

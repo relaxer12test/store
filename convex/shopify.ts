@@ -55,7 +55,7 @@ function normalizeWebhookHeaderValue(value: string | undefined) {
 	return trimmed && trimmed.length > 0 ? trimmed : undefined;
 }
 
-function buildWebhookDeliveryKey({
+export function buildWebhookDeliveryKey({
 	domain,
 	eventId,
 	rawBody,
@@ -76,6 +76,59 @@ function buildWebhookDeliveryKey({
 		`${normalizeWebhookHeaderValue(triggeredAt) ?? "unknown"}:${rawBody.replace(/\s+/g, " ").slice(0, 128)}`;
 
 	return `${normalizeWebhookHeaderValue(domain) ?? "unknown"}::${normalizeWebhookHeaderValue(topic) ?? "unknown"}::${identity}`;
+}
+
+export function getWebhookSyncPlans(topic: string) {
+	if (topic === "app/uninstalled") {
+		return [
+			{
+				pendingReason: "App uninstall webhook requested cache and token cleanup.",
+				type: "shop_uninstall_cleanup",
+			},
+		];
+	}
+
+	const plans: Array<{
+		cacheKey?: string;
+		pendingReason: string;
+		type: string;
+	}> = [];
+
+	if (
+		topic.startsWith("products/") ||
+		topic.startsWith("collections/") ||
+		topic === "inventory_levels/update"
+	) {
+		plans.push(
+			{
+				cacheKey: "public_catalog_index",
+				pendingReason: `Webhook ${topic} requested a deterministic catalog index rebuild.`,
+				type: "catalog_index_rebuild",
+			},
+			{
+				cacheKey: "merchant_metrics_cache",
+				pendingReason: `Webhook ${topic} requested a merchant metrics refresh.`,
+				type: "metrics_cache_refresh",
+			},
+		);
+	}
+
+	if (topic.startsWith("orders/") || topic === "app/scopes_update") {
+		plans.push({
+			cacheKey: "merchant_metrics_cache",
+			pendingReason: `Webhook ${topic} requested a merchant metrics refresh.`,
+			type: "metrics_cache_refresh",
+		});
+	}
+
+	if (topic === "app/scopes_update") {
+		plans.push({
+			pendingReason: "Scope changes requested a Shopify cache reconciliation scan.",
+			type: "reconciliation_scan",
+		});
+	}
+
+	return plans;
 }
 
 function getActorName(options: {
@@ -146,7 +199,7 @@ async function createSessionEnvelope({
 	};
 }
 
-function shouldRefreshInstallation(installation: {
+export function shouldRefreshInstallation(installation: {
 	accessTokenExpiresAt?: number;
 	refreshToken?: string;
 	refreshTokenExpiresAt?: number;
@@ -169,7 +222,7 @@ function shouldRefreshInstallation(installation: {
 	return installation.accessTokenExpiresAt <= Date.now() + ACCESS_TOKEN_REFRESH_BUFFER_MS;
 }
 
-function sessionToInstallation(session: Session) {
+export function sessionToInstallation(session: Session) {
 	return {
 		accessToken: session.accessToken ?? undefined,
 		accessTokenExpiresAt: session.expires?.getTime() ?? undefined,
@@ -757,73 +810,21 @@ export const ingestWebhook = internalMutation({
 					status: "inactive",
 				});
 			}
-
-			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
-				domain: shop.domain,
-				payloadPreview: "Shop uninstall cleanup requested.",
-				pendingReason: "App uninstall webhook requested cache and token cleanup.",
-				shopId: shop._id,
-				source: "webhook",
-				triggeredByDeliveryId: deliveryId,
-				type: "shop_uninstall_cleanup",
-				webhookReceivedAt: now,
-			});
-
-			return deliveryId;
 		}
 
-		if (
-			args.topic.startsWith("products/") ||
-			args.topic.startsWith("collections/") ||
-			args.topic === "inventory_levels/update"
-		) {
+		for (const plan of getWebhookSyncPlans(args.topic)) {
 			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
-				cacheKey: "public_catalog_index",
+				cacheKey: plan.cacheKey,
 				domain: shop.domain,
-				payloadPreview: args.payloadPreview,
-				pendingReason: `Webhook ${args.topic} requested a deterministic catalog index rebuild.`,
+				payloadPreview:
+					args.topic === "app/uninstalled"
+						? "Shop uninstall cleanup requested."
+						: args.payloadPreview,
+				pendingReason: plan.pendingReason,
 				shopId: shop._id,
 				source: "webhook",
 				triggeredByDeliveryId: deliveryId,
-				type: "catalog_index_rebuild",
-				webhookReceivedAt: now,
-			});
-			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
-				cacheKey: "merchant_metrics_cache",
-				domain: shop.domain,
-				payloadPreview: args.payloadPreview,
-				pendingReason: `Webhook ${args.topic} requested a merchant metrics refresh.`,
-				shopId: shop._id,
-				source: "webhook",
-				triggeredByDeliveryId: deliveryId,
-				type: "metrics_cache_refresh",
-				webhookReceivedAt: now,
-			});
-		}
-
-		if (args.topic.startsWith("orders/") || args.topic === "app/scopes_update") {
-			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
-				cacheKey: "merchant_metrics_cache",
-				domain: shop.domain,
-				payloadPreview: args.payloadPreview,
-				pendingReason: `Webhook ${args.topic} requested a merchant metrics refresh.`,
-				shopId: shop._id,
-				source: "webhook",
-				triggeredByDeliveryId: deliveryId,
-				type: "metrics_cache_refresh",
-				webhookReceivedAt: now,
-			});
-		}
-
-		if (args.topic === "app/scopes_update") {
-			await ctx.runMutation(internal.shopifySync.queueSyncJob, {
-				domain: shop.domain,
-				payloadPreview: args.payloadPreview,
-				pendingReason: "Scope changes requested a Shopify cache reconciliation scan.",
-				shopId: shop._id,
-				source: "webhook",
-				triggeredByDeliveryId: deliveryId,
-				type: "reconciliation_scan",
+				type: plan.type,
 				webhookReceivedAt: now,
 			});
 		}

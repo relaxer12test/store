@@ -198,7 +198,7 @@ function derivePromptCategory(message: string): PromptCategory {
 	return "discovery";
 }
 
-function reviewPromptSafety(message: string) {
+export function reviewPromptSafety(message: string) {
 	const category = derivePromptCategory(message);
 	const normalized = message.toLowerCase();
 
@@ -256,7 +256,7 @@ function reviewPromptSafety(message: string) {
 	};
 }
 
-function reviewAssistantSafety(message: string) {
+export function reviewAssistantSafety(message: string) {
 	const normalized = message.toLowerCase();
 
 	if (
@@ -380,7 +380,7 @@ function buildUnavailableReply(config: StorefrontWidgetConfig): StorefrontWidget
 	});
 }
 
-function buildSafetyRefusalReply(
+export function buildSafetyRefusalReply(
 	config: StorefrontWidgetConfig,
 	reason: "discount_request" | "policy_bypass" | "private_data_request" | "restricted_action",
 ): StorefrontWidgetReply {

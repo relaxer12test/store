@@ -1,213 +1,158 @@
-Welcome to your new TanStack Start app! 
+# Growth Capital Shopify AI
 
-# Getting Started
+Embedded Shopify app and storefront AI assistant built with TanStack Start, Convex, Cloudflare Workers, and a Shopify theme app embed.
 
-This project now uses [Vite+](https://viteplus.dev/) as the local frontend toolchain. Vite+ wraps the underlying package manager, and this repo keeps `npm` as the package manager of record through `packageManager`.
+## Architecture
 
-Install dependencies and start the app with Vite+:
+- `src/`: TanStack Start app shell, embedded admin routes, merchant UI, internal diagnostics, and API proxy routes.
+- `convex/`: shop auth/bootstrap, webhook ingestion, sync/cache workflows, merchant copilot flows, document processing, and storefront AI runtime.
+- `extensions/storefront-ai/`: theme app embed that mounts the shopper-facing assistant on the Online Store.
+- `wrangler.jsonc`: Cloudflare Workers deployment for `storeai.ldev.cloud`.
+- `shopify.app.toml`: embedded Shopify app config and webhook subscriptions.
 
-```bash
-vp install
-vp dev --port 3000
-```
+### Runtime shape
 
-If you have not installed the global `vp` binary yet, the project-local fallback is:
+- `storeai.ldev.cloud`: embedded admin app and public widget proxy.
+- `store.ldev.cloud` and `storedev.ldev.cloud`: Shopify Online Store domains that keep serving the storefront.
+- Convex: system of record for audit logs, sync jobs, cache states, widget config, merchant documents, approvals, and AI event traces.
+- Shopify: source of truth for products, orders, inventory, themes, and merchant mutations.
+
+## Main flows
+
+### Embedded admin bootstrap
+
+1. Shopify admin loads the embedded app.
+2. App Bridge provides a session token.
+3. `/api/shopify/bootstrap` forwards the token to Convex.
+4. Convex exchanges online and offline tokens, persists the shop + merchant actor, issues a Convex JWT, and queues the initial reconciliation job.
+
+### Webhooks and cache refresh
+
+1. Shopify sends webhooks to `/api/shopify/webhooks`.
+2. TanStack Start forwards the validated headers/body to Convex HTTP.
+3. Convex validates the webhook, stores delivery/audit rows, and queues only the relevant follow-up jobs:
+   `catalog_index_rebuild`, `metrics_cache_refresh`, `reconciliation_scan`, or `shop_uninstall_cleanup`.
+
+### Storefront AI
+
+- The theme app embed fetches widget config through `/api/shopify/widget`.
+- Chat requests stream through `/api/shopify/widget/chat`.
+- The storefront runtime refuses discount, private-data, and restricted-action prompts before model generation.
+- Replies are grounded only in public catalog data and storefront-safe policy content.
+
+### Merchant copilot
+
+- Merchant reads use the embedded Convex JWT and shop-scoped claims.
+- Write intents become approval cards first.
+- Only explicit approval runs Shopify mutations.
+- Approval outcomes, webhook deliveries, sync jobs, and document processing all land in audit-oriented Convex tables.
+
+## Development
+
+Install dependencies and run the app:
 
 ```bash
 npm install
 npm run dev
 ```
 
-# Building For Production
-
-To build this application for production:
+Optional Vite+ workflow:
 
 ```bash
-vp build
+vp install
+vp dev --port 3000
 ```
 
-## Testing
-
-This project uses [Vitest](https://vitest.dev/) for testing. You can run the tests with:
+Useful commands:
 
 ```bash
-vp test run
+npm test
+npm run check
+npm run lint
+npm run format
+npm run convex:dev
 ```
 
-## Styling
+## Environment
 
-This project uses [Tailwind CSS](https://tailwindcss.com/) for styling.
+### Client / TanStack Start
 
-### Removing Tailwind CSS
+- `VITE_CONVEX_URL`: Convex deployment URL used by the app shell and API proxy routes.
+- `VITE_SHOPIFY_API_KEY`: Shopify app key exposed to embedded HTML for App Bridge boot.
+- `VITE_ENABLE_INTERNAL_TOOLS`: optional flag to surface `/internal` outside local dev.
 
-If you prefer not to use Tailwind CSS:
+### Convex / server-only
 
-1. Remove the demo pages in `src/routes/demo/`
-2. Replace the Tailwind import in `src/styles.css` with your own styles
-3. Remove `tailwindcss()` from the plugins array in `vite.config.ts`
-4. Uninstall the packages: `vp remove @tailwindcss/vite tailwindcss`
+- `SHOPIFY_APP_URL`
+- `SHOPIFY_API_KEY`
+- `SHOPIFY_API_SECRET`
+- `CONVEX_APP_AUTH_PRIVATE_JWK`
+- `CONVEX_APP_AUTH_JWKS`
+- `CONVEX_APP_AUTH_ISSUER`
+- `CONVEX_APP_AUTH_AUDIENCE`
+- `CONVEX_APP_AUTH_TTL_SECONDS` (optional)
+- `CONVEX_OPENAI_API_KEY` or `OPENAI_API_KEY`
+- `CONVEX_STOREFRONT_CONCIERGE_MODEL` (optional override)
 
-## Linting & Formatting
+### Cloudflare
 
-This project uses Vite+ with [Oxlint](https://oxc.rs/docs/guide/usage/linter.html) and [Oxfmt](https://oxc.rs/docs/guide/usage/formatter.html). The primary validation commands are:
+- `STORE_R2` Wrangler binding for the Workers app.
+- Convex R2 component credentials/config are managed in Convex, not in this repo.
 
+## Deployment
+
+Production deploy target:
+
+- TanStack Start on Cloudflare Workers at `storeai.ldev.cloud`
+- Shopify app config with `application_url = "https://storeai.ldev.cloud"`
+- Convex custom domain for bootstrap, webhook, widget, document, and merchant-protected backend traffic
+
+Deploy command:
 
 ```bash
-vp lint
-vp fmt
-vp check
+npm run deploy:production
 ```
 
+That runs the app build, deploys Convex, then deploys the Worker with Wrangler.
 
+## Quality and security posture
 
-## Routing
+- Embedded HTML now sets a dynamic `Content-Security-Policy` `frame-ancestors` value using the active Shopify admin context.
+- Merchant Shopify-backed actions are blocked once a shop is inactive or the offline token is no longer connected.
+- Webhook-to-sync planning is deterministic and covered by tests.
+- Storefront refusal rules explicitly cover free-item requests, hidden discounts, private data, and restricted actions.
+- Merchant-facing settings already expose install, webhook, cache, workflow, and document diagnostics without requiring a separate ops console.
 
-This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
+## Tests
 
-### Adding A Route
+The test suite covers:
 
-To add a new route to your application just add a new file in the `./src/routes` directory.
+- merchant auth/shop scoping
+- embedded bootstrap host and session-token behavior
+- webhook forwarding and webhook-to-sync job selection
+- storefront safety refusals and unsafe assistant regression cases
+- cart-plan and dashboard schema validation
+- theme app embed activation-path helpers
+- approval-card UI behavior
 
-TanStack will automatically generate the content of the route file for you.
+Run all tests with:
 
-Now that you have two routes you can use a `Link` component to navigate between them.
-
-### Adding Links
-
-To use SPA (Single Page Application) navigation you will need to import the `Link` component from `@tanstack/react-router`.
-
-```tsx
-import { Link } from "@tanstack/react-router";
+```bash
+npm test
 ```
 
-Then anywhere in your JSX you can use it like so:
+## Demo flow
 
-```tsx
-<Link to="/about">About</Link>
-```
+See [docs/demo-script.md](/Users/l/_DEV/ldev/store/docs/demo-script.md).
 
-This will create a link that will navigate to the `/about` route.
+## Tradeoffs
 
-More information on the `Link` component can be found in the [Link documentation](https://tanstack.com/router/v1/docs/framework/react/api/router/linkComponent).
+- The app favors deterministic dashboards and approval cards over freeform model-generated UI.
+- Shopify remains the source of truth; Convex caches only repeated high-value reads and audit/workflow state.
+- Internal diagnostics are intentionally separate from merchant navigation so demo/debug surfaces stay explicit.
 
-### Using A Layout
+## Known limitations
 
-In the File Based Routing setup the layout is located in `src/routes/__root.tsx`. Anything you add to the root route will appear in all the routes. The route content will appear in the JSX where you render `{children}` in the `shellComponent`.
-
-Here is an example layout that includes a header:
-
-```tsx
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
-
-export const Route = createRootRoute({
-  head: () => ({
-    meta: [
-      { charSet: 'utf-8' },
-      { name: 'viewport', content: 'width=device-width, initial-scale=1' },
-      { title: 'My App' },
-    ],
-  }),
-  shellComponent: ({ children }) => (
-    <html lang="en">
-      <head>
-        <HeadContent />
-      </head>
-      <body>
-        <header>
-          <nav>
-            <Link to="/">Home</Link>
-            <Link to="/about">About</Link>
-          </nav>
-        </header>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  ),
-})
-```
-
-More information on layouts can be found in the [Layouts documentation](https://tanstack.com/router/latest/docs/framework/react/guide/routing-concepts#layouts).
-
-## Server Functions
-
-TanStack Start provides server functions that allow you to write server-side code that seamlessly integrates with your client components.
-
-```tsx
-import { createServerFn } from '@tanstack/react-start'
-
-const getServerTime = createServerFn({
-  method: 'GET',
-}).handler(async () => {
-  return new Date().toISOString()
-})
-
-// Use in a component
-function MyComponent() {
-  const [time, setTime] = useState('')
-  
-  useEffect(() => {
-    getServerTime().then(setTime)
-  }, [])
-  
-  return <div>Server time: {time}</div>
-}
-```
-
-## API Routes
-
-You can create API routes by using the `server` property in your route definitions:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-import { json } from '@tanstack/react-start'
-
-export const Route = createFileRoute('/api/hello')({
-  server: {
-    handlers: {
-      GET: () => json({ message: 'Hello, World!' }),
-    },
-  },
-})
-```
-
-## Data Fetching
-
-There are multiple ways to fetch data in your application. You can use TanStack Query to fetch data from a server. But you can also use the `loader` functionality built into TanStack Router to load the data for a route before it's rendered.
-
-For example:
-
-```tsx
-import { createFileRoute } from '@tanstack/react-router'
-
-export const Route = createFileRoute('/people')({
-  loader: async () => {
-    const response = await fetch('https://swapi.dev/api/people')
-    return response.json()
-  },
-  component: PeopleComponent,
-})
-
-function PeopleComponent() {
-  const data = Route.useLoaderData()
-  return (
-    <ul>
-      {data.results.map((person) => (
-        <li key={person.name}>{person.name}</li>
-      ))}
-    </ul>
-  )
-}
-```
-
-Loaders simplify your data fetching logic dramatically. Check out more information in the [Loader documentation](https://tanstack.com/router/latest/docs/framework/react/guide/data-loading#loader-parameters).
-
-# Demo files
-
-Files prefixed with `demo` can be safely deleted. They are there to provide a starting point for you to play around with the features you've installed.
-
-# Learn More
-
-You can learn more about all of the offerings from TanStack in the [TanStack documentation](https://tanstack.com).
-
-For TanStack Start specific documentation, visit [TanStack Start](https://tanstack.com/start).
+- Internal diagnostics are route-gated in the app shell; they are still a development/staff surface rather than a polished production admin feature.
+- The current submission targets one embedded admin shell and one storefront widget surface, not a full multi-role back-office product.
+- Theme/app installation and custom-domain setup still require real Shopify and Convex environment configuration; this repo cannot make those platform-side changes by itself.

@@ -1,35 +1,45 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getRequiredConvexUrl } from "@/lib/env";
 
-function getConvexEndpoint(path: string) {
-	return new URL(path, getRequiredConvexUrl()).toString();
+export async function forwardShopifyBootstrapRequest(
+	request: Request,
+	options?: {
+		convexUrl?: string;
+		fetchImpl?: typeof fetch;
+	},
+) {
+	const authorization = request.headers.get("Authorization");
+
+	if (!authorization) {
+		return Response.json(
+			{
+				error: "Missing Shopify session token.",
+			},
+			{
+				status: 401,
+			},
+		);
+	}
+
+	const fetchImpl = options?.fetchImpl ?? fetch;
+	const convexEndpoint = new URL(
+		"/shopify/bootstrap",
+		options?.convexUrl ?? getRequiredConvexUrl(),
+	);
+
+	return fetchImpl(convexEndpoint.toString(), {
+		method: "POST",
+		headers: {
+			Accept: "application/json",
+			Authorization: authorization,
+		},
+	});
 }
 
 export const Route = createFileRoute("/api/shopify/bootstrap")({
 	server: {
 		handlers: {
-			POST: async ({ request }) => {
-				const authorization = request.headers.get("Authorization");
-
-				if (!authorization) {
-					return Response.json(
-						{
-							error: "Missing Shopify session token.",
-						},
-						{
-							status: 401,
-						},
-					);
-				}
-
-				return fetch(getConvexEndpoint("/shopify/bootstrap"), {
-					method: "POST",
-					headers: {
-						Accept: "application/json",
-						Authorization: authorization,
-					},
-				});
-			},
+			POST: async ({ request }) => forwardShopifyBootstrapRequest(request),
 		},
 	},
 });

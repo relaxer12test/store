@@ -121,7 +121,7 @@ export async function shopifyAdminGraphqlRequest<TData>({
 	return payload.data;
 }
 
-function parseThemeAppEmbedStatus(settingsDataContent: string, embedBlockHandle: string) {
+export function parseThemeAppEmbedStatus(settingsDataContent: string, embedBlockHandle: string) {
 	const parsed = JSON.parse(settingsDataContent) as {
 		current?: {
 			blocks?: Record<

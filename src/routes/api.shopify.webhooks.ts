@@ -5,7 +5,7 @@ function getConvexEndpoint(path: string) {
 	return new URL(path, getRequiredConvexUrl()).toString();
 }
 
-function buildForwardedHeaders(request: Request) {
+export function buildForwardedHeaders(request: Request) {
 	const headers = new Headers();
 
 	for (const [key, value] of request.headers.entries()) {
