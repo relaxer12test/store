@@ -12,11 +12,8 @@ Then write or update the mappings block, preserving everything outside the tagge
 For future tasks, when a mapping matches, load the linked `node_modules/.../SKILL.md` before planning or editing code.
 
 <!-- intent-skills:start -->
-
 # Skill mappings - when working in these areas, load the linked skill file into context.
-
 skills:
-
 - task: "add or debug Shopify API routes, webhooks, or upload endpoints"
   load: "node_modules/@tanstack/start-client-core/skills/start-core/server-routes/SKILL.md"
 - task: "fix embedded Shopify auth, session bootstrap, or merchant access guards"
@@ -25,9 +22,8 @@ skills:
   load: "node_modules/@tanstack/router-core/skills/router-core/data-loading/SKILL.md"
 - task: "work on App Bridge bootstrapping, client-server boundaries, or env wiring"
   load: "node_modules/@tanstack/start-client-core/skills/start-core/execution-model/SKILL.md"
-- task: "adjust Cloudflare Workers deployment, SSR behavior, or runtime config"
+- task: "adjust Cloudflare Workers deployment, observability, SSR behavior, or runtime config"
   load: "node_modules/@tanstack/start-client-core/skills/start-core/deployment/SKILL.md"
-
 <!-- intent-skills:end -->
 
 <!-- convex-ai-start -->

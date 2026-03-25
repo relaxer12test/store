@@ -4,6 +4,13 @@
 	"account_id": "38dd2e8692a8a1db8721b47b07941873",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
+	"observability": {
+		"enabled": true,
+		"logs": {
+			"invocation_logs": true,
+			"head_sampling_rate": 1,
+		},
+	},
 	"main": "@tanstack/react-start/server-entry",
 	"workers_dev": false,
 	"routes": [
