@@ -57,16 +57,39 @@ function toFrameAncestorOrigin(value: string | null) {
 	return null;
 }
 
-export function getEmbeddedFrameAncestors(requestUrl: URL) {
+function getRefererFrameAncestorOrigin(value: string | null) {
+	if (!value) {
+		return null;
+	}
+
+	try {
+		return toFrameAncestorOrigin(new URL(value).hostname.toLowerCase());
+	} catch {
+		return null;
+	}
+}
+
+function isEmbeddedEntryPath(pathname: string) {
+	return pathname === "/" || pathname === "/app" || pathname.startsWith("/app/");
+}
+
+export function getEmbeddedFrameAncestors(
+	requestUrl: URL,
+	options?: {
+		referer?: string | null;
+	},
+) {
 	const ancestors = new Set<string>();
 	const shopOrigin = toFrameAncestorOrigin(
 		normalizeMyshopifyDomain(requestUrl.searchParams.get("shop")),
 	);
 	const hostOrigin = toFrameAncestorOrigin(decodeShopifyHost(requestUrl.searchParams.get("host")));
+	const refererOrigin = getRefererFrameAncestorOrigin(options?.referer ?? null);
 	const isEmbeddedRequest =
 		requestUrl.searchParams.get("embedded") === "1" ||
 		Boolean(requestUrl.searchParams.get("host")) ||
-		Boolean(requestUrl.searchParams.get("shop"));
+		Boolean(requestUrl.searchParams.get("shop")) ||
+		Boolean(refererOrigin);
 
 	if (shopOrigin) {
 		ancestors.add(shopOrigin);
@@ -76,25 +99,41 @@ export function getEmbeddedFrameAncestors(requestUrl: URL) {
 		ancestors.add(hostOrigin);
 	}
 
-	if (isEmbeddedRequest) {
+	if (refererOrigin) {
+		ancestors.add(refererOrigin);
+	}
+
+	if (isEmbeddedRequest || isEmbeddedEntryPath(requestUrl.pathname)) {
 		ancestors.add("https://admin.shopify.com");
 	}
 
 	return ancestors.size > 0 ? Array.from(ancestors) : ["'none'"];
 }
 
-export function buildEmbeddedAppContentSecurityPolicy(requestUrl: URL) {
-	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl).join(" ")};`;
+export function buildEmbeddedAppContentSecurityPolicy(
+	requestUrl: URL,
+	options?: {
+		referer?: string | null;
+	},
+) {
+	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl, options).join(" ")};`;
 }
 
 export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
-	const { getRequestUrl, setResponseHeader } = await import("@tanstack/react-start/server");
+	const { getRequestHeader, getRequestUrl, setResponseHeader } = await import(
+		"@tanstack/react-start/server"
+	);
 	const requestUrl = getRequestUrl({
 		xForwardedHost: true,
 		xForwardedProto: true,
 	});
 
-	setResponseHeader("Content-Security-Policy", buildEmbeddedAppContentSecurityPolicy(requestUrl));
+	setResponseHeader(
+		"Content-Security-Policy",
+		buildEmbeddedAppContentSecurityPolicy(requestUrl, {
+			referer: getRequestHeader("referer") ?? null,
+		}),
+	);
 
 	return guestSession;
 });

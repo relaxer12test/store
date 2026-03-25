@@ -20,6 +20,25 @@ describe("embedded session headers", () => {
 		);
 	});
 
+	it("allows the embedded entry path to load inside Shopify admin before embed params exist", () => {
+		const url = new URL("https://storeai.ldev.cloud/");
+
+		expect(getEmbeddedFrameAncestors(url)).toEqual(["https://admin.shopify.com"]);
+		expect(buildEmbeddedAppContentSecurityPolicy(url)).toBe(
+			"frame-ancestors https://admin.shopify.com;",
+		);
+	});
+
+	it("trusts Shopify admin referers on non-entry routes", () => {
+		const url = new URL("https://storeai.ldev.cloud/install");
+
+		expect(
+			getEmbeddedFrameAncestors(url, {
+				referer: "https://acme.myshopify.com/admin/apps/storeai",
+			}),
+		).toEqual(["https://acme.myshopify.com", "https://admin.shopify.com"]);
+	});
+
 	it("locks non-embedded HTML out of framing", () => {
 		const url = new URL("https://storeai.ldev.cloud/install");
 
