@@ -10,6 +10,7 @@ const checklistItems = [
 	"Shopify app URL set to https://storeai.ldev.cloud and managed-install scopes deployed",
 	"Backend install/token-exchange flow writing a real shop record into Convex",
 	"Webhook topics writing real deliveries into Convex",
+	"Theme app extension generated and ready to activate from the live theme editor",
 ];
 
 export function InstallPage() {

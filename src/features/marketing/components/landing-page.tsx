@@ -26,7 +26,7 @@ export function LandingPage() {
 			<h1 className="mt-8 font-serif text-4xl text-slate-950">Shopify AI Console</h1>
 			<p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">
 				Embedded admin shell on `storeai.ldev.cloud` with real Shopify bootstrap, webhook ingestion,
-				diagnostics, and the remaining AI/storefront work still layered on top.
+				diagnostics, and a live storefront app embed path for the shopper widget.
 			</p>
 
 			<nav className="mt-10 grid gap-4 sm:grid-cols-2">

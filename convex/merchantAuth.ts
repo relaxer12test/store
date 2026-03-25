@@ -3,8 +3,13 @@ import type { Doc, Id } from "./_generated/dataModel";
 import type { MutationCtx, QueryCtx } from "./_generated/server";
 
 type MerchantDbCtx = QueryCtx | MutationCtx;
+type MerchantAuthCtx = {
+	auth: {
+		getUserIdentity: () => Promise<UserIdentity | null>;
+	};
+};
 
-interface MerchantClaims {
+export interface MerchantClaims {
 	merchantActorId: Id<"merchantActors">;
 	roles: string[];
 	shopDomain: string;
@@ -46,7 +51,7 @@ function getStringArrayClaim(identity: UserIdentity, key: keyof MerchantClaims) 
 	return value;
 }
 
-function getMerchantClaims(identity: UserIdentity): MerchantClaims {
+export function getMerchantClaimsFromIdentity(identity: UserIdentity): MerchantClaims {
 	return {
 		merchantActorId: getStringClaim(identity, "merchantActorId") as Id<"merchantActors">,
 		roles: getStringArrayClaim(identity, "roles"),
@@ -56,6 +61,16 @@ function getMerchantClaims(identity: UserIdentity): MerchantClaims {
 	};
 }
 
+export async function requireMerchantClaims(ctx: MerchantAuthCtx): Promise<MerchantClaims> {
+	const identity = await ctx.auth.getUserIdentity();
+
+	if (!identity) {
+		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
+	}
+
+	return getMerchantClaimsFromIdentity(identity);
+}
+
 export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<MerchantContext> {
 	const identity = await ctx.auth.getUserIdentity();
 
@@ -63,7 +78,7 @@ export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<Merchant
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
 
-	const claims = getMerchantClaims(identity);
+	const claims = getMerchantClaimsFromIdentity(identity);
 	const actor = await ctx.db.get(claims.merchantActorId);
 
 	if (!actor) {

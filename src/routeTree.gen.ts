@@ -23,8 +23,10 @@ import { Route as AppWorkflowsRouteImport } from './routes/app.workflows'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
 import { Route as AppExplorerRouteImport } from './routes/app.explorer'
 import { Route as AppCopilotRouteImport } from './routes/app.copilot'
+import { Route as ApiShopifyWidgetRouteImport } from './routes/api.shopify.widget'
 import { Route as ApiShopifyWebhooksRouteImport } from './routes/api.shopify.webhooks'
 import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bootstrap'
+import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
 const InternalRoute = InternalRouteImport.update({
   id: '/internal',
@@ -96,6 +98,11 @@ const AppCopilotRoute = AppCopilotRouteImport.update({
   path: '/copilot',
   getParentRoute: () => AppRoute,
 } as any)
+const ApiShopifyWidgetRoute = ApiShopifyWidgetRouteImport.update({
+  id: '/api/shopify/widget',
+  path: '/api/shopify/widget',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiShopifyWebhooksRoute = ApiShopifyWebhooksRouteImport.update({
   id: '/api/shopify/webhooks',
   path: '/api/shopify/webhooks',
@@ -105,6 +112,11 @@ const ApiShopifyBootstrapRoute = ApiShopifyBootstrapRouteImport.update({
   id: '/api/shopify/bootstrap',
   path: '/api/shopify/bootstrap',
   getParentRoute: () => rootRouteImport,
+} as any)
+const ApiShopifyWidgetChatRoute = ApiShopifyWidgetChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
+  getParentRoute: () => ApiShopifyWidgetRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
@@ -124,6 +136,8 @@ export interface FileRoutesByFullPath {
   '/internal/': typeof InternalIndexRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
+  '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -140,6 +154,8 @@ export interface FileRoutesByTo {
   '/internal': typeof InternalIndexRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
+  '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -159,6 +175,8 @@ export interface FileRoutesById {
   '/internal/': typeof InternalIndexRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
+  '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -179,6 +197,8 @@ export interface FileRouteTypes {
     | '/internal/'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
+    | '/api/shopify/widget'
+    | '/api/shopify/widget/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -195,6 +215,8 @@ export interface FileRouteTypes {
     | '/internal'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
+    | '/api/shopify/widget'
+    | '/api/shopify/widget/chat'
   id:
     | '__root__'
     | '/'
@@ -213,6 +235,8 @@ export interface FileRouteTypes {
     | '/internal/'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
+    | '/api/shopify/widget'
+    | '/api/shopify/widget/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -222,6 +246,7 @@ export interface RootRouteChildren {
   InternalRoute: typeof InternalRouteWithChildren
   ApiShopifyBootstrapRoute: typeof ApiShopifyBootstrapRoute
   ApiShopifyWebhooksRoute: typeof ApiShopifyWebhooksRoute
+  ApiShopifyWidgetRoute: typeof ApiShopifyWidgetRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -324,6 +349,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppCopilotRouteImport
       parentRoute: typeof AppRoute
     }
+    '/api/shopify/widget': {
+      id: '/api/shopify/widget'
+      path: '/api/shopify/widget'
+      fullPath: '/api/shopify/widget'
+      preLoaderRoute: typeof ApiShopifyWidgetRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/shopify/webhooks': {
       id: '/api/shopify/webhooks'
       path: '/api/shopify/webhooks'
@@ -337,6 +369,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/shopify/bootstrap'
       preLoaderRoute: typeof ApiShopifyBootstrapRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/shopify/widget/chat': {
+      id: '/api/shopify/widget/chat'
+      path: '/chat'
+      fullPath: '/api/shopify/widget/chat'
+      preLoaderRoute: typeof ApiShopifyWidgetChatRouteImport
+      parentRoute: typeof ApiShopifyWidgetRoute
     }
   }
 }
@@ -379,6 +418,17 @@ const InternalRouteWithChildren = InternalRoute._addFileChildren(
   InternalRouteChildren,
 )
 
+interface ApiShopifyWidgetRouteChildren {
+  ApiShopifyWidgetChatRoute: typeof ApiShopifyWidgetChatRoute
+}
+
+const ApiShopifyWidgetRouteChildren: ApiShopifyWidgetRouteChildren = {
+  ApiShopifyWidgetChatRoute: ApiShopifyWidgetChatRoute,
+}
+
+const ApiShopifyWidgetRouteWithChildren =
+  ApiShopifyWidgetRoute._addFileChildren(ApiShopifyWidgetRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AppRoute: AppRouteWithChildren,
@@ -386,6 +436,7 @@ const rootRouteChildren: RootRouteChildren = {
   InternalRoute: InternalRouteWithChildren,
   ApiShopifyBootstrapRoute: ApiShopifyBootstrapRoute,
   ApiShopifyWebhooksRoute: ApiShopifyWebhooksRoute,
+  ApiShopifyWidgetRoute: ApiShopifyWidgetRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

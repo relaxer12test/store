@@ -95,6 +95,7 @@ export default defineSchema({
 		createdAt: v.number(),
 		enabled: v.boolean(),
 		greeting: v.string(),
+		knowledgeSources: v.optional(v.array(v.string())),
 		position: v.union(v.literal("bottom-right"), v.literal("bottom-left")),
 		shopId: v.id("shops"),
 		updatedAt: v.number(),

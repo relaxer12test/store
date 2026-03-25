@@ -1,16 +1,24 @@
-import { ApiVersion, RequestedTokenType, shopifyApi, type Session } from "@shopify/shopify-api";
+import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
 import type { SessionEnvelope, ShopSummary, ViewerSummary } from "../src/shared/contracts/session";
+import {
+	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
+	DEFAULT_STOREFRONT_WIDGET_GREETING,
+	DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+	DEFAULT_STOREFRONT_WIDGET_POSITION,
+} from "../src/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import { issueMerchantSessionToken } from "./merchantSessionToken";
+import {
+	createShopifyClient,
+	SHOPIFY_API_VERSION,
+	shopifyAdminGraphqlRequest,
+} from "./shopifyAdmin";
 
-const SHOPIFY_API_VERSION = ApiVersion.January26;
 const ACCESS_TOKEN_REFRESH_BUFFER_MS = 1000 * 60 * 5;
 const WEBHOOK_PAYLOAD_PREVIEW_LIMIT = 16_000;
-const DEFAULT_WIDGET_GREETING =
-	"Ask about products, collections, shipping policies, or what to add to cart.";
 
 const BOOTSTRAP_QUERY = `
 	query BootstrapShop {
@@ -29,36 +37,6 @@ const BOOTSTRAP_QUERY = `
 		}
 	}
 `;
-
-function getRequiredEnv(name: string) {
-	const env = (
-		globalThis as typeof globalThis & {
-			process?: {
-				env?: Record<string, string | undefined>;
-			};
-		}
-	).process?.env;
-	const value = env?.[name];
-
-	if (!value) {
-		throw new Error(`Missing Convex environment variable ${name}.`);
-	}
-
-	return value;
-}
-
-function getShopifyClient() {
-	const appUrl = new URL(getRequiredEnv("SHOPIFY_APP_URL"));
-
-	return shopifyApi({
-		apiKey: getRequiredEnv("SHOPIFY_API_KEY"),
-		apiSecretKey: getRequiredEnv("SHOPIFY_API_SECRET"),
-		apiVersion: SHOPIFY_API_VERSION,
-		hostName: appUrl.host,
-		hostScheme: appUrl.protocol === "https:" ? "https" : "http",
-		isEmbeddedApp: true,
-	});
-}
 
 function getInitials(name: string) {
 	const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -176,48 +154,27 @@ function sessionToInstallation(session: Session) {
 }
 
 async function fetchBootstrapMetadata(shop: string, accessToken: string) {
-	const response = await fetch(`https://${shop}/admin/api/${SHOPIFY_API_VERSION}/graphql.json`, {
-		method: "POST",
-		headers: {
-			"Content-Type": "application/json",
-			"X-Shopify-Access-Token": accessToken,
-		},
-		body: JSON.stringify({
-			query: BOOTSTRAP_QUERY,
-		}),
+	const payload = await shopifyAdminGraphqlRequest<{
+		currentAppInstallation?: {
+			accessScopes?: Array<{
+				handle?: string | null;
+			}>;
+		} | null;
+		shop?: {
+			id?: string | null;
+			myshopifyDomain?: string | null;
+			name?: string | null;
+			plan?: {
+				publicDisplayName?: string | null;
+			} | null;
+		} | null;
+	}>({
+		accessToken,
+		query: BOOTSTRAP_QUERY,
+		shop,
 	});
 
-	const payload = (await response.json()) as {
-		data?: {
-			currentAppInstallation?: {
-				accessScopes?: Array<{
-					handle?: string | null;
-				}>;
-			} | null;
-			shop?: {
-				id?: string | null;
-				myshopifyDomain?: string | null;
-				name?: string | null;
-				plan?: {
-					publicDisplayName?: string | null;
-				} | null;
-			} | null;
-		};
-		errors?: Array<{
-			message?: string;
-		}>;
-	};
-
-	if (!response.ok || payload.errors?.length) {
-		throw new Error(
-			payload.errors
-				?.map((error) => error.message)
-				.filter(Boolean)
-				.join("; ") || `Shopify bootstrap query failed with status ${response.status}.`,
-		);
-	}
-
-	const shopData = payload.data?.shop;
+	const shopData = payload.shop;
 
 	if (!shopData?.name || !shopData.myshopifyDomain || !shopData.id) {
 		throw new Error("Shopify bootstrap query returned incomplete shop data.");
@@ -228,7 +185,7 @@ async function fetchBootstrapMetadata(shop: string, accessToken: string) {
 		name: shopData.name,
 		planDisplayName: shopData.plan?.publicDisplayName ?? null,
 		scopes:
-			payload.data?.currentAppInstallation?.accessScopes
+			payload.currentAppInstallation?.accessScopes
 				?.map((scope) => scope.handle)
 				.filter((scope): scope is string => Boolean(scope)) ?? [],
 		shopifyShopId: shopData.id,
@@ -236,7 +193,7 @@ async function fetchBootstrapMetadata(shop: string, accessToken: string) {
 }
 
 async function getOnlineUserSession(sessionToken: string) {
-	const shopify = getShopifyClient();
+	const shopify = createShopifyClient();
 	const decoded = await shopify.session.decodeSessionToken(sessionToken);
 	const shop = new URL(decoded.dest).hostname;
 	const onlineToken = await shopify.auth.tokenExchange({
@@ -257,7 +214,7 @@ export const bootstrapSession = action({
 		sessionToken: v.string(),
 	},
 	handler: async (ctx, args): Promise<SessionEnvelope> => {
-		const shopify = getShopifyClient();
+		const shopify = createShopifyClient();
 		const { decoded, onlineSession, shop } = await getOnlineUserSession(args.sessionToken);
 		const existingInstallation = await ctx.runQuery(internal.shopify.getInstallationByDomain, {
 			domain: shop,
@@ -347,7 +304,7 @@ export const processWebhook = action({
 		rawBody: v.string(),
 	},
 	handler: async (ctx, args) => {
-		const shopify = getShopifyClient();
+		const shopify = createShopifyClient();
 		const request = new Request("https://storeai.ldev.cloud/api/shopify/webhooks", {
 			method: "POST",
 			headers: new Headers(
@@ -551,11 +508,12 @@ export const persistBootstrap = internalMutation({
 
 		if (!existingWidgetConfig) {
 			await ctx.db.insert("widgetConfigs", {
-				accentColor: "#0f172a",
+				accentColor: DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 				createdAt: now,
 				enabled: true,
-				greeting: DEFAULT_WIDGET_GREETING,
-				position: "bottom-right",
+				greeting: DEFAULT_STOREFRONT_WIDGET_GREETING,
+				knowledgeSources: DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
+				position: DEFAULT_STOREFRONT_WIDGET_POSITION,
 				shopId,
 				updatedAt: now,
 			});

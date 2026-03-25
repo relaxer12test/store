@@ -1,0 +1,17 @@
+<div
+  class="storefront-ai-embed-root"
+  {{ block.shopify_attributes }}
+  data-api-base="https://storeai.ldev.cloud"
+  data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
+  data-theme-editor="{% if request.design_mode %}true{% else %}false{% endif %}"
+></div>
+
+{% schema %}
+{
+  "name": "t:storefront_ai.embed.title",
+  "target": "body",
+  "stylesheet": "storefront-ai-widget.css",
+  "javascript": "storefront-ai-widget.js",
+  "settings": []
+}
+{% endschema %}
