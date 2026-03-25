@@ -1,9 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
-import {
-	getRequestHeader,
-	getRequestUrl,
-	setResponseHeader,
-} from "@tanstack/react-start/server";
+import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
 const guestSession: SessionEnvelope = {
