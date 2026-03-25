@@ -107,14 +107,26 @@ Production deploy target:
 - Shopify app config with `application_url = "https://storeai.ldev.cloud"`
 - Convex custom domain for bootstrap, webhook, widget, document, and merchant-protected backend traffic
 
-Deploy command:
+Deploy commands:
 
 ```bash
-npm run deploy:production
+npm run deploy
 ```
 
-That runs the app build, pushes Convex to the configured dev deployment with
-`convex dev --once`, then deploys the Worker with Wrangler.
+That runs the app build, pushes Convex to the configured production deployment with
+`convex deploy --yes`, deploys the Worker with Wrangler, and then publishes the
+Shopify app configuration plus theme app extension with `shopify app deploy`.
+
+If you only need to push the Worker runtime without releasing a Shopify app version,
+use:
+
+```bash
+npm run deploy:runtime
+```
+
+After `shopify app deploy`, open the embedded app in Shopify admin, go to
+`/app/settings`, use the `Open theme editor` action in the `Storefront embed status`
+panel, enable the `storefront-ai` app embed on the live theme, and save the theme.
 
 ## Quality and security posture
 
