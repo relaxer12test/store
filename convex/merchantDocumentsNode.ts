@@ -4,7 +4,6 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { embed, embedMany } from "ai";
 import { v } from "convex/values";
 import JSZip from "jszip";
-import { PDFParse } from "pdf-parse";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalAction, type ActionCtx } from "./_generated/server";
@@ -23,6 +22,7 @@ import {
 	type ExtractedDocumentFormat,
 	type KnowledgeDocumentVisibility,
 } from "./merchantKnowledgeShared";
+import { PDFParse } from "./pdfParseCompat";
 
 type KnowledgeMatch = {
 	chunkId: Id<"merchantDocumentChunks">;
