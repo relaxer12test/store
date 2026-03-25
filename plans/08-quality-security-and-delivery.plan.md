@@ -8,7 +8,7 @@ Define the verification, deployment, auditability, and submission standards for 
 
 ## Test Strategy
 - Add backend tests for shop-context auth helpers, selective sync transforms, AI tool guards, and approval flows.
-- Add integration tests for Shopify install lifecycle, webhook ingestion, cache/index refreshes, and app embed activation paths where practical.
+- Add integration tests for the first embedded bootstrap/token exchange flow, config-managed webhook ingestion, cache/index refreshes, and app embed activation paths where practical.
 - Add UI tests for embedded app boot, storefront widget safety refusals, and approval-card execution.
 - Add schema validation tests for `CartPlan` and `DashboardSpec`.
 - Add regression tests for “no free item” and “no hidden discount” public AI cases.
@@ -21,6 +21,7 @@ Define the verification, deployment, auditability, and submission standards for 
 - Verify uninstall blocks future sync and action execution for the removed shop.
 - Verify any `/internal` or equivalent dev console is disabled or strongly gated outside explicit development/staff environments.
 - Keep Shopify offline tokens, OpenAI keys, Cloudflare credentials, and any private storefront tokens only in server-side environment configuration.
+- Verify embedded HTML responses send dynamic `Content-Security-Policy` `frame-ancestors` values for the active shop admin domain and Shopify admin.
 
 ## Observability
 - Log install events, sync jobs, webhook deliveries, AI tool calls, refusal reasons, approvals, action results, and document processing state in Convex tables.
@@ -30,8 +31,10 @@ Define the verification, deployment, auditability, and submission standards for 
 ## Deployment Requirements
 - Deploy TanStack Start to Cloudflare Workers at `storeai.ldev.cloud`.
 - Keep `store.ldev.cloud` and `storedev.ldev.cloud` pointed at Shopify Online Store.
-- Serve Convex on a custom domain suitable for Shopify callback, webhook, AI, and document endpoints.
-- Keep app and Convex domains coherent enough for embedded app communication and webhook configuration.
+- Serve the embedded app over HTTPS and load the latest Shopify App Bridge on embedded HTML documents.
+- Preserve and use Shopify's `host` parameter correctly for embedded app boot and navigation.
+- Serve Convex on a custom domain suitable for webhook, AI, document, and merchant-protected backend endpoints.
+- Keep app and Convex domains coherent enough for embedded app communication, webhook configuration, and storefront widget communication.
 - Document dev, preview, and production environment variables clearly.
 
 ## Demo Readiness

@@ -33,6 +33,11 @@ Build a safe, useful shopper AI widget that runs on the live Shopify storefront 
 
 Each tool must run on Convex and read only from storefront-safe sources such as Storefront API data, a sanitized public catalog index, and public documents.
 
+## Storefront API Auth
+- If the widget or Convex tools use the Storefront API, provision a Storefront access token with only the unauthenticated scopes that are actually needed.
+- Never expose Shopify Admin tokens, offline tokens, or merchant session tokens to the storefront widget.
+- Keep browser-side Storefront API usage limited to storefront-safe product, collection, and cart operations.
+
 ## Cart Plan Contract
 - The model may output a structured `CartPlan` only.
 - `CartPlan` may contain variant IDs, quantities, optional note text, and optional explanation.
@@ -54,6 +59,7 @@ Each tool must run on Convex and read only from storefront-safe sources such as 
 
 ## UI Requirements
 - Ship the widget as a Shopify theme app embed, not as a standalone marketing-site component.
+- Deep link merchants from the embedded app into the theme editor so the app embed can be activated quickly.
 - Support launcher, drawer, and mobile-friendly full-height states.
 - Show quick prompts and product chips for common entry points.
 - Render structured product recommendation cards and cart plan cards instead of long generic prose whenever possible.

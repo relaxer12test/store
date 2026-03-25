@@ -12,6 +12,7 @@ Create the application skeleton, routing model, embedded-app bootstrap pattern, 
 - Add Convex using the current TanStack Start integration pattern with `@convex-dev/react-query`, `@tanstack/react-query`, and `@tanstack/react-router-with-query`.
 - Keep the app in a single web project plus `convex/` backend folder unless a later plan explicitly requires splitting.
 - Configure the worker app to serve from `storeai.ldev.cloud`.
+- Load the latest Shopify App Bridge script on embedded HTML documents instead of inventing a custom embedded shell protocol.
 
 ## Route Inventory
 - `/` app landing page and install/help surface on `storeai.ldev.cloud`
@@ -28,17 +29,18 @@ There is no `/ops` route family in v1.
 ## Provider Architecture
 - Build a root router context containing `queryClient`, request helpers, and Shopify/App Bridge boot state.
 - Keep a single long-lived Convex client on the client side so subscriptions and query state survive embedded navigation.
-- Keep a single long-lived App Bridge integration on the client side for session token acquisition.
+- Keep a single long-lived App Bridge integration on the client side for host persistence, admin chrome APIs, and session token acquisition.
 - Use Suspense-based query consumption where it helps the embedded app feel smooth, but do not require SSR-authenticated data for embedded routes.
 - Prefer query prefetch and retained previous content during route transitions over spinner-heavy loading states.
 
 ## Embedded App Bootstrap Pattern
 - The initial request serves the app shell from `storeai.ldev.cloud`.
-- After load, the embedded frontend obtains a Shopify session token from App Bridge.
-- The frontend includes the session token on requests to backend endpoints.
+- App Bridge initializes from the `host` value provided by Shopify on the initial embedded load, and that host is preserved for later client-side navigation.
+- After load, the embedded frontend obtains a fresh Shopify session token from App Bridge for backend requests.
+- The frontend includes the session token in the `Authorization` header on requests to backend endpoints.
 - Convex or worker-side request helpers verify the session token, resolve the active shop and merchant actor, and then load shop-scoped data.
 - Embedded route loaders and components should share the same query keys once auth state is established on the client.
-- Do not design the embedded app around cookie-based SSR session envelopes.
+- Do not design the embedded app around cookie-based SSR session envelopes or URL-parsed session tokens as the normal auth path.
 
 ## UI Composition Rules
 - Route files stay thin. They mount feature components and avoid feature-specific logic.
@@ -56,6 +58,7 @@ There is no `/ops` route family in v1.
 - `/internal` exists only to help us inspect install state, webhook deliveries, cached data, action audits, and debug flows while building.
 - Keep it completely separate from merchant navigation and merchant authorization assumptions.
 - Gate it behind explicit environment checks and staff-only access controls before it ever exists outside local development.
+- If `/internal` survives beyond local development, it may use a separate Better Auth staff login, but that auth must stay isolated from merchant and shopper flows.
 - Treat it as disposable support tooling, not a productized platform-admin surface.
 
 ## Form Composition Contract

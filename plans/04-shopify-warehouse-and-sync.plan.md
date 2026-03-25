@@ -41,6 +41,7 @@ Define a hybrid access model that combines direct Shopify API access with select
 - If the app introduces a public catalog index or metrics cache, seed it with targeted Admin API queries first.
 - Use Shopify Bulk Operations only when the cached/indexed scope becomes large enough that normal pagination is wasteful.
 - After any cache/index is introduced, use webhooks for incremental freshness.
+- Prefer app-specific, config-managed webhook subscriptions from `shopify.app.toml`. Use shop-specific webhook subscriptions only when the topic, filter, or destination truly differs by shop.
 - Add periodic reconciliation jobs only for the cached data the app actually depends on.
 
 ## Required Sync Jobs

@@ -13,7 +13,9 @@ TanStack Start runs on Cloudflare Workers at `storeai.ldev.cloud`. Convex owns t
 - Leave `store.ldev.cloud` and `storedev.ldev.cloud` on Shopify Online Store, not on Workers.
 - Use Convex as the real backend for app logic, AI tools, shop-scoped data, webhooks, workflows, and audits.
 - Use Shopify’s embedded app model with App Bridge, session tokens, token exchange, and managed installation where possible.
+- Do not use Better Auth for merchant or shopper auth. If staff auth is needed for `/internal`, keep it completely separate from Shopify auth.
 - Use GraphQL Admin API for merchant reads/writes from the backend.
+- Even though Shopify supports embedded direct Admin API access, do not make it the primary merchant data path. Keep important reads, writes, approvals, and audits inside Convex.
 - Use Storefront API or storefront-safe cart APIs for shopper-facing catalog/cart flows.
 - Use a Shopify theme app extension or app embed for the storefront widget.
 - Use Cloudflare R2 via `@convex-dev/r2` for document/file blobs.
@@ -23,7 +25,7 @@ TanStack Start runs on Cloudflare Workers at `storeai.ldev.cloud`. Convex owns t
 ## Backend Boundary
 - Shopify owns storefront rendering, product pages, theme layout, and checkout.
 - Workers own TanStack Start delivery on `storeai.ldev.cloud`, public shell/install screens, and embedded app assets.
-- Convex owns backend endpoints that matter, including Shopify install/auth support, webhook ingress, AI chat endpoints, document ingestion, audit logs, and selective cache/sync jobs.
+- Convex owns backend endpoints that matter, including protected merchant data/actions, shop bootstrap and token lifecycle support, webhook ingress, AI chat endpoints, document ingestion, audit logs, and selective cache/sync jobs.
 - Workers must not own business rules, approval policy, AI orchestration, or durable data writes.
 
 ## Product Surfaces
@@ -34,7 +36,7 @@ TanStack Start runs on Cloudflare Workers at `storeai.ldev.cloud`. Convex owns t
 - The storefront AI lives inside a Shopify theme app extension or app embed, not inside the app landing page.
 - There is no `/ops` surface in v1.
 
-The internal console is not a merchant product surface and must be hidden behind explicit development/staff-only access controls.
+The internal console is not a merchant product surface and must be hidden behind explicit development/staff-only access controls. If it survives beyond local development, it may use a separate Better Auth staff session, but that auth must never be treated as merchant or shopper identity.
 
 ## UX Non-Negotiables
 - The embedded app must feel like a smooth SPA inside Shopify admin.

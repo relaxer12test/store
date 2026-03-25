@@ -41,4 +41,5 @@ we must use react component flow properly we shoudn't shit out componeents willy
 we must use tanstack form in composable maner like <mainform <maininput and so on we shoudn't use any hooks outside forms itself
 we must use tailwindplus catalyst components i will copy them myself when time comes
 for hosting we use cloudflare workers and for files we must use cloudflare R2 with convex r2 plugin, for queue or workflow we still use convex
-for authentication we must use better-auth with convex properly configured for admins and for users we still must use better-auth anonymouse flow just in case
+for merchant and shopper auth we should use Shopify's real embedded app auth model, not better-auth
+we may still use better-auth with convex for our own internal or staff-only tooling such as `/internal`, but that must stay separate from merchant and shopper auth

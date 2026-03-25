@@ -22,6 +22,8 @@ There is no separate `/ops` surface in v1.
 - Execute approved actions against Shopify through Convex.
 - Summarize uploaded documents and blend them with Shopify facts.
 
+For order analytics, design the default dashboard and copilot flows around the dev-store/demo order window. Add `read_all_orders` only if the retained demo or product scope truly requires historical order coverage beyond the default range.
+
 ## Allowed Read Tools
 - `getOverviewMetrics`
 - `getSalesTrend`

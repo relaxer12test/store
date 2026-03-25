@@ -1,7 +1,22 @@
 {
 	"$schema": "node_modules/wrangler/config-schema.json",
-	"name": "tanstack-start-app",
+	"name": "storeai",
+	"account_id": "38dd2e8692a8a1db8721b47b07941873",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
 	"main": "@tanstack/react-start/server-entry",
+	"workers_dev": false,
+	"routes": [
+		{
+			"pattern": "storeai.ldev.cloud",
+			"custom_domain": true,
+		},
+	],
+	"r2_buckets": [
+		{
+			"binding": "STORE_R2",
+			"bucket_name": "store",
+			"preview_bucket_name": "store",
+		},
+	],
 }
