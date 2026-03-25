@@ -1,7 +1,7 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
-import { getRequiredConvexUrl, isServer } from "@/lib/env";
+import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
 import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
 
 type Listener = () => void;
@@ -106,7 +106,7 @@ function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
 }
 
 function createManagedAppRouterContext(): ManagedAppRouterContext {
-	const convexQueryClient = new ConvexQueryClient(getRequiredConvexUrl());
+	const convexQueryClient = new ConvexQueryClient(getRequiredConvexDeploymentUrl());
 	const embeddedApp = createEmbeddedAppManager();
 	const queryClient = new QueryClient({
 		defaultOptions: {

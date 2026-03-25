@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexHttpUrl } from "@/lib/env";
+import { buildConvexHttpActionUrl } from "@/lib/env";
 import { storefrontWidgetRequestSchema } from "@/shared/contracts/storefront-widget";
 
 const PUBLIC_CORS_HEADERS = {
@@ -129,21 +129,22 @@ export async function forwardStorefrontWidgetChatRequest(
 
 	const clientFingerprint = await getClientFingerprint(request);
 	const fetchImpl = options?.fetchImpl ?? fetch;
-	const convexEndpoint = new URL(
-		"/shopify/widget/chat",
-		options?.convexUrl ?? getRequiredConvexHttpUrl(),
-	);
-	const upstreamResponse = await fetchImpl(convexEndpoint.toString(), {
-		body: JSON.stringify({
-			...parsedPayload.data,
-			clientFingerprint,
+	const upstreamResponse = await fetchImpl(
+		buildConvexHttpActionUrl("/shopify/widget/chat", {
+			baseUrl: options?.convexUrl,
 		}),
-		headers: {
-			Accept: "text/event-stream",
-			"Content-Type": "application/json",
+		{
+			body: JSON.stringify({
+				...parsedPayload.data,
+				clientFingerprint,
+			}),
+			headers: {
+				Accept: "text/event-stream",
+				"Content-Type": "application/json",
+			},
+			method: "POST",
 		},
-		method: "POST",
-	});
+	);
 
 	return normalizeWidgetChatError(upstreamResponse);
 }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexHttpUrl } from "@/lib/env";
+import { buildConvexHttpActionUrl } from "@/lib/env";
 
 const PUBLIC_CORS_HEADERS = {
 	"Access-Control-Allow-Headers": "Content-Type",
@@ -52,19 +52,19 @@ export async function forwardStorefrontWidgetConfigRequest(
 	},
 ) {
 	const fetchImpl = options?.fetchImpl ?? fetch;
-	const convexEndpoint = new URL(
-		"/shopify/widget",
-		options?.convexUrl ?? getRequiredConvexHttpUrl(),
-	);
 
-	convexEndpoint.search = new URL(request.url).search;
-
-	const upstreamResponse = await fetchImpl(convexEndpoint.toString(), {
-		headers: {
-			Accept: "application/json",
+	const upstreamResponse = await fetchImpl(
+		buildConvexHttpActionUrl("/shopify/widget", {
+			baseUrl: options?.convexUrl,
+			search: new URL(request.url).search,
+		}),
+		{
+			headers: {
+				Accept: "application/json",
+			},
+			method: "GET",
 		},
-		method: "GET",
-	});
+	);
 
 	return normalizeWidgetConfigError(upstreamResponse);
 }

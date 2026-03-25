@@ -18,8 +18,12 @@ function getMetaContent(name: string) {
 	return document.querySelector(`meta[name="${name}"]`)?.getAttribute("content") ?? undefined;
 }
 
-export function getOptionalConvexUrl() {
+export function getOptionalConvexDeploymentUrl() {
 	return import.meta.env.VITE_CONVEX_URL as string | undefined;
+}
+
+export function getOptionalConvexUrl() {
+	return getOptionalConvexDeploymentUrl();
 }
 
 export function toConvexHttpUrl(url: string) {
@@ -43,13 +47,29 @@ export function getOptionalConvexHttpUrl() {
 		return toConvexHttpUrl(siteUrl);
 	}
 
-	const convexUrl = getOptionalConvexUrl();
+	const convexUrl = getOptionalConvexDeploymentUrl();
 
 	if (!convexUrl) {
 		return undefined;
 	}
 
 	return toConvexHttpUrl(convexUrl);
+}
+
+export function buildConvexHttpActionUrl(
+	path: string,
+	options?: {
+		baseUrl?: string;
+		search?: string;
+	},
+) {
+	const url = new URL(path, options?.baseUrl ?? getRequiredConvexHttpUrl());
+
+	if (options?.search !== undefined) {
+		url.search = options.search;
+	}
+
+	return url.toString();
 }
 
 export function getOptionalShopifyApiKey() {
@@ -64,8 +84,8 @@ export function isInternalToolsEnabled() {
 	return import.meta.env.VITE_ENABLE_INTERNAL_TOOLS !== "false";
 }
 
-export function getRequiredConvexUrl() {
-	const url = getOptionalConvexUrl();
+export function getRequiredConvexDeploymentUrl() {
+	const url = getOptionalConvexDeploymentUrl();
 
 	if (!url) {
 		throw new Error(
@@ -74,6 +94,10 @@ export function getRequiredConvexUrl() {
 	}
 
 	return url;
+}
+
+export function getRequiredConvexUrl() {
+	return getRequiredConvexDeploymentUrl();
 }
 
 export function getRequiredConvexHttpUrl() {

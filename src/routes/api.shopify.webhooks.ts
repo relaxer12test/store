@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexHttpUrl } from "@/lib/env";
+import { buildConvexHttpActionUrl } from "@/lib/env";
 
 export function buildForwardedHeaders(request: Request) {
 	const headers = new Headers();
@@ -23,16 +23,17 @@ export async function forwardShopifyWebhookRequest(
 	},
 ) {
 	const fetchImpl = options?.fetchImpl ?? fetch;
-	const convexEndpoint = new URL(
-		"/shopify/webhooks",
-		options?.convexUrl ?? getRequiredConvexHttpUrl(),
-	);
 
-	return fetchImpl(convexEndpoint.toString(), {
-		method: "POST",
-		headers: buildForwardedHeaders(request),
-		body: await request.arrayBuffer(),
-	});
+	return fetchImpl(
+		buildConvexHttpActionUrl("/shopify/webhooks", {
+			baseUrl: options?.convexUrl,
+		}),
+		{
+			method: "POST",
+			headers: buildForwardedHeaders(request),
+			body: await request.arrayBuffer(),
+		},
+	);
 }
 
 export const Route = createFileRoute("/api/shopify/webhooks")({

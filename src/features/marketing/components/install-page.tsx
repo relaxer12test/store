@@ -2,7 +2,12 @@ import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
 import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
-import { getOptionalConvexUrl, getOptionalShopifyApiKey, isInternalToolsEnabled } from "@/lib/env";
+import {
+	getOptionalConvexDeploymentUrl,
+	getOptionalConvexHttpUrl,
+	getOptionalShopifyApiKey,
+	isInternalToolsEnabled,
+} from "@/lib/env";
 
 const checklistItems = [
 	"Shopify app API key available to the frontend shell",
@@ -16,7 +21,8 @@ const checklistItems = [
 export function InstallPage() {
 	const embeddedApp = useEmbeddedAppBootstrap();
 	const session = useSessionEnvelope();
-	const hasConvexUrl = Boolean(getOptionalConvexUrl());
+	const hasConvexDeploymentUrl = Boolean(getOptionalConvexDeploymentUrl());
+	const hasConvexHttpUrl = Boolean(getOptionalConvexHttpUrl());
 	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
 	const internalToolsEnabled = isInternalToolsEnabled();
 
@@ -36,13 +42,19 @@ export function InstallPage() {
 					<div className="grid gap-3">
 						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
 							<div className="flex items-center gap-3">
-								<StatusPill tone={hasConvexUrl ? "success" : "blocked"}>
-									{hasConvexUrl ? "Convex URL set" : "Convex URL missing"}
+								<StatusPill tone={hasConvexDeploymentUrl ? "success" : "blocked"}>
+									{hasConvexDeploymentUrl
+										? "Convex deployment URL set"
+										: "Convex deployment URL missing"}
+								</StatusPill>
+								<StatusPill tone={hasConvexHttpUrl ? "success" : "blocked"}>
+									{hasConvexHttpUrl ? "Convex HTTP URL ready" : "Convex HTTP URL missing"}
 								</StatusPill>
 							</div>
 							<p className="mt-3 text-sm leading-6 text-slate-600">
-								`VITE_CONVEX_URL`{" "}
-								{hasConvexUrl ? "is available to the shell." : "is not configured."}
+								`VITE_CONVEX_URL` powers the client query shell. `VITE_CONVEX_SITE_URL` is an
+								optional override for server-side HTTP action proxies and otherwise derives from the
+								deployment URL.
 							</p>
 						</div>
 						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getRequiredConvexHttpUrl } from "@/lib/env";
+import { buildConvexHttpActionUrl } from "@/lib/env";
 
 export async function forwardShopifyBootstrapRequest(
 	request: Request,
@@ -22,18 +22,19 @@ export async function forwardShopifyBootstrapRequest(
 	}
 
 	const fetchImpl = options?.fetchImpl ?? fetch;
-	const convexEndpoint = new URL(
-		"/shopify/bootstrap",
-		options?.convexUrl ?? getRequiredConvexHttpUrl(),
-	);
 
-	return fetchImpl(convexEndpoint.toString(), {
-		method: "POST",
-		headers: {
-			Accept: "application/json",
-			Authorization: authorization,
+	return fetchImpl(
+		buildConvexHttpActionUrl("/shopify/bootstrap", {
+			baseUrl: options?.convexUrl,
+		}),
+		{
+			method: "POST",
+			headers: {
+				Accept: "application/json",
+				Authorization: authorization,
+			},
 		},
-	});
+	);
 }
 
 export const Route = createFileRoute("/api/shopify/bootstrap")({
