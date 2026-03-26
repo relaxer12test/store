@@ -15,6 +15,23 @@ const guestSession: SessionEnvelope = {
 	convexToken: null,
 	convexTokenExpiresAt: null,
 };
+const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+
+function serializeSessionEnvelopeError(error: unknown) {
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			name: error.name,
+			stack: error.stack ?? null,
+		};
+	}
+
+	return {
+		message: String(error),
+		name: "UnknownError",
+		stack: null,
+	};
+}
 
 const betterAuthServer = convexBetterAuthReactStart({
 	convexSiteUrl: getRequiredConvexHttpUrl(),
@@ -215,6 +232,7 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 		xForwardedHost: true,
 		xForwardedProto: true,
 	});
+	const cookieHeader = getRequestHeader("cookie") ?? "";
 
 	setResponseHeader(
 		"Content-Security-Policy",
@@ -223,5 +241,18 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 		}),
 	);
 
-	return (await getBetterAuthSessionEnvelope()) ?? guestSession;
+	try {
+		return (await getBetterAuthSessionEnvelope()) ?? guestSession;
+	} catch (error) {
+		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} session_envelope_resolution_failed`, {
+			embedded: requestUrl.searchParams.get("embedded") ?? null,
+			error: serializeSessionEnvelopeError(error),
+			hasBetterAuthSessionCookie: cookieHeader.includes("session_token="),
+			hasConvexJwtCookie: cookieHeader.includes("convex_jwt="),
+			pathname: requestUrl.pathname,
+			shop: requestUrl.searchParams.get("shop") ?? null,
+		});
+
+		return guestSession;
+	}
 });

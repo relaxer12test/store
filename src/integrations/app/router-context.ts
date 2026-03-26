@@ -8,6 +8,7 @@ import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contr
 
 type Listener = () => void;
 const CONVEX_TOKEN_REFRESH_BUFFER_MS = 1000 * 60;
+const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
 const guestSession: SessionEnvelope = {
 	authMode: "none",
@@ -104,6 +105,22 @@ function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
 	}
 
 	return headers;
+}
+
+function serializeEmbeddedSessionError(error: unknown) {
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			name: error.name,
+			stack: error.stack ?? null,
+		};
+	}
+
+	return {
+		message: String(error),
+		name: "UnknownError",
+		stack: null,
+	};
 }
 
 function createManagedAppRouterContext(): ManagedAppRouterContext {
@@ -205,6 +222,19 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				});
 
 				if (!response.ok) {
+					const errorPayload = await response
+						.clone()
+						.json()
+						.catch(() => null);
+
+					console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} embedded_bootstrap_failed`, {
+						embeddedSource: embeddedState.source,
+						errorPayload,
+						forceRefresh: options?.forceRefresh ?? false,
+						shop: embeddedState.shop,
+						status: response.status,
+					});
+
 					throw new Error(`Embedded bootstrap failed with status ${response.status}.`);
 				}
 
@@ -212,7 +242,14 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				setSession(session);
 
 				return session;
-			} catch {
+			} catch (error) {
+				console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} ensure_embedded_session_failed`, {
+					embeddedSource: embeddedState.source,
+					error: serializeEmbeddedSessionError(error),
+					forceRefresh: options?.forceRefresh ?? false,
+					shop: embeddedState.shop,
+				});
+
 				const offlineSession: SessionEnvelope = {
 					authMode: "embedded",
 					state: "offline",

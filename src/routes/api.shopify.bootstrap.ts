@@ -9,7 +9,94 @@ import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/sess
 
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
+const SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER = "x-shopify-bootstrap-request-id";
 const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
+const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+
+interface MerchantAuthLogger {
+	error: (...args: unknown[]) => void;
+	info?: (...args: unknown[]) => void;
+	warn?: (...args: unknown[]) => void;
+}
+
+function getBootstrapRequestId() {
+	return globalThis.crypto?.randomUUID?.() ?? `bootstrap-${Date.now()}`;
+}
+
+function getMerchantAuthLogger(logger?: MerchantAuthLogger): MerchantAuthLogger {
+	return logger ?? console;
+}
+
+function serializeAuthError(error: unknown) {
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			name: error.name,
+			stack: error.stack ?? null,
+		};
+	}
+
+	return {
+		message: String(error),
+		name: "UnknownError",
+		stack: null,
+	};
+}
+
+function getCookieNames(setCookieHeaders: string[]) {
+	return setCookieHeaders
+		.map((setCookie) => parseSetCookieHeader(setCookie).keys().next().value ?? null)
+		.filter((cookieName): cookieName is string => Boolean(cookieName));
+}
+
+function getMerchantRequestContext(request: Request, requestId: string) {
+	const requestUrl = new URL(request.url);
+	const referer = request.headers.get("referer");
+	let refererUrl: URL | null = null;
+
+	if (referer) {
+		try {
+			refererUrl = new URL(referer);
+		} catch {
+			refererUrl = null;
+		}
+	}
+
+	return {
+		embedded:
+			requestUrl.searchParams.get("embedded") ?? refererUrl?.searchParams.get("embedded") ?? null,
+		hasBearerToken: Boolean(getBearerToken(request)),
+		hasHostParam: Boolean(
+			requestUrl.searchParams.get("host") ?? refererUrl?.searchParams.get("host"),
+		),
+		pathname: requestUrl.pathname,
+		refererPathname: refererUrl?.pathname ?? null,
+		requestId,
+		shop: requestUrl.searchParams.get("shop") ?? refererUrl?.searchParams.get("shop") ?? null,
+		userAgent: request.headers.get("user-agent") ?? null,
+	};
+}
+
+function logMerchantAuthEvent({
+	details,
+	event,
+	level,
+	logger,
+}: {
+	details: Record<string, unknown>;
+	event: string;
+	level: "error" | "info" | "warn";
+	logger: MerchantAuthLogger;
+}) {
+	const writer =
+		level === "warn"
+			? (logger.warn ?? logger.error)
+			: level === "info"
+				? (logger.info ?? logger.error)
+				: logger.error;
+
+	writer(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} ${event}`, details);
+}
 
 function normalizeConvexLogArgs(args: unknown[]) {
 	if (
@@ -140,13 +227,26 @@ export async function bootstrapShopifyMerchantSession(
 		authSecret?: string;
 		convexBootstrap?: (sessionToken: string) => Promise<MerchantBootstrapBridgeResult>;
 		fetchImpl?: typeof fetch;
+		logger?: MerchantAuthLogger;
 	},
 ) {
+	const logger = getMerchantAuthLogger(options?.logger);
+	const requestId = getBootstrapRequestId();
+	const requestContext = getMerchantRequestContext(request, requestId);
 	const sessionToken = getBearerToken(request);
 
 	if (!sessionToken) {
+		logMerchantAuthEvent({
+			details: requestContext,
+			event: "bootstrap_missing_session_token",
+			level: "warn",
+			logger,
+		});
+
 		return toBridgeErrorResponse("Missing Shopify session token.", 401);
 	}
+
+	let stage = "prepare_merchant_auth_bridge";
 
 	try {
 		const convexBootstrap =
@@ -161,6 +261,7 @@ export async function bootstrapShopifyMerchantSession(
 				})) as MerchantBootstrapBridgeResult;
 			});
 		const bridge = await convexBootstrap(sessionToken);
+		stage = "call_better_auth_bridge";
 		const fetchImpl = options?.fetchImpl ?? fetch;
 		const authResponse = await fetchImpl(
 			new URL(`/api/auth${SHOPIFY_MERCHANT_BRIDGE_PATH}`, request.url),
@@ -169,6 +270,7 @@ export async function bootstrapShopifyMerchantSession(
 				headers: {
 					Accept: "application/json",
 					"Content-Type": "application/json",
+					[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
 					[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]:
 						options?.authSecret ?? getRequiredBetterAuthSecret(),
 				},
@@ -192,9 +294,23 @@ export async function bootstrapShopifyMerchantSession(
 				// ignore parsing failures and use the status-based fallback
 			}
 
+			logMerchantAuthEvent({
+				details: {
+					...requestContext,
+					errorMessage,
+					setCookieNames: getCookieNames(setCookieHeaders),
+					stage,
+					status: authResponse.status,
+				},
+				event: "bootstrap_bridge_request_failed",
+				level: "error",
+				logger,
+			});
+
 			return toBridgeErrorResponse(errorMessage, authResponse.status, setCookieHeaders);
 		}
 
+		stage = "parse_bridge_session";
 		const authPayload = (await authResponse.json()) as {
 			user: {
 				email: string;
@@ -204,6 +320,21 @@ export async function bootstrapShopifyMerchantSession(
 		const convexToken = getCookieValue(setCookieHeaders, JWT_COOKIE_NAME);
 
 		if (!convexToken) {
+			logMerchantAuthEvent({
+				details: {
+					...requestContext,
+					authUserEmailPresent: Boolean(authPayload.user.email),
+					authUserRole: authPayload.user.role ?? null,
+					merchantActorId: bridge.bridgePayload.merchantActorId,
+					setCookieNames: getCookieNames(setCookieHeaders),
+					shopDomain: bridge.bridgePayload.shopDomain,
+					stage,
+				},
+				event: "bootstrap_missing_convex_jwt_cookie",
+				level: "error",
+				logger,
+			});
+
 			return toBridgeErrorResponse(
 				"Merchant auth bridge completed without issuing a Convex JWT.",
 				500,
@@ -242,6 +373,17 @@ export async function bootstrapShopifyMerchantSession(
 			status: 200,
 		});
 	} catch (error) {
+		logMerchantAuthEvent({
+			details: {
+				...requestContext,
+				error: serializeAuthError(error),
+				stage,
+			},
+			event: "bootstrap_unhandled_failure",
+			level: "error",
+			logger,
+		});
+
 		return toBridgeErrorResponse(
 			error instanceof Error ? error.message : "Shopify bootstrap failed.",
 			500,

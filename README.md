@@ -119,8 +119,8 @@ npm run deploy
 
 That runs the app build, pushes Convex to the configured deployment with
 `convex dev --once`, deploys the Worker with Wrangler, publishes the
-Shopify app configuration plus theme app extension with `shopify app deploy`,
-and then pushes the custom `/theme` directory to the live theme with
+Shopify app configuration plus theme app extension with
+`shopify app deploy --force`, and then pushes the custom `/theme` directory to the live theme with
 `shopify theme push --path theme --live --allow-live`.
 
 If you only need to push the Worker runtime without releasing a Shopify app version,

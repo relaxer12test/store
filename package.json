@@ -17,7 +17,7 @@
 		"convex:deploy": "convex deploy --yes",
 		"convex:deploy:dev": "convex dev --once",
 		"deploy:runtime": "npm run build && npm run convex:deploy:dev && wrangler deploy",
-		"shopify:deploy": "shopify app deploy",
+		"shopify:deploy": "shopify app deploy --force",
 		"theme:deploy": "shopify theme push --path theme --live --allow-live",
 		"release": "npm run build && npm run convex:deploy && wrangler deploy && npm run theme:deploy",
 		"deploy": "npm run build && npm run convex:deploy:dev && wrangler deploy && npm run shopify:deploy && npm run theme:deploy"

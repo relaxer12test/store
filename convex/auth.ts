@@ -68,6 +68,36 @@ const DEFAULT_AUTH_SECRET = "development-only-better-auth-secret-32";
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID = "shopify-merchant";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
+const SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER = "x-shopify-bootstrap-request-id";
+const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+
+function serializeMerchantBridgeError(error: unknown) {
+	if (error instanceof APIError) {
+		return {
+			message: error.message,
+			name: error.name,
+			status: error.status,
+		};
+	}
+
+	if (error instanceof Error) {
+		return {
+			message: error.message,
+			name: error.name,
+			stack: error.stack ?? null,
+		};
+	}
+
+	return {
+		message: String(error),
+		name: "UnknownError",
+		stack: null,
+	};
+}
+
+function logShopifyMerchantBridgeFailure(details: Record<string, unknown>) {
+	console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} bridge_endpoint_failed`, details);
+}
 
 function sanitizeEmailPart(value: string) {
 	const sanitized = value
@@ -236,149 +266,175 @@ function shopifyMerchantBridgePlugin() {
 					method: "POST",
 				},
 				async (ctx) => {
-					const bridgeSecret = ctx.headers?.get(SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER);
-
-					if (bridgeSecret !== ctx.context.secret) {
-						throw new APIError("UNAUTHORIZED", {
-							message: "Invalid merchant bridge request.",
-						});
-					}
-
+					const requestId =
+						ctx.headers?.get(SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER) ?? "unknown";
 					const body = ctx.body as ShopifyMerchantBridgeBody;
-					const normalizedEmail = normalizeBetterAuthEmail(body.email ?? null);
-					const accountId = buildMerchantBridgeAccountId({
-						shopDomain: body.shopDomain,
-						shopifyUserId: body.shopifyUserId,
-					});
-					const linkedAccount = await ctx.context.internalAdapter.findAccountByProviderId(
-						accountId,
-						SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID,
-					);
-					const accountUser = linkedAccount
-						? ((await ctx.context.internalAdapter.findUserById(
-								linkedAccount.userId,
-							)) as BetterAuthUserRecord | null)
-						: null;
-					const merchantLinkedUser = (await ctx.context.adapter.findOne({
-						model: "user",
-						where: [
-							{
-								field: "userId",
-								value: body.merchantActorId,
-							},
-						],
-					})) as BetterAuthUserRecord | null;
-					const emailUserMatch = normalizedEmail
-						? await ctx.context.internalAdapter.findUserByEmail(normalizedEmail, {
-								includeAccounts: true,
-							})
-						: null;
-					const emailUser = (emailUserMatch?.user ?? null) as BetterAuthUserRecord | null;
+					let stage = "validate_bridge_secret";
 
-					let targetUser = accountUser;
+					try {
+						const bridgeSecret = ctx.headers?.get(SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER);
 
-					if (!targetUser && emailUser) {
-						const shouldPreferEmailUser =
-							!merchantLinkedUser ||
-							emailUser.role === "admin" ||
-							isSyntheticMerchantEmail(merchantLinkedUser.email);
-
-						if (shouldPreferEmailUser) {
-							targetUser = emailUser;
+						if (bridgeSecret !== ctx.context.secret) {
+							throw new APIError("UNAUTHORIZED", {
+								message: "Invalid merchant bridge request.",
+							});
 						}
-					}
 
-					targetUser ??= merchantLinkedUser;
-
-					const resolvedEmail =
-						normalizedEmail ??
-						targetUser?.email ??
-						buildMerchantBetterAuthEmail({
+						stage = "load_candidate_users";
+						const normalizedEmail = normalizeBetterAuthEmail(body.email ?? null);
+						const accountId = buildMerchantBridgeAccountId({
 							shopDomain: body.shopDomain,
 							shopifyUserId: body.shopifyUserId,
 						});
+						const linkedAccount = await ctx.context.internalAdapter.findAccountByProviderId(
+							accountId,
+							SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID,
+						);
+						const accountUser = linkedAccount
+							? ((await ctx.context.internalAdapter.findUserById(
+									linkedAccount.userId,
+								)) as BetterAuthUserRecord | null)
+							: null;
+						const merchantLinkedUser = (await ctx.context.adapter.findOne({
+							model: "user",
+							where: [
+								{
+									field: "userId",
+									value: body.merchantActorId,
+								},
+							],
+						})) as BetterAuthUserRecord | null;
+						const emailUserMatch = normalizedEmail
+							? await ctx.context.internalAdapter.findUserByEmail(normalizedEmail, {
+									includeAccounts: true,
+								})
+							: null;
+						const emailUser = (emailUserMatch?.user ?? null) as BetterAuthUserRecord | null;
 
-					let createdNewUser = false;
+						stage = "resolve_target_user";
+						let targetUser = accountUser;
 
-					if (!targetUser) {
-						const createdUser = await ctx.context.internalAdapter.createOAuthUser(
-							{
-								email: resolvedEmail,
-								emailVerified: Boolean(normalizedEmail),
-								name: body.name,
-							},
-							{
+						if (!targetUser && emailUser) {
+							const shouldPreferEmailUser =
+								!merchantLinkedUser ||
+								emailUser.role === "admin" ||
+								isSyntheticMerchantEmail(merchantLinkedUser.email);
+
+							if (shouldPreferEmailUser) {
+								targetUser = emailUser;
+							}
+						}
+
+						targetUser ??= merchantLinkedUser;
+
+						const resolvedEmail =
+							normalizedEmail ??
+							targetUser?.email ??
+							buildMerchantBetterAuthEmail({
+								shopDomain: body.shopDomain,
+								shopifyUserId: body.shopifyUserId,
+							});
+
+						let createdNewUser = false;
+
+						if (!targetUser) {
+							stage = "create_target_user";
+							const createdUser = await ctx.context.internalAdapter.createOAuthUser(
+								{
+									email: resolvedEmail,
+									emailVerified: Boolean(normalizedEmail),
+									name: body.name,
+								},
+								{
+									accountId,
+									providerId: SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID,
+								},
+							);
+
+							targetUser = createdUser.user as BetterAuthUserRecord;
+							createdNewUser = true;
+						}
+
+						stage = "sync_shopify_account";
+						if (linkedAccount && linkedAccount.userId !== targetUser.id) {
+							await ctx.context.internalAdapter.updateAccount(linkedAccount.id, {
+								userId: targetUser.id,
+							});
+						} else if (!linkedAccount && !createdNewUser) {
+							await ctx.context.internalAdapter.linkAccount({
 								accountId,
 								providerId: SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID,
+								userId: targetUser.id,
+							});
+						}
+
+						stage = "update_target_user";
+						const existingUsers = (await ctx.context.adapter.findMany({
+							limit: 2,
+							model: "user",
+						})) as Array<{
+							id: string;
+						}>;
+
+						targetUser = (await ctx.context.internalAdapter.updateUser(targetUser.id, {
+							email: resolvedEmail,
+							emailVerified: normalizedEmail ? true : (targetUser.emailVerified ?? false),
+							name: body.name,
+							role: getMerchantBridgeRole({
+								currentRole: targetUser.role,
+								existingUsers,
+								userId: targetUser.id,
+							}),
+							userId: body.merchantActorId,
+						})) as BetterAuthUserRecord;
+
+						stage = "cleanup_shadow_user";
+						if (
+							merchantLinkedUser &&
+							merchantLinkedUser.id !== targetUser.id &&
+							isSyntheticMerchantEmail(merchantLinkedUser.email) &&
+							merchantLinkedUser.role !== "admin"
+						) {
+							await ctx.context.internalAdapter.deleteUser(merchantLinkedUser.id);
+						}
+
+						stage = "create_session";
+						const session = await ctx.context.internalAdapter.createSession(targetUser.id);
+
+						if (!session) {
+							throw new APIError("INTERNAL_SERVER_ERROR", {
+								message: "Failed to create merchant session.",
+							});
+						}
+
+						stage = "set_session_cookie";
+						await setSessionCookie(ctx, {
+							session,
+							user: toSessionUser(targetUser),
+						});
+
+						return ctx.json({
+							token: session.token,
+							user: {
+								email: targetUser.email,
+								id: targetUser.id,
+								name: targetUser.name,
+								role: targetUser.role ?? null,
 							},
-						);
-
-						targetUser = createdUser.user as BetterAuthUserRecord;
-						createdNewUser = true;
-					}
-
-					if (linkedAccount && linkedAccount.userId !== targetUser.id) {
-						await ctx.context.internalAdapter.updateAccount(linkedAccount.id, {
-							userId: targetUser.id,
 						});
-					} else if (!linkedAccount && !createdNewUser) {
-						await ctx.context.internalAdapter.linkAccount({
-							accountId,
-							providerId: SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID,
-							userId: targetUser.id,
+					} catch (error) {
+						logShopifyMerchantBridgeFailure({
+							emailPresent: Boolean(body.email),
+							error: serializeMerchantBridgeError(error),
+							merchantActorId: body.merchantActorId,
+							requestId,
+							shopDomain: body.shopDomain,
+							shopifyUserId: body.shopifyUserId,
+							stage,
 						});
+
+						throw error;
 					}
-
-					const existingUsers = (await ctx.context.adapter.findMany({
-						limit: 2,
-						model: "user",
-					})) as Array<{
-						id: string;
-					}>;
-
-					targetUser = (await ctx.context.internalAdapter.updateUser(targetUser.id, {
-						email: resolvedEmail,
-						emailVerified: normalizedEmail ? true : (targetUser.emailVerified ?? false),
-						name: body.name,
-						role: getMerchantBridgeRole({
-							currentRole: targetUser.role,
-							existingUsers,
-							userId: targetUser.id,
-						}),
-						userId: body.merchantActorId,
-					})) as BetterAuthUserRecord;
-
-					if (
-						merchantLinkedUser &&
-						merchantLinkedUser.id !== targetUser.id &&
-						isSyntheticMerchantEmail(merchantLinkedUser.email) &&
-						merchantLinkedUser.role !== "admin"
-					) {
-						await ctx.context.internalAdapter.deleteUser(merchantLinkedUser.id);
-					}
-
-					const session = await ctx.context.internalAdapter.createSession(targetUser.id);
-
-					if (!session) {
-						throw new APIError("INTERNAL_SERVER_ERROR", {
-							message: "Failed to create merchant session.",
-						});
-					}
-
-					await setSessionCookie(ctx, {
-						session,
-						user: toSessionUser(targetUser),
-					});
-
-					return ctx.json({
-						token: session.token,
-						user: {
-							email: targetUser.email,
-							id: targetUser.id,
-							name: targetUser.name,
-							role: targetUser.role ?? null,
-						},
-					});
 				},
 			),
 		},
