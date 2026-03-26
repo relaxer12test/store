@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
-import { useSessionEnvelope } from "@/features/auth/session/client";
-import { getSessionEnvelope } from "@/features/auth/session/server";
-import { hasInternalStaffSession } from "@/shared/contracts/session";
+import { useSessionEnvelope } from "@/lib/auth-client";
+import { getSessionEnvelope } from "@/lib/auth-server";
+import { hasAdminSession } from "@/shared/contracts/session";
 
 const internalNav: SurfaceNavItem[] = [
 	{
@@ -31,6 +31,11 @@ const internalNav: SurfaceNavItem[] = [
 		title: "Action audits",
 		to: "/internal/action-audits",
 	},
+	{
+		description: "Better Auth users, native admin roles, and merchant-to-admin access handoff.",
+		title: "Users",
+		to: "/internal/users",
+	},
 ];
 
 export const Route = createFileRoute("/internal")({
@@ -41,7 +46,7 @@ export const Route = createFileRoute("/internal")({
 
 		context.setSession(session);
 
-		if (!hasInternalStaffSession(session)) {
+		if (!hasAdminSession(session)) {
 			throw redirect({
 				to: "/internal-auth",
 			});
@@ -58,7 +63,7 @@ function InternalLayoutRoute() {
 			description="Dev-only diagnostics shell for install state, webhook deliveries, projection cache, and action audits. It is intentionally separate from merchant navigation."
 			eyebrow="Internal tools"
 			navItems={internalNav}
-			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Staff shell")}
+			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
 			title="Internal diagnostics"
 		/>
 	);

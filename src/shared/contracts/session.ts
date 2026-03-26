@@ -1,4 +1,4 @@
-export const viewerRoles = ["shop_admin", "shop_staff", "internal_staff"] as const;
+export const viewerRoles = ["shop_admin", "shop_staff", "admin"] as const;
 
 export type ViewerRole = (typeof viewerRoles)[number];
 
@@ -27,6 +27,23 @@ export interface SessionEnvelope {
 	convexTokenExpiresAt: number | null;
 }
 
+export function deriveViewerRoles(input: {
+	betterAuthRole?: string | null;
+	merchantRole?: string | null;
+}): ViewerRole[] {
+	const roles = new Set<ViewerRole>();
+
+	if (input.merchantRole === "shop_admin" || input.merchantRole === "shop_staff") {
+		roles.add(input.merchantRole);
+	}
+
+	if (input.betterAuthRole === "admin") {
+		roles.add("admin");
+	}
+
+	return Array.from(roles);
+}
+
 export function hasEmbeddedMerchantSession(session: SessionEnvelope) {
 	return (
 		session.authMode === "embedded" &&
@@ -35,11 +52,10 @@ export function hasEmbeddedMerchantSession(session: SessionEnvelope) {
 	);
 }
 
-export function hasInternalStaffSession(session: SessionEnvelope) {
+export function hasAdminSession(session: SessionEnvelope) {
 	return (
-		session.authMode === "internal" &&
 		session.state === "ready" &&
-		session.roles.includes("internal_staff") &&
+		session.roles.includes("admin") &&
 		Boolean(session.viewer && session.convexToken)
 	);
 }

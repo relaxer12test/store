@@ -24,7 +24,7 @@ import {
 	type MutationCtx,
 	type QueryCtx,
 } from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims } from "./merchantAuth";
+import { requireMerchantActor, requireMerchantClaims } from "./auth";
 import { getShopifyAccessFailureReason } from "./shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 

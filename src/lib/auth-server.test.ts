@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { buildEmbeddedAppContentSecurityPolicy, getEmbeddedFrameAncestors } from "./server";
+import { buildEmbeddedAppContentSecurityPolicy, getEmbeddedFrameAncestors } from "./auth-server";
 
 function encodeHost(value: string) {
 	return Buffer.from(value, "utf8").toString("base64url");
 }
 
-describe("embedded session headers", () => {
+describe("auth-server", () => {
 	it("builds shop-specific frame ancestors for embedded requests", () => {
 		const url = new URL(
 			`https://storeai.ldev.cloud/app?embedded=1&shop=acme.myshopify.com&host=${encodeHost("admin.shopify.com/store/acme")}`,

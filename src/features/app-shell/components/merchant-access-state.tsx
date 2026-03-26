@@ -1,7 +1,7 @@
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
+import { useSessionEnvelope } from "@/lib/auth-client";
 
 export function MerchantAccessState() {
 	const embeddedApp = useEmbeddedAppBootstrap();

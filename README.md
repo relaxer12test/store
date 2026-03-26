@@ -23,8 +23,8 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 
 1. Shopify admin loads the embedded app.
 2. App Bridge provides a session token.
-3. `/api/shopify/bootstrap` forwards the token to Convex.
-4. Convex exchanges online and offline tokens, persists the shop + merchant actor, issues a Convex JWT, and queues the initial reconciliation job.
+3. `/api/shopify/bootstrap` verifies the token in Convex, persists the shop + merchant actor, then completes a Better Auth merchant bridge on an HTTP cookie-capable path.
+4. Better Auth establishes the browser session, issues the Convex JWT cookie, and the first merchant-authenticated user is promoted to native `admin`.
 
 ### Webhooks and cache refresh
 
@@ -46,6 +46,12 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 - Write intents become approval cards first.
 - Only explicit approval runs Shopify mutations.
 - Approval outcomes, webhook deliveries, sync jobs, and document processing all land in audit-oriented Convex tables.
+
+### Internal admin
+
+- Internal access is native Better Auth `admin` only.
+- The first merchant-authenticated Better Auth user is promoted automatically so internal user management can proceed from the app.
+- `/internal/users` uses Better Auth admin APIs to manage native roles from there on.
 
 ## Development
 
@@ -88,9 +94,6 @@ npm run convex:dev
 - `SHOPIFY_API_SECRET`
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_JWKS` (optional static JWKS cache for Better Auth Convex tokens)
-- `INTERNAL_AUTH_EMAIL`
-- `INTERNAL_AUTH_PASSWORD`
-- `INTERNAL_AUTH_NAME` (optional)
 - `CONVEX_OPENAI_API_KEY` or `OPENAI_API_KEY`
 - `CONVEX_STOREFRONT_CONCIERGE_MODEL` (optional override)
 
@@ -166,6 +169,6 @@ See [docs/demo-script.md](/Users/l/_DEV/ldev/store/docs/demo-script.md).
 
 ## Known limitations
 
-- Internal diagnostics are route-gated in the app shell; they are still a development/staff surface rather than a polished production admin feature.
+- Internal diagnostics are route-gated in the app shell; they are still a development/admin surface rather than a polished production back-office product.
 - The current submission targets one embedded admin shell and one storefront widget surface, not a full multi-role back-office product.
 - Theme/app installation and custom-domain setup still require real Shopify and Convex environment configuration; this repo cannot make those platform-side changes by itself.

@@ -1,17 +1,16 @@
 import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
-import type { SessionEnvelope, ShopSummary, ViewerSummary } from "../src/shared/contracts/session";
+import type { SessionEnvelope, ShopSummary, ViewerSummary } from "@/shared/contracts/session";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
 	DEFAULT_STOREFRONT_WIDGET_KNOWLEDGE_SOURCES,
 	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
-} from "../src/shared/contracts/storefront-widget";
+} from "@/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
-import { ensureMerchantBetterAuthSession } from "./auth";
 import {
 	createShopifyClient,
 	SHOPIFY_API_VERSION,
@@ -156,23 +155,15 @@ interface PersistBootstrapResult {
 	viewer: ViewerSummary;
 }
 
-async function createSessionEnvelope({
-	activeShop,
-	convexToken,
-	roles,
-	viewer,
-}: PersistBootstrapResult & {
-	convexToken: string;
-}): Promise<SessionEnvelope> {
-	return {
-		authMode: "embedded",
-		state: "ready",
-		viewer,
-		activeShop,
-		roles,
-		convexToken,
-		convexTokenExpiresAt: null,
+export interface MerchantBootstrapBridgeResult {
+	bridgePayload: {
+		email?: string;
+		merchantActorId: Id<"merchantActors">;
+		name: string;
+		shopDomain: string;
+		shopifyUserId: string;
 	};
+	persistedBootstrap: PersistBootstrapResult;
 }
 
 export function buildPersistBootstrapResult({
@@ -305,11 +296,11 @@ async function getOnlineUserSession(sessionToken: string) {
 	};
 }
 
-export const bootstrapSession = action({
+export const prepareMerchantAuthBridge = action({
 	args: {
 		sessionToken: v.string(),
 	},
-	handler: async (ctx, args): Promise<SessionEnvelope> => {
+	handler: async (ctx, args): Promise<MerchantBootstrapBridgeResult> => {
 		const shopify = createShopifyClient();
 		const { decoded, onlineSession, shop } = await getOnlineUserSession(args.sessionToken);
 		const existingInstallation = await ctx.runQuery(internal.shopify.getInstallationByDomain, {
@@ -381,18 +372,17 @@ export const bootstrapSession = action({
 			shopifyShopId: metadata.shopifyShopId,
 			shopifyUserId: String(decoded.sub ?? "unknown"),
 		});
-		const betterAuthSession = await ensureMerchantBetterAuthSession(ctx, {
-			contactEmail: associatedUser?.email ?? undefined,
-			merchantActorId: persistedBootstrap.viewer.id as Id<"merchantActors">,
-			name: persistedBootstrap.viewer.name,
-			shopDomain: persistedBootstrap.activeShop.domain,
-			shopifyUserId: String(decoded.sub ?? "unknown"),
-		});
 
-		return await createSessionEnvelope({
-			...persistedBootstrap,
-			convexToken: betterAuthSession.convexToken,
-		});
+		return {
+			bridgePayload: {
+				email: associatedUser?.email ?? undefined,
+				merchantActorId: persistedBootstrap.viewer.id as Id<"merchantActors">,
+				name: persistedBootstrap.viewer.name,
+				shopDomain: persistedBootstrap.activeShop.domain,
+				shopifyUserId: String(decoded.sub ?? "unknown"),
+			},
+			persistedBootstrap,
+		};
 	},
 });
 

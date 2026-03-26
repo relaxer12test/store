@@ -18,7 +18,7 @@ import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status
 import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims } from "./merchantAuth";
+import { requireMerchantActor, requireMerchantClaims } from "./auth";
 import { hasConnectedShopifyAccess } from "./shopifyAccess";
 import {
 	fetchThemeAppEmbedDiagnostics,

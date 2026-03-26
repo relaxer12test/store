@@ -1,6 +1,6 @@
 import { Link } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
-import { useSessionEnvelope } from "@/features/auth/session/client";
+import { useSessionEnvelope } from "@/lib/auth-client";
 
 const cardClass =
 	"group flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 transition hover:border-slate-300 hover:shadow-sm";

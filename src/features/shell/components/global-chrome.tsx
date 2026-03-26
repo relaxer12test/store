@@ -1,9 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
-import { useSessionEnvelope } from "@/features/auth/session/client";
-import { authClient } from "@/lib/auth-client";
-import { hasInternalStaffSession } from "@/shared/contracts/session";
+import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { hasAdminSession } from "@/shared/contracts/session";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
@@ -11,7 +10,7 @@ const navLinkClass =
 export function GlobalChrome() {
 	const session = useSessionEnvelope();
 	const [isPending, startTransition] = useTransition();
-	const showInternalNav = hasInternalStaffSession(session);
+	const showInternalNav = hasAdminSession(session);
 
 	return (
 		<header className="sticky top-0 z-20 border-b border-slate-200 bg-white/90 backdrop-blur-xl">
@@ -71,7 +70,7 @@ export function GlobalChrome() {
 					) : null}
 
 					{session.viewer ? (
-						<StatusPill tone={session.roles.includes("internal_staff") ? "accent" : "neutral"}>
+						<StatusPill tone={session.roles.includes("admin") ? "accent" : "neutral"}>
 							{session.viewer.name}
 						</StatusPill>
 					) : (

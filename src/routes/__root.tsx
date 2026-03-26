@@ -1,10 +1,10 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
 import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { getSessionEnvelope } from "@/features/auth/session/server";
 import { GlobalChrome } from "@/features/shell/components/global-chrome";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
+import { getSessionEnvelope } from "@/lib/auth-server";
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
 import appCss from "../styles.css?url";
 

@@ -1,3 +1,6 @@
+import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { adminClient } from "better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 import { createContext, useContext, useSyncExternalStore } from "react";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
@@ -9,6 +12,11 @@ export interface SessionManager {
 }
 
 const SessionContext = createContext<SessionManager | null>(null);
+
+export const authClient = createAuthClient({
+	basePath: "/api/auth",
+	plugins: [adminClient(), convexClient()],
+});
 
 export function SessionProvider({
 	children,

@@ -13,8 +13,8 @@ import {
 	query,
 	type MutationCtx,
 } from "./_generated/server";
+import { requireMerchantActor, requireMerchantClaims } from "./auth";
 import { documentStorage } from "./documentStorage";
-import { requireMerchantActor, requireMerchantClaims } from "./merchantAuth";
 import {
 	MAX_DOCUMENT_UPLOAD_BYTES,
 	MAX_INLINE_DOCUMENT_CHARS,

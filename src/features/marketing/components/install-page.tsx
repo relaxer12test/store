@@ -1,7 +1,7 @@
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
-import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
+import { useSessionEnvelope } from "@/lib/auth-client";
 import {
 	getOptionalConvexDeploymentUrl,
 	getOptionalConvexHttpUrl,

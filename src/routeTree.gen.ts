@@ -17,6 +17,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as InternalIndexRouteImport } from './routes/internal.index'
 import { Route as AppIndexRouteImport } from './routes/app.index'
 import { Route as InternalWebhooksRouteImport } from './routes/internal.webhooks'
+import { Route as InternalUsersRouteImport } from './routes/internal.users'
 import { Route as InternalInstallStateRouteImport } from './routes/internal.install-state'
 import { Route as InternalCacheRouteImport } from './routes/internal.cache'
 import { Route as InternalActionAuditsRouteImport } from './routes/internal.action-audits'
@@ -68,6 +69,11 @@ const AppIndexRoute = AppIndexRouteImport.update({
 const InternalWebhooksRoute = InternalWebhooksRouteImport.update({
   id: '/webhooks',
   path: '/webhooks',
+  getParentRoute: () => InternalRoute,
+} as any)
+const InternalUsersRoute = InternalUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
   getParentRoute: () => InternalRoute,
 } as any)
 const InternalInstallStateRoute = InternalInstallStateRouteImport.update({
@@ -144,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/internal/action-audits': typeof InternalActionAuditsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/users': typeof InternalUsersRoute
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
@@ -164,6 +171,7 @@ export interface FileRoutesByTo {
   '/internal/action-audits': typeof InternalActionAuditsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/users': typeof InternalUsersRoute
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app': typeof AppIndexRoute
   '/internal': typeof InternalIndexRoute
@@ -187,6 +195,7 @@ export interface FileRoutesById {
   '/internal/action-audits': typeof InternalActionAuditsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
+  '/internal/users': typeof InternalUsersRoute
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
@@ -211,6 +220,7 @@ export interface FileRouteTypes {
     | '/internal/action-audits'
     | '/internal/cache'
     | '/internal/install-state'
+    | '/internal/users'
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
@@ -231,6 +241,7 @@ export interface FileRouteTypes {
     | '/internal/action-audits'
     | '/internal/cache'
     | '/internal/install-state'
+    | '/internal/users'
     | '/internal/webhooks'
     | '/app'
     | '/internal'
@@ -253,6 +264,7 @@ export interface FileRouteTypes {
     | '/internal/action-audits'
     | '/internal/cache'
     | '/internal/install-state'
+    | '/internal/users'
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
@@ -331,6 +343,13 @@ declare module '@tanstack/react-router' {
       path: '/webhooks'
       fullPath: '/internal/webhooks'
       preLoaderRoute: typeof InternalWebhooksRouteImport
+      parentRoute: typeof InternalRoute
+    }
+    '/internal/users': {
+      id: '/internal/users'
+      path: '/users'
+      fullPath: '/internal/users'
+      preLoaderRoute: typeof InternalUsersRouteImport
       parentRoute: typeof InternalRoute
     }
     '/internal/install-state': {
@@ -442,6 +461,7 @@ interface InternalRouteChildren {
   InternalActionAuditsRoute: typeof InternalActionAuditsRoute
   InternalCacheRoute: typeof InternalCacheRoute
   InternalInstallStateRoute: typeof InternalInstallStateRoute
+  InternalUsersRoute: typeof InternalUsersRoute
   InternalWebhooksRoute: typeof InternalWebhooksRoute
   InternalIndexRoute: typeof InternalIndexRoute
 }
@@ -450,6 +470,7 @@ const InternalRouteChildren: InternalRouteChildren = {
   InternalActionAuditsRoute: InternalActionAuditsRoute,
   InternalCacheRoute: InternalCacheRoute,
   InternalInstallStateRoute: InternalInstallStateRoute,
+  InternalUsersRoute: InternalUsersRoute,
   InternalWebhooksRoute: InternalWebhooksRoute,
   InternalIndexRoute: InternalIndexRoute,
 }

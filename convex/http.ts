@@ -11,16 +11,6 @@ const PUBLIC_CORS_HEADERS = {
 	"Access-Control-Allow-Origin": "*",
 };
 
-function getBearerToken(request: Request) {
-	const authorization = request.headers.get("Authorization");
-
-	if (!authorization?.startsWith("Bearer ")) {
-		return null;
-	}
-
-	return authorization.slice("Bearer ".length).trim() || null;
-}
-
 function getWebhookHeaders(request: Request) {
 	return {
 		apiVersion: request.headers.get("X-Shopify-API-Version") ?? undefined,
@@ -46,52 +36,6 @@ function withPublicCorsHeaders(headers?: HeadersInit) {
 }
 
 authComponent.registerRoutes(http, createAuth);
-
-http.route({
-	path: "/shopify/bootstrap",
-	method: "POST",
-	handler: httpAction(async (ctx, request) => {
-		const sessionToken = getBearerToken(request);
-
-		if (!sessionToken) {
-			return Response.json(
-				{
-					error: "Missing Shopify session token.",
-				},
-				{
-					status: 401,
-					headers: {
-						"Cache-Control": "no-store",
-					},
-				},
-			);
-		}
-
-		try {
-			const session = await ctx.runAction(api.shopify.bootstrapSession, {
-				sessionToken,
-			});
-
-			return Response.json(session, {
-				headers: {
-					"Cache-Control": "no-store",
-				},
-			});
-		} catch (error) {
-			return Response.json(
-				{
-					error: error instanceof Error ? error.message : "Shopify bootstrap failed inside Convex.",
-				},
-				{
-					status: 500,
-					headers: {
-						"Cache-Control": "no-store",
-					},
-				},
-			);
-		}
-	}),
-});
 
 http.route({
 	path: "/shopify/webhooks",

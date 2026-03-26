@@ -4,9 +4,9 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { ConvexProvider } from "convex/react";
 import { useEffect } from "react";
-import { SessionProvider, type SessionManager } from "@/features/auth/session/client";
 import { EmbeddedAppProvider, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import type { AppRouterContext } from "@/integrations/app/router-context";
+import { SessionProvider, type SessionManager } from "@/lib/auth-client";
 
 interface AppProvidersProps {
 	children: React.ReactNode;

@@ -3,8 +3,8 @@ import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
-import { useSessionEnvelope } from "@/features/auth/session/client";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
+import { useSessionEnvelope } from "@/lib/auth-client";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 const appNav: SurfaceNavItem[] = [

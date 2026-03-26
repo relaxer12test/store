@@ -1,7 +1,7 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
-import { getSessionEnvelope } from "@/features/auth/session/server";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
+import { getSessionEnvelope } from "@/lib/auth-server";
 import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
 import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
 
@@ -176,10 +176,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 		const currentSession = sessionManager.getState();
 
-		if (currentSession.authMode === "internal" && !options?.forceRefresh) {
-			return currentSession;
-		}
-
 		if (!options?.forceRefresh && hasFreshMerchantToken(currentSession)) {
 			return currentSession;
 		}
@@ -257,16 +253,16 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				return currentSession.convexToken;
 			}
 
-			if (currentSession.authMode === "internal") {
-				const session = await getSessionEnvelope();
-				setSession(session);
-
-				return session.convexToken;
-			}
-
 			const session = await ensureEmbeddedSession({
 				forceRefresh: forceRefreshToken,
 			});
+
+			if (session.authMode === "internal") {
+				const refreshedSession = await getSessionEnvelope();
+				setSession(refreshedSession);
+
+				return refreshedSession.convexToken;
+			}
 
 			return session.convexToken;
 		});

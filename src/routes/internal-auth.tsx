@@ -2,9 +2,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
-import { ensureInternalStaffAccount, getSessionEnvelope } from "@/features/auth/session/server";
 import { authClient } from "@/lib/auth-client";
-import { hasInternalStaffSession } from "@/shared/contracts/session";
+import { getSessionEnvelope } from "@/lib/auth-server";
+import { hasAdminSession } from "@/shared/contracts/session";
 
 export const Route = createFileRoute("/internal-auth")({
 	beforeLoad: async ({ context }) => {
@@ -14,7 +14,7 @@ export const Route = createFileRoute("/internal-auth")({
 
 		context.setSession(session);
 
-		if (hasInternalStaffSession(session)) {
+		if (hasAdminSession(session)) {
 			throw redirect({
 				to: "/internal",
 			});
@@ -36,15 +36,15 @@ function InternalAuthRoute() {
 	return (
 		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
 			<PageHeader
-				description="Internal diagnostics now require an explicit staff session before Convex will return install, cache, webhook, or audit data."
-				eyebrow="Staff access"
-				title="Internal diagnostics sign-in"
+				description="Internal diagnostics now require a Better Auth session whose native role is `admin`."
+				eyebrow="Admin access"
+				title="Internal admin sign-in"
 			/>
 
 			<div className="mt-10">
 				<Panel
-					description="Use the server-configured staff credentials. A successful sign-in creates an encrypted staff session cookie and a short-lived Convex token for protected diagnostics."
-					title="Authenticate staff access"
+					description="Sign in with a Better Auth account that already has the native `admin` role. The first merchant that completes the Shopify bridge is promoted automatically."
+					title="Authenticate admin access"
 				>
 					<form
 						className="space-y-5"
@@ -59,7 +59,6 @@ function InternalAuthRoute() {
 							startTransition(() => {
 								void (async () => {
 									try {
-										await ensureInternalStaffAccount();
 										const result = await authClient.signIn.email({
 											email,
 											password,
@@ -69,12 +68,19 @@ function InternalAuthRoute() {
 											throw new Error(result.error.message);
 										}
 
+										const session = await getSessionEnvelope();
+
+										if (!hasAdminSession(session)) {
+											await authClient.signOut();
+											throw new Error("This Better Auth account is not an admin.");
+										}
+
 										window.location.assign("/internal");
 									} catch (authError) {
 										setError(
 											authError instanceof Error
 												? authError.message
-												: "Staff authentication failed.",
+												: "Admin authentication failed.",
 										);
 									}
 								})();
@@ -88,7 +94,7 @@ function InternalAuthRoute() {
 									autoComplete="email"
 									className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
 									name="email"
-									placeholder="staff email"
+									placeholder="admin email"
 									required
 									type="email"
 								/>
@@ -100,7 +106,7 @@ function InternalAuthRoute() {
 									autoComplete="current-password"
 									className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
 									name="password"
-									placeholder="staff password"
+									placeholder="admin password"
 									required
 									type="password"
 								/>
@@ -116,7 +122,7 @@ function InternalAuthRoute() {
 								{isPending ? "Signing in" : "Sign in"}
 							</button>
 							<StatusPill tone={error ? "blocked" : "watch"}>
-								{error ? "Authentication failed" : "Protected route"}
+								{error ? "Authentication failed" : "Admin-only route"}
 							</StatusPill>
 						</div>
 
