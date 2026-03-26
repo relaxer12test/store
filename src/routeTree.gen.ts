@@ -20,6 +20,7 @@ import { Route as InternalWebhooksRouteImport } from './routes/internal.webhooks
 import { Route as InternalUsersRouteImport } from './routes/internal.users'
 import { Route as InternalInstallStateRouteImport } from './routes/internal.install-state'
 import { Route as InternalCacheRouteImport } from './routes/internal.cache'
+import { Route as InternalAiChatsRouteImport } from './routes/internal.ai-chats'
 import { Route as InternalActionAuditsRouteImport } from './routes/internal.action-audits'
 import { Route as AppWorkflowsRouteImport } from './routes/app.workflows'
 import { Route as AppSettingsRouteImport } from './routes/app.settings'
@@ -86,6 +87,11 @@ const InternalCacheRoute = InternalCacheRouteImport.update({
   path: '/cache',
   getParentRoute: () => InternalRoute,
 } as any)
+const InternalAiChatsRoute = InternalAiChatsRouteImport.update({
+  id: '/ai-chats',
+  path: '/ai-chats',
+  getParentRoute: () => InternalRoute,
+} as any)
 const InternalActionAuditsRoute = InternalActionAuditsRouteImport.update({
   id: '/action-audits',
   path: '/action-audits',
@@ -148,6 +154,7 @@ export interface FileRoutesByFullPath {
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
   '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/ai-chats': typeof InternalAiChatsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
   '/internal/users': typeof InternalUsersRoute
@@ -169,6 +176,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
   '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/ai-chats': typeof InternalAiChatsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
   '/internal/users': typeof InternalUsersRoute
@@ -193,6 +201,7 @@ export interface FileRoutesById {
   '/app/settings': typeof AppSettingsRoute
   '/app/workflows': typeof AppWorkflowsRoute
   '/internal/action-audits': typeof InternalActionAuditsRoute
+  '/internal/ai-chats': typeof InternalAiChatsRoute
   '/internal/cache': typeof InternalCacheRoute
   '/internal/install-state': typeof InternalInstallStateRoute
   '/internal/users': typeof InternalUsersRoute
@@ -218,6 +227,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/workflows'
     | '/internal/action-audits'
+    | '/internal/ai-chats'
     | '/internal/cache'
     | '/internal/install-state'
     | '/internal/users'
@@ -239,6 +249,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/workflows'
     | '/internal/action-audits'
+    | '/internal/ai-chats'
     | '/internal/cache'
     | '/internal/install-state'
     | '/internal/users'
@@ -262,6 +273,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/workflows'
     | '/internal/action-audits'
+    | '/internal/ai-chats'
     | '/internal/cache'
     | '/internal/install-state'
     | '/internal/users'
@@ -366,6 +378,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InternalCacheRouteImport
       parentRoute: typeof InternalRoute
     }
+    '/internal/ai-chats': {
+      id: '/internal/ai-chats'
+      path: '/ai-chats'
+      fullPath: '/internal/ai-chats'
+      preLoaderRoute: typeof InternalAiChatsRouteImport
+      parentRoute: typeof InternalRoute
+    }
     '/internal/action-audits': {
       id: '/internal/action-audits'
       path: '/action-audits'
@@ -459,6 +478,7 @@ const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface InternalRouteChildren {
   InternalActionAuditsRoute: typeof InternalActionAuditsRoute
+  InternalAiChatsRoute: typeof InternalAiChatsRoute
   InternalCacheRoute: typeof InternalCacheRoute
   InternalInstallStateRoute: typeof InternalInstallStateRoute
   InternalUsersRoute: typeof InternalUsersRoute
@@ -468,6 +488,7 @@ interface InternalRouteChildren {
 
 const InternalRouteChildren: InternalRouteChildren = {
   InternalActionAuditsRoute: InternalActionAuditsRoute,
+  InternalAiChatsRoute: InternalAiChatsRoute,
   InternalCacheRoute: InternalCacheRoute,
   InternalInstallStateRoute: InternalInstallStateRoute,
   InternalUsersRoute: InternalUsersRoute,

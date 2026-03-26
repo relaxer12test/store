@@ -12,6 +12,7 @@ import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as documentStorage from "../documentStorage.js";
 import type * as http from "../http.js";
+import type * as internalStorefrontAi from "../internalStorefrontAi.js";
 import type * as merchantApp from "../merchantApp.js";
 import type * as merchantDocuments from "../merchantDocuments.js";
 import type * as merchantDocumentsNode from "../merchantDocumentsNode.js";
@@ -39,6 +40,7 @@ declare const fullApi: ApiFromModules<{
   crons: typeof crons;
   documentStorage: typeof documentStorage;
   http: typeof http;
+  internalStorefrontAi: typeof internalStorefrontAi;
   merchantApp: typeof merchantApp;
   merchantDocuments: typeof merchantDocuments;
   merchantDocumentsNode: typeof merchantDocumentsNode;
