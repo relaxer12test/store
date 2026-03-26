@@ -1,0 +1,23 @@
+{% liquid
+  assign effective_available = false
+
+  if product != blank
+    for variant in product.variants
+      capture variant_available
+        render 'variant-effective-available', variant: variant
+      endcapture
+      assign variant_available = variant_available | strip
+
+      if variant_available == 'true'
+        assign effective_available = true
+        break
+      endif
+    endfor
+
+    if effective_available == false and product.variants.size == 0 and product.available
+      assign effective_available = true
+    endif
+  endif
+
+  echo effective_available
+%}

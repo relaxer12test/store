@@ -432,13 +432,14 @@
 
 		var shell = createElement("section", "storefront-ai-widget-shell");
 		var toggle = createElement("button", "storefront-ai-widget-toggle");
-		var toggleDot = createElement("span", "storefront-ai-widget-toggle-dot");
-		var toggleText = createElement("span", "", "Ask concierge");
+		var toggleIcon = document.createElement("span");
+		toggleIcon.className = "storefront-ai-widget-toggle-icon";
+		toggleIcon.innerHTML = '<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="storefront-ai-widget-unicorn-svg"><g class="storefront-ai-widget-unicorn-body"><path d="M14 28c0-8 5-14 12-14 3 0 5 1 6 3l1-3s1-5-3-8l-2-2s-1 3-2 4c-2-2-5-3-8-2-4 1-7 5-8 10s-1 9 2 12z" fill="currentColor" opacity="0.9"/><path d="M29 4l-2-4-1 5z" fill="#F0D5A8"/><circle cx="23" cy="11" r="1.2" fill="white" opacity="0.9"/><path d="M16 26l-1 6m3-5l0 5m4-5l1 5m3-6l1 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.8"/><path d="M14 23c-4-2-6 1-5 4" stroke="#F4C2C2" stroke-width="1.5" stroke-linecap="round" fill="none" class="storefront-ai-widget-unicorn-tail"/></g><path d="M6 10l1 2.5 3 0-2 2 1 3-3-2-3 2 1-3-2-2 3 0z" fill="#F0D5A8" opacity="0.5" class="storefront-ai-widget-unicorn-star storefront-ai-widget-unicorn-star--1"/><path d="M33 8l.6 1.5 1.8 0-1.2 1.2.5 1.8-1.7-1.2-1.7 1.2.5-1.8-1.2-1.2 1.8 0z" fill="#F0D5A8" opacity="0.4" class="storefront-ai-widget-unicorn-star storefront-ai-widget-unicorn-star--2"/><circle cx="35" cy="18" r="1" fill="#C8A2C8" opacity="0.4" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--1"/><circle cx="8" cy="22" r="0.8" fill="#F4C2C2" opacity="0.5" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--2"/><circle cx="32" cy="28" r="0.6" fill="#B2DFDB" opacity="0.4" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--3"/></svg>';
 		var panel = createElement("div", "storefront-ai-widget-panel");
 		var header = createElement("div", "storefront-ai-widget-header");
 		var title = createElement("div", "storefront-ai-widget-title");
-		var eyebrow = createElement("span", "storefront-ai-widget-eyebrow", "Storefront AI");
-		var heading = createElement("span", "storefront-ai-widget-heading", "Store assistant");
+		var eyebrow = createElement("span", "storefront-ai-widget-eyebrow", "Moonbeam");
+		var heading = createElement("span", "storefront-ai-widget-heading", "Unicorn Concierge");
 		var close = createElement("button", "storefront-ai-widget-close", "x");
 		var feed = createElement("div", "storefront-ai-widget-feed");
 		var suggestions = createElement("div", "storefront-ai-widget-suggestions");
@@ -448,19 +449,18 @@
 		var helper = createElement(
 			"p",
 			"storefront-ai-widget-helper",
-			"Ask about published products, collections, safe bundle ideas, shipping, or returns.",
+			"Ask about products, gifts, party planning, sizing, or shipping.",
 		);
 		var submit = createElement("button", "storefront-ai-widget-submit", "Send");
 
 		toggle.type = "button";
 		toggle.setAttribute("aria-expanded", "false");
-		toggle.setAttribute("aria-label", "Open storefront AI assistant");
-		toggle.appendChild(toggleDot);
-		toggle.appendChild(toggleText);
+		toggle.setAttribute("aria-label", "Ask Moonbeam Unicorn Concierge");
+		toggle.appendChild(toggleIcon);
 
 		panel.hidden = true;
 		panel.setAttribute("role", "dialog");
-		panel.setAttribute("aria-label", "Storefront AI assistant");
+		panel.setAttribute("aria-label", "Moonbeam Unicorn Concierge");
 
 		title.appendChild(eyebrow);
 		title.appendChild(heading);
@@ -612,7 +612,8 @@
 			state.open = true;
 			panel.hidden = false;
 			toggle.setAttribute("aria-expanded", "true");
-			toggleText.textContent = "Close concierge";
+			toggle.setAttribute("aria-label", "Close Moonbeam Unicorn Concierge");
+			toggle.classList.add("storefront-ai-widget-toggle--open");
 			panel.classList.add("storefront-ai-widget-panel--open");
 
 			if (!state.greetingLoaded) {
@@ -642,7 +643,8 @@
 			state.open = false;
 			panel.hidden = true;
 			toggle.setAttribute("aria-expanded", "false");
-			toggleText.textContent = "Ask concierge";
+			toggle.setAttribute("aria-label", "Ask Moonbeam Unicorn Concierge");
+			toggle.classList.remove("storefront-ai-widget-toggle--open");
 			panel.classList.remove("storefront-ai-widget-panel--open");
 		}
 
@@ -733,9 +735,9 @@
 		fetchJson(apiBase + "/api/shopify/widget?shop=" + encodeURIComponent(shopDomain))
 			.then(function (config) {
 				state.config = config;
-				heading.textContent = config.shopName || "Store assistant";
+				heading.textContent = config.shopName || "Unicorn Concierge";
 				helper.textContent = config.enabled
-					? "Ask about published products, collections, safe bundle ideas, shipping, or returns."
+					? "Ask about products, gifts, party planning, sizing, or shipping."
 					: "Enable the widget in merchant settings before shoppers can use it.";
 
 				shell.classList.add(

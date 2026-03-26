@@ -19,7 +19,16 @@
 
   assign compare_at_price = target.compare_at_price
   assign price = target.price | default: 1999
-  assign available = target.available | default: false
+  if target == product
+    capture available
+      render 'product-effective-available', product: product
+    endcapture
+  else
+    capture available
+      render 'variant-effective-available', variant: target
+    endcapture
+  endif
+  assign available = available | strip
   assign money_price = price | money
   if settings.currency_code_enabled
     assign money_price = price | money_with_currency
@@ -33,7 +42,7 @@
 <div class="
     price
     {%- if price_class %} {{ price_class }}{% endif -%}
-    {%- if available == false %} price--sold-out {% endif -%}
+    {%- if available == 'false' %} price--sold-out {% endif -%}
     {%- if compare_at_price > price %} price--on-sale {% endif -%}
     {%- if product.price_varies == false and product.compare_at_price_varies %} price--no-compare{% endif -%}
     {%- if show_badges %} price--show-badge{% endif -%}

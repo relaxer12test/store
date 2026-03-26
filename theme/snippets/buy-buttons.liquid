@@ -22,6 +22,11 @@
       if block.settings.show_dynamic_checkout and gift_card_recipient_feature_active == false
         assign show_dynamic_checkout = true
       endif
+
+      capture selected_variant_available
+        render 'variant-effective-available', variant: product.selected_or_first_available_variant
+      endcapture
+      assign selected_variant_available = selected_variant_available | strip
     -%}
 
     <product-form class="product-form" data-hide-errors="{{ gift_card_recipient_feature_active }}">
@@ -74,12 +79,12 @@
             type="submit"
             name="add"
             class="product-form__submit button button--full-width {% if show_dynamic_checkout %}button--secondary{% else %}button--primary{% endif %}"
-            {% if product.selected_or_first_available_variant.available == false or quantity_rule_soldout %}
+            {% if selected_variant_available == 'false' or quantity_rule_soldout %}
               disabled
             {% endif %}
           >
             <span>
-              {%- if product.selected_or_first_available_variant.available == false or quantity_rule_soldout -%}
+              {%- if selected_variant_available == 'false' or quantity_rule_soldout -%}
                 {{ 'products.product.sold_out' | t }}
               {%- else -%}
                 {{ 'products.product.add_to_cart' | t }}
@@ -127,7 +132,7 @@
 
     <pickup-availability
       class="product__pickup-availabilities no-js-hidden quick-add-hidden"
-      {% if product.selected_or_first_available_variant.available and pick_up_availabilities.size > 0 %}
+      {% if selected_variant_available == 'true' and pick_up_availabilities.size > 0 %}
         available
       {% endif %}
       data-root-url="{{ routes.root_url }}"

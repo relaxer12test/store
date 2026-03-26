@@ -545,6 +545,10 @@
       },
       "offers": [
         {%- for variant in product.variants -%}
+          {%- capture variant_available -%}
+            {%- render 'variant-effective-available', variant: variant -%}
+          {%- endcapture -%}
+          {%- assign variant_available = variant_available | strip -%}
           {
             "@type" : "Offer",
             {%- if variant.sku != blank -%}
@@ -559,7 +563,7 @@
             {%- if variant.barcode.size == 14 -%}
               "gtin14": {{ variant.barcode }},
             {%- endif -%}
-            "availability" : "http://schema.org/{% if variant.available %}InStock{% else %}OutOfStock{% endif %}",
+            "availability" : "http://schema.org/{% if variant_available == 'true' %}InStock{% else %}OutOfStock{% endif %}",
             "price" : {{ variant.price | divided_by: 100.00 | json }},
             "priceCurrency" : {{ cart.currency.iso_code | json }},
             "url" : {{ request.origin | append: variant.url | json }}

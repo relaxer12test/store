@@ -1,0 +1,15 @@
+{% liquid
+  assign effective_available = false
+
+  if variant != blank
+    if variant.inventory_management == 'shopify'
+      if variant.inventory_policy == 'continue' or variant.inventory_quantity > 0
+        assign effective_available = true
+      endif
+    elsif variant.available
+      assign effective_available = true
+    endif
+  endif
+
+  echo effective_available
+%}

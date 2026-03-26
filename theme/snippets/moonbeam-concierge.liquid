@@ -1,0 +1,27 @@
+{% comment %}
+  Moonbeam Unicorn Concierge — AI chat widget
+  Renders the root element and loads the runtime JS from the app server.
+{% endcomment %}
+
+{% unless request.design_mode %}
+<div
+  class="storefront-ai-embed-root"
+  data-api-base="https://storeai.ldev.cloud"
+  data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
+  data-theme-editor="false"
+></div>
+
+<script defer>
+(function () {
+  var root = document.querySelector('.storefront-ai-embed-root');
+  if (!root) return;
+  var apiBase = (root.getAttribute('data-api-base') || '').replace(/\/$/, '');
+  if (!apiBase || document.querySelector('script[data-storefront-ai-runtime="true"]')) return;
+  var s = document.createElement('script');
+  s.defer = true;
+  s.src = apiBase + '/storefront-ai-widget-runtime.js';
+  s.dataset.storefrontAiRuntime = 'true';
+  document.head.appendChild(s);
+})();
+</script>
+{% endunless %}

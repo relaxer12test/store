@@ -153,7 +153,7 @@
     "blocks": {
       "16337881580169983900": {
         "type": "shopify://apps/ldevstore/blocks/storefront-ai-embed/019d2659-935e-77c2-8e8a-cfe09025a0cb",
-        "disabled": false,
+        "disabled": true,
         "settings": {}
       }
     }

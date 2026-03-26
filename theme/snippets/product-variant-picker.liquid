@@ -28,7 +28,7 @@
         </fieldset>
       {%- endfor -%}
       <script type="application/json">
-        {{ product.variants | json }}
+        {% render 'product-variants-json', product: product %}
       </script>
     </variant-radios>
   {%- else -%}
@@ -62,7 +62,7 @@
       {%- endfor -%}
 
       <script type="application/json">
-        {{ product.variants | json }}
+        {% render 'product-variants-json', product: product %}
       </script>
     </variant-selects>
   {%- endif -%}
@@ -81,11 +81,15 @@
         form="{{ product_form_id }}"
       >
         {%- for variant in product.variants -%}
+          {%- capture variant_available -%}
+            {%- render 'variant-effective-available', variant: variant -%}
+          {%- endcapture -%}
+          {%- assign variant_available = variant_available | strip -%}
           <option
             {% if variant == product.selected_or_first_available_variant %}
               selected="selected"
             {% endif %}
-            {% if variant.available == false %}
+            {% if variant_available == 'false' %}
               disabled
             {% endif %}
             value="{{ variant.id }}"
@@ -93,7 +97,7 @@
             {%- liquid
               echo variant.title
               echo variant.price | money | strip_html | prepend: ' - '
-              if variant.available == false
+              if variant_available == 'false'
                 echo 'products.product.sold_out' | t | prepend: ' - '
               endif
               if variant.quantity_rule.increment > 1

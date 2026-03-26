@@ -25,6 +25,8 @@ if (!customElements.get('product-info')) {
         this.updateQuantityRules(event.data.sectionId, event.data.html);
         this.setQuantityBoundries();
       });
+
+      this.refreshProductState();
     }
 
     disconnectedCallback() {
@@ -55,27 +57,99 @@ if (!customElements.get('product-info')) {
       publish(PUB_SUB_EVENTS.quantityUpdate, undefined);  
     }
 
+    fetchSectionHtml() {
+      if (!this.currentVariant || !this.currentVariant.value) return Promise.resolve(null);
+
+      const sectionId = this.dataset.originalSection ? this.dataset.originalSection : this.dataset.section;
+      return fetch(`${this.dataset.url}?variant=${this.currentVariant.value}&section_id=${sectionId}`)
+        .then((response) => response.text())
+        .then((responseText) => new DOMParser().parseFromString(responseText, 'text/html'));
+    }
+
+    refreshProductState() {
+      this.fetchSectionHtml()
+        .then((html) => {
+          if (!html) return;
+          const sectionId = this.dataset.originalSection ? this.dataset.originalSection : this.dataset.section;
+          this.syncProductInfo(sectionId, html);
+          this.updateQuantityRules(sectionId, html);
+          this.setQuantityBoundries();
+        })
+        .catch((error) => {
+          console.error(error);
+        });
+    }
+
     fetchQuantityRules() {
       if (!this.currentVariant || !this.currentVariant.value) return;
       this.querySelector('.quantity__rules-cart .loading-overlay').classList.remove('hidden');
-      fetch(`${this.dataset.url}?variant=${this.currentVariant.value}&section_id=${this.dataset.section}`).then((response) => {
-        return response.text()
-      })
-      .then((responseText) => {
-        const html = new DOMParser().parseFromString(responseText, 'text/html');
-        this.updateQuantityRules(this.dataset.section, html);
-        this.setQuantityBoundries();
-      })
-      .catch(e => {
-        console.error(e);
-      })
-      .finally(() => {
-        this.querySelector('.quantity__rules-cart .loading-overlay').classList.add('hidden');
-      });
+      const sectionId = this.dataset.originalSection ? this.dataset.originalSection : this.dataset.section;
+      this.fetchSectionHtml()
+        .then((html) => {
+          if (!html) return;
+          this.syncProductInfo(sectionId, html);
+          this.updateQuantityRules(sectionId, html);
+          this.setQuantityBoundries();
+        })
+        .catch((error) => {
+          console.error(error);
+        })
+        .finally(() => {
+          this.querySelector('.quantity__rules-cart .loading-overlay').classList.add('hidden');
+        });
+    }
+
+    syncProductInfo(sectionId, html) {
+      const priceSource = html.getElementById(`price-${sectionId}`);
+      const priceDestination = document.getElementById(`price-${sectionId}`);
+      const skuSource = html.getElementById(`Sku-${sectionId}`);
+      const skuDestination = document.getElementById(`Sku-${sectionId}`);
+      const inventorySource = html.getElementById(`Inventory-${sectionId}`);
+      const inventoryDestination = document.getElementById(`Inventory-${sectionId}`);
+      const productFormSource = html.getElementById(`product-form-${sectionId}`);
+      const productFormDestination = document.getElementById(`product-form-${sectionId}`);
+      const installmentSource = html.getElementById(`product-form-installment-${sectionId}`);
+      const installmentDestination = document.getElementById(`product-form-installment-${sectionId}`);
+
+      if (priceSource && priceDestination) {
+        priceDestination.innerHTML = priceSource.innerHTML;
+        priceDestination.classList.remove('visibility-hidden');
+      }
+
+      if (inventorySource && inventoryDestination) {
+        inventoryDestination.innerHTML = inventorySource.innerHTML;
+        inventoryDestination.classList.toggle('visibility-hidden', inventorySource.innerText === '');
+      }
+
+      if (skuSource && skuDestination) {
+        skuDestination.innerHTML = skuSource.innerHTML;
+        skuDestination.classList.toggle('visibility-hidden', skuSource.classList.contains('visibility-hidden'));
+      }
+
+      if (productFormSource && productFormDestination) {
+        const sourceVariantId = productFormSource.querySelector('input[name="id"]');
+        const destinationVariantId = productFormDestination.querySelector('input[name="id"]');
+        const sourceButtons = productFormSource.querySelector('.product-form__buttons');
+        const destinationButtons = productFormDestination.querySelector('.product-form__buttons');
+
+        if (sourceVariantId && destinationVariantId) {
+          destinationVariantId.value = sourceVariantId.value;
+          destinationVariantId.toggleAttribute('disabled', sourceVariantId.hasAttribute('disabled'));
+        }
+
+        if (sourceButtons && destinationButtons) {
+          destinationButtons.innerHTML = sourceButtons.innerHTML;
+        }
+      }
+
+      if (installmentSource && installmentDestination) {
+        installmentDestination.innerHTML = installmentSource.innerHTML;
+      }
     }
 
     updateQuantityRules(sectionId, html) {
       const quantityFormUpdated = html.getElementById(`Quantity-Form-${sectionId}`);
+      if (!quantityFormUpdated) return;
       const selectors = ['.quantity__input', '.quantity__rules', '.quantity__label'];
       for (let selector of selectors) { 
         const current = this.quantityForm.querySelector(selector);
@@ -94,6 +168,5 @@ if (!customElements.get('product-info')) {
     }
   }
 )};
-
 
 

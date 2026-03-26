@@ -1,0 +1,17 @@
+[
+  {%- for variant in product.variants -%}
+    {%- capture variant_available -%}
+      {%- render 'variant-effective-available', variant: variant -%}
+    {%- endcapture -%}
+    {%- assign variant_available = variant_available | strip -%}
+    {%- capture variant_json -%}{{ variant | json }}{%- endcapture -%}
+    {%- if variant_available == 'true' -%}
+      {%- assign variant_json = variant_json | replace_first: '"available":false', '"available":true' -%}
+      {%- assign variant_json = variant_json | replace_first: '"available": false', '"available": true' -%}
+    {%- else -%}
+      {%- assign variant_json = variant_json | replace_first: '"available":true', '"available":false' -%}
+      {%- assign variant_json = variant_json | replace_first: '"available": true', '"available": false' -%}
+    {%- endif -%}
+    {{- variant_json -}}{%- unless forloop.last -%},{%- endunless -%}
+  {%- endfor -%}
+]
