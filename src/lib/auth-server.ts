@@ -4,6 +4,7 @@ import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/re
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
+import { bootstrapShopifyMerchantSession } from "@/routes/api.shopify.bootstrap";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const guestSession: SessionEnvelope = {
@@ -179,6 +180,60 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 	return null;
 }
 
+async function getEmbeddedBootstrapSessionEnvelope(requestUrl: URL): Promise<SessionEnvelope | null> {
+	const sessionToken = requestUrl.searchParams.get("id_token");
+
+	if (!sessionToken) {
+		return null;
+	}
+
+	const headers = new Headers({
+		Authorization: `Bearer ${sessionToken}`,
+	});
+	const referer = getRequestHeader("referer");
+	const userAgent = getRequestHeader("user-agent");
+
+	if (referer) {
+		headers.set("referer", referer);
+	}
+
+	if (userAgent) {
+		headers.set("user-agent", userAgent);
+	}
+
+	const response = await bootstrapShopifyMerchantSession(
+		new Request(requestUrl.toString(), {
+			headers,
+			method: "POST",
+		}),
+	);
+
+	if (!response.ok) {
+		const errorPayload = await response
+			.clone()
+			.json()
+			.catch(() => null);
+
+		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} embedded_session_bootstrap_failed`, {
+			embedded: requestUrl.searchParams.get("embedded") ?? null,
+			errorPayload,
+			pathname: requestUrl.pathname,
+			shop: requestUrl.searchParams.get("shop") ?? null,
+			status: response.status,
+		});
+
+		return null;
+	}
+
+	const setCookie = response.headers.get("set-cookie");
+
+	if (setCookie) {
+		setResponseHeader("Set-Cookie", setCookie);
+	}
+
+	return (await response.json()) as SessionEnvelope;
+}
+
 export const authHandler = betterAuthServer.handler;
 
 export function getEmbeddedFrameAncestors(
@@ -242,7 +297,11 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 	);
 
 	try {
-		return (await getBetterAuthSessionEnvelope()) ?? guestSession;
+		return (
+			(await getBetterAuthSessionEnvelope()) ??
+			(await getEmbeddedBootstrapSessionEnvelope(requestUrl)) ??
+			guestSession
+		);
 	} catch (error) {
 		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} session_envelope_resolution_failed`, {
 			embedded: requestUrl.searchParams.get("embedded") ?? null,

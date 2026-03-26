@@ -1,10 +1,13 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState, useTransition } from "react";
-import { StatusPill } from "@/components/ui/feedback";
-import { PageHeader, Panel } from "@/components/ui/layout";
+import { useRef, useState, useTransition } from "react";
+import { Button } from "@/components/ui/cata/button";
+import { Input } from "@/components/ui/cata/input";
+import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { authClient } from "@/lib/auth-client";
 import { getSessionEnvelope } from "@/lib/auth-server";
 import { hasAdminSession } from "@/shared/contracts/session";
+
+type AuthView = "sign-in" | "forgot-password" | "reset-email-sent";
 
 export const Route = createFileRoute("/internal-auth")({
 	beforeLoad: async ({ context }) => {
@@ -24,111 +27,229 @@ export const Route = createFileRoute("/internal-auth")({
 });
 
 function InternalAuthRoute() {
+	const [view, setView] = useState<AuthView>("sign-in");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, startTransition] = useTransition();
+	const [sentEmail, setSentEmail] = useState("");
+	const emailRef = useRef<HTMLInputElement>(null);
 
-	const readTextField = (formData: FormData, key: string) => {
-		const value = formData.get(key);
-
-		return typeof value === "string" ? value : "";
+	const switchTo = (nextView: AuthView) => {
+		setError(null);
+		setView(nextView);
 	};
 
 	return (
-		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
-			<PageHeader
-				description="Internal diagnostics now require a Better Auth session whose native role is `admin`."
-				eyebrow="Admin access"
-				title="Internal admin sign-in"
-			/>
+		<div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
+			<div className="w-full max-w-md rounded-[1.75rem] border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
+				{view === "sign-in" && (
+					<>
+						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
+							Admin access
+						</p>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Sign in</h1>
+						<p className="mt-3 text-sm leading-6 text-slate-600">
+							Internal diagnostics require an admin session.
+						</p>
 
-			<div className="mt-10">
-				<Panel
-					description="Sign in with a Better Auth account that already has the native `admin` role. The first merchant that completes the Shopify bridge is promoted automatically."
-					title="Authenticate admin access"
-				>
-					<form
-						className="space-y-5"
-						onSubmit={(event) => {
-							event.preventDefault();
-							setError(null);
+						<form
+							className="mt-8"
+							onSubmit={(event) => {
+								event.preventDefault();
+								setError(null);
 
-							const formData = new FormData(event.currentTarget);
-							const email = readTextField(formData, "email").trim();
-							const password = readTextField(formData, "password");
+								const formData = new FormData(event.currentTarget);
+								const email = ((formData.get("email") as string) ?? "").trim();
+								const password = (formData.get("password") as string) ?? "";
 
-							startTransition(() => {
-								void (async () => {
-									try {
-										const result = await authClient.signIn.email({
-											email,
-											password,
-										});
+								startTransition(() => {
+									void (async () => {
+										try {
+											const result = await authClient.signIn.email({
+												email,
+												password,
+											});
 
-										if (result.error) {
-											throw new Error(result.error.message);
+											if (result.error) {
+												throw new Error(result.error.message);
+											}
+
+											const session = await getSessionEnvelope();
+
+											if (!hasAdminSession(session)) {
+												await authClient.signOut();
+												throw new Error(
+													"This Better Auth account is not an admin.",
+												);
+											}
+
+											window.location.assign("/internal");
+										} catch (authError) {
+											setError(
+												authError instanceof Error
+													? authError.message
+													: "Admin authentication failed.",
+											);
 										}
+									})();
+								});
+							}}
+						>
+							<Fieldset>
+								<FieldGroup className="space-y-4">
+									<Field>
+										<Label>Email address</Label>
+										<Input
+											autoComplete="email"
+											name="email"
+											placeholder="admin@example.com"
+											ref={emailRef}
+											required
+											type="email"
+										/>
+									</Field>
+									<Field>
+										<Label>Password</Label>
+										<Input
+											autoComplete="current-password"
+											name="password"
+											required
+											type="password"
+										/>
+									</Field>
+								</FieldGroup>
+							</Fieldset>
 
-										const session = await getSessionEnvelope();
+							<div className="mt-6 flex items-center justify-between">
+								<Button color="dark/zinc" disabled={isPending} type="submit">
+									{isPending ? "Signing in..." : "Sign in"}
+								</Button>
+								<button
+									className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
+									onClick={() => switchTo("forgot-password")}
+									type="button"
+								>
+									Forgot password?
+								</button>
+							</div>
 
-										if (!hasAdminSession(session)) {
-											await authClient.signOut();
-											throw new Error("This Better Auth account is not an admin.");
+							{error ? (
+								<div className="mt-4">
+									<ErrorMessage>{error}</ErrorMessage>
+								</div>
+							) : null}
+						</form>
+					</>
+				)}
+
+				{view === "forgot-password" && (
+					<>
+						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
+							Admin access
+						</p>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">
+							Reset password
+						</h1>
+						<p className="mt-3 text-sm leading-6 text-slate-600">
+							Enter your admin email and we'll send a reset link.
+						</p>
+
+						<form
+							className="mt-8"
+							onSubmit={(event) => {
+								event.preventDefault();
+								setError(null);
+
+								const formData = new FormData(event.currentTarget);
+								const email = ((formData.get("email") as string) ?? "").trim();
+
+								startTransition(() => {
+									void (async () => {
+										try {
+											const result =
+												await authClient.requestPasswordReset({
+													email,
+													redirectTo: `${window.location.origin}/internal-reset-password`,
+												});
+
+											if (result.error) {
+												throw new Error(result.error.message);
+											}
+
+											setSentEmail(email);
+											setView("reset-email-sent");
+										} catch (resetError) {
+											setError(
+												resetError instanceof Error
+													? resetError.message
+													: "Failed to send reset link.",
+											);
 										}
+									})();
+								});
+							}}
+						>
+							<Fieldset>
+								<FieldGroup className="space-y-4">
+									<Field>
+										<Label>Email address</Label>
+										<Input
+											autoComplete="email"
+											defaultValue={emailRef.current?.value ?? ""}
+											name="email"
+											placeholder="admin@example.com"
+											required
+											type="email"
+										/>
+									</Field>
+								</FieldGroup>
+							</Fieldset>
 
-										window.location.assign("/internal");
-									} catch (authError) {
-										setError(
-											authError instanceof Error
-												? authError.message
-												: "Admin authentication failed.",
-										);
-									}
-								})();
-							});
-						}}
-					>
-						<div className="grid gap-5 sm:grid-cols-2">
-							<label className="grid gap-2 text-sm font-semibold text-slate-900">
-								<span>Email</span>
-								<input
-									autoComplete="email"
-									className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-									name="email"
-									placeholder="admin email"
-									required
-									type="email"
-								/>
-							</label>
+							<div className="mt-6 flex items-center gap-3">
+								<Button color="dark/zinc" disabled={isPending} type="submit">
+									{isPending ? "Sending..." : "Send reset link"}
+								</Button>
+								<Button
+									onClick={() => switchTo("sign-in")}
+									plain
+									type="button"
+								>
+									Back to sign in
+								</Button>
+							</div>
 
-							<label className="grid gap-2 text-sm font-semibold text-slate-900">
-								<span>Password</span>
-								<input
-									autoComplete="current-password"
-									className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400 focus:bg-white"
-									name="password"
-									placeholder="admin password"
-									required
-									type="password"
-								/>
-							</label>
-						</div>
+							{error ? (
+								<div className="mt-4">
+									<ErrorMessage>{error}</ErrorMessage>
+								</div>
+							) : null}
+						</form>
+					</>
+				)}
 
-						<div className="flex flex-wrap items-center gap-3">
-							<button
-								className="inline-flex items-center rounded-full border border-slate-900 bg-slate-900 px-5 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
-								disabled={isPending}
-								type="submit"
+				{view === "reset-email-sent" && (
+					<div className="text-center">
+						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
+							Admin access
+						</p>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">
+							Check your email
+						</h1>
+						<p className="mt-3 text-sm leading-6 text-slate-600">
+							If an account exists for{" "}
+							<span className="font-medium text-slate-900">{sentEmail}</span>,
+							you'll receive a password reset link shortly.
+						</p>
+						<div className="mt-8">
+							<Button
+								onClick={() => switchTo("sign-in")}
+								plain
+								type="button"
 							>
-								{isPending ? "Signing in" : "Sign in"}
-							</button>
-							<StatusPill tone={error ? "blocked" : "watch"}>
-								{error ? "Authentication failed" : "Admin-only route"}
-							</StatusPill>
+								Back to sign in
+							</Button>
 						</div>
-
-						{error ? <p className="text-sm leading-6 text-red-700">{error}</p> : null}
-					</form>
-				</Panel>
+					</div>
+				)}
 			</div>
 		</div>
 	);

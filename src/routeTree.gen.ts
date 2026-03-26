@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as InternalResetPasswordRouteImport } from './routes/internal-reset-password'
 import { Route as InternalAuthRouteImport } from './routes/internal-auth'
 import { Route as InternalRouteImport } from './routes/internal'
 import { Route as InstallRouteImport } from './routes/install'
@@ -32,6 +33,11 @@ import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bo
 import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
 import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
+const InternalResetPasswordRoute = InternalResetPasswordRouteImport.update({
+  id: '/internal-reset-password',
+  path: '/internal-reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InternalAuthRoute = InternalAuthRouteImport.update({
   id: '/internal-auth',
   path: '/internal-auth',
@@ -149,6 +155,7 @@ export interface FileRoutesByFullPath {
   '/install': typeof InstallRoute
   '/internal': typeof InternalRouteWithChildren
   '/internal-auth': typeof InternalAuthRoute
+  '/internal-reset-password': typeof InternalResetPasswordRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -171,6 +178,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/install': typeof InstallRoute
   '/internal-auth': typeof InternalAuthRoute
+  '/internal-reset-password': typeof InternalResetPasswordRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -196,6 +204,7 @@ export interface FileRoutesById {
   '/install': typeof InstallRoute
   '/internal': typeof InternalRouteWithChildren
   '/internal-auth': typeof InternalAuthRoute
+  '/internal-reset-password': typeof InternalResetPasswordRoute
   '/app/copilot': typeof AppCopilotRoute
   '/app/explorer': typeof AppExplorerRoute
   '/app/settings': typeof AppSettingsRoute
@@ -222,6 +231,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/internal'
     | '/internal-auth'
+    | '/internal-reset-password'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -244,6 +254,7 @@ export interface FileRouteTypes {
     | '/'
     | '/install'
     | '/internal-auth'
+    | '/internal-reset-password'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -268,6 +279,7 @@ export interface FileRouteTypes {
     | '/install'
     | '/internal'
     | '/internal-auth'
+    | '/internal-reset-password'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -293,6 +305,7 @@ export interface RootRouteChildren {
   InstallRoute: typeof InstallRoute
   InternalRoute: typeof InternalRouteWithChildren
   InternalAuthRoute: typeof InternalAuthRoute
+  InternalResetPasswordRoute: typeof InternalResetPasswordRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiShopifyBootstrapRoute: typeof ApiShopifyBootstrapRoute
   ApiShopifyWebhooksRoute: typeof ApiShopifyWebhooksRoute
@@ -301,6 +314,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/internal-reset-password': {
+      id: '/internal-reset-password'
+      path: '/internal-reset-password'
+      fullPath: '/internal-reset-password'
+      preLoaderRoute: typeof InternalResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/internal-auth': {
       id: '/internal-auth'
       path: '/internal-auth'
@@ -517,6 +537,7 @@ const rootRouteChildren: RootRouteChildren = {
   InstallRoute: InstallRoute,
   InternalRoute: InternalRouteWithChildren,
   InternalAuthRoute: InternalAuthRoute,
+  InternalResetPasswordRoute: InternalResetPasswordRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiShopifyBootstrapRoute: ApiShopifyBootstrapRoute,
   ApiShopifyWebhooksRoute: ApiShopifyWebhooksRoute,

@@ -466,6 +466,11 @@ export function createAuthOptions(ctx: AuthCtx) {
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
+			sendResetPassword: async ({ user, url }) => {
+				// Log reset URL to Convex console for internal admin use.
+				// TODO: Replace with real email sending (Resend, SendGrid, etc.)
+				console.log(`[internal-auth] Password reset for ${user.email}: ${url}`);
+			},
 		},
 		plugins: [
 			admin(),
