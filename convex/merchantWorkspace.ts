@@ -1926,7 +1926,11 @@ export const overview = action({
 	args: {},
 	handler: async (ctx): Promise<MerchantOverviewData> => {
 		const claims = await requireMerchantClaims(ctx);
-		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, claims);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
 		const [documents, workflowRecords, conversationState] = await Promise.all([
 			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(api.merchantWorkspace.workflows, {}),
@@ -2000,7 +2004,11 @@ export const explorer = action({
 	args: {},
 	handler: async (ctx): Promise<MerchantExplorerData> => {
 		const claims = await requireMerchantClaims(ctx);
-		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, claims);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
 		const [documents, recentAudits] = await Promise.all([
 			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(internal.merchantWorkspace.getRecentAuditRows, {
@@ -2090,7 +2098,11 @@ export const askCopilot = action({
 	},
 	handler: async (ctx, args): Promise<MerchantCopilotConversation> => {
 		const claims = await requireMerchantClaims(ctx);
-		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, claims);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
 		const prompt = args.prompt.trim();
 
 		if (prompt.length < 4) {
