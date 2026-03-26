@@ -473,7 +473,6 @@ function buildMerchantAssistantResponse({
 }
 
 interface MerchantSettingsState {
-	actor: Doc<"merchantActors">;
 	cacheStates: Doc<"shopifyCacheStates">[];
 	installation: Doc<"shopifyInstallations"> | null;
 	pendingJobs: Doc<"syncJobs">[];
@@ -484,18 +483,10 @@ interface MerchantSettingsState {
 
 export const getSettingsState = internalQuery({
 	args: {
-		merchantActorId: v.id("merchantActors"),
 		shopDomain: v.string(),
 		shopId: v.id("shops"),
-		shopifyUserId: v.string(),
 	},
 	handler: async (ctx, args): Promise<MerchantSettingsState> => {
-		const actor = await ctx.db.get(args.merchantActorId);
-
-		if (!actor || actor.shopId !== args.shopId || actor.shopifyUserId !== args.shopifyUserId) {
-			throw new Error("Authenticated merchant actor could not be resolved for settings.");
-		}
-
 		const shop = await ctx.db.get(args.shopId);
 
 		if (!shop || shop.domain !== args.shopDomain) {
@@ -543,7 +534,6 @@ export const getSettingsState = internalQuery({
 		]);
 
 		return {
-			actor,
 			cacheStates,
 			installation,
 			pendingJobs: [...pendingJobs, ...runningJobs],
@@ -556,10 +546,10 @@ export const getSettingsState = internalQuery({
 
 async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSettingsData> {
 	const claims = await requireMerchantClaims(ctx);
-	const state: MerchantSettingsState = await ctx.runQuery(
-		internal.merchantApp.getSettingsState,
-		claims,
-	);
+	const state: MerchantSettingsState = await ctx.runQuery(internal.merchantApp.getSettingsState, {
+		shopDomain: claims.shopDomain,
+		shopId: claims.shopId,
+	});
 	const widgetSettings = getWidgetSettingsRecord(state.widgetConfig as WidgetConfigRecord | null);
 	const recentTopics = Array.from(
 		new Set(state.recentWebhookDeliveries.map((delivery) => delivery.topic)),
@@ -734,7 +724,7 @@ export const updateWidgetSettings = mutation({
 
 		await ctx.db.insert("auditLogs", {
 			action: "merchant.widget_settings.updated",
-			actorId: actor._id,
+			actorId: actor.id,
 			createdAt: now,
 			detail: "Merchant storefront widget settings were updated.",
 			payload: {

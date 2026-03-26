@@ -68,20 +68,6 @@ export default defineSchema({
 		status: v.optional(v.string()),
 	}).index("by_shop_created_at", ["shopId", "createdAt"]),
 
-	merchantActors: defineTable({
-		createdAt: v.number(),
-		email: v.optional(v.string()),
-		initials: v.string(),
-		lastAuthenticatedAt: v.number(),
-		name: v.string(),
-		sessionId: v.optional(v.string()),
-		shopDomain: v.string(),
-		shopId: v.id("shops"),
-		shopifyUserId: v.string(),
-	})
-		.index("by_shop", ["shopId"])
-		.index("by_shop_and_shopify_user_id", ["shopId", "shopifyUserId"]),
-
 	shops: defineTable({
 		createdAt: v.number(),
 		domain: v.string(),
@@ -358,7 +344,7 @@ export default defineSchema({
 		.index("by_window_ends_at", ["windowEndsAt"]),
 
 	merchantActionApprovals: defineTable({
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		conversationId: v.optional(v.id("merchantCopilotConversations")),
 		createdAt: v.number(),
 		decidedAt: v.optional(v.number()),
@@ -383,7 +369,7 @@ export default defineSchema({
 		.index("by_conversation_and_requested_at", ["conversationId", "requestedAt"]),
 
 	merchantCopilotConversations: defineTable({
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		createdAt: v.number(),
 		lastAssistantSummary: v.optional(v.string()),
 		lastPromptPreview: v.optional(v.string()),
@@ -395,7 +381,7 @@ export default defineSchema({
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"]),
 
 	merchantCopilotMessages: defineTable({
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		approvalIds: v.optional(v.array(v.id("merchantActionApprovals"))),
 		body: v.string(),
 		citationsJson: v.optional(v.string()),
@@ -431,7 +417,7 @@ export default defineSchema({
 		summary: v.string(),
 		title: v.string(),
 		updatedAt: v.number(),
-		uploadedByActorId: v.id("merchantActors"),
+		uploadedByActorId: v.string(),
 		visibility: v.union(v.literal("public"), v.literal("shop_private")),
 	})
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])

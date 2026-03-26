@@ -33,8 +33,17 @@ export function deriveViewerRoles(input: {
 }): ViewerRole[] {
 	const roles = new Set<ViewerRole>();
 
-	if (input.merchantRole === "shop_admin" || input.merchantRole === "shop_staff") {
-		roles.add(input.merchantRole);
+	if (
+		input.merchantRole === "shop_admin" ||
+		input.merchantRole === "shop_staff" ||
+		input.merchantRole === "owner" ||
+		input.merchantRole === "admin"
+	) {
+		roles.add("shop_admin");
+	}
+
+	if (input.merchantRole === "member") {
+		roles.add("shop_staff");
 	}
 
 	if (input.betterAuthRole === "admin") {

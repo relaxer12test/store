@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/cata/button";
-import { Input } from "@/components/ui/cata/input";
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Input } from "@/components/ui/cata/input";
 import { authClient } from "@/lib/auth-client";
 
 type ResetView = "form" | "success" | "error";
@@ -31,9 +31,7 @@ function InternalResetPasswordRoute() {
 						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
 							Password reset
 						</p>
-						<h1 className="mt-3 font-serif text-3xl text-slate-950">
-							Set your new password
-						</h1>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Set your new password</h1>
 						<p className="mt-3 text-sm leading-6 text-slate-600">
 							Enter a new password for your admin account.
 						</p>
@@ -125,12 +123,9 @@ function InternalResetPasswordRoute() {
 						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
 							Password reset
 						</p>
-						<h1 className="mt-3 font-serif text-3xl text-slate-950">
-							Password updated
-						</h1>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Password updated</h1>
 						<p className="mt-3 text-sm leading-6 text-slate-600">
-							Your password has been reset successfully. You can now sign in with
-							your new password.
+							Your password has been reset successfully. You can now sign in with your new password.
 						</p>
 						<div className="mt-8">
 							<Button color="dark/zinc" href="/internal-auth">
@@ -145,12 +140,9 @@ function InternalResetPasswordRoute() {
 						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
 							Password reset
 						</p>
-						<h1 className="mt-3 font-serif text-3xl text-slate-950">
-							Link expired
-						</h1>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Link expired</h1>
 						<p className="mt-3 text-sm leading-6 text-slate-600">
-							This password reset link is invalid or has expired. Please request
-							a new one.
+							This password reset link is invalid or has expired. Please request a new one.
 						</p>
 						<div className="mt-8">
 							<Button color="dark/zinc" href="/internal-auth">

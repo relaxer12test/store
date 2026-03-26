@@ -15,27 +15,62 @@ describe("shopify bootstrap route", () => {
 
 	it("creates an embedded session from the Shopify bridge and forwards auth cookies", async () => {
 		const convexBootstrap = vi.fn(async () => ({
-			merchantSession: {
-				expiresAt: 1_800_000_000_000,
-				token: "convex-token",
+			activeShop: {
+				domain: "acme.myshopify.com",
+				id: "shop_123",
+				installStatus: "connected",
+				name: "Acme",
 			},
-			persistedBootstrap: {
-				activeShop: {
-					domain: "acme.myshopify.com",
-					id: "shop_123",
-					installStatus: "connected",
-					name: "Acme",
-				},
-				roles: ["shop_admin"],
-				viewer: {
-					email: "merchant@example.com",
-					id: "actor_123",
-					initials: "JD",
-					name: "Jane Doe",
-					roles: ["shop_admin"],
-				},
+			bridgeRequest: {
+				initials: "JD",
+				lastAuthenticatedAt: 1_800_000_000_000,
+				name: "Jane Doe",
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopName: "Acme",
+				shopifyUserId: "shopify-user-1",
 			},
 		}));
+		const authRequestHandler = vi.fn(async (request: Request) => {
+			const url = new URL(request.url);
+
+			if (url.pathname === "/api/auth/sign-in/shopify-bridge") {
+				return new Response(
+					JSON.stringify({
+						activeShop: {
+							domain: "acme.myshopify.com",
+							id: "shop_123",
+							installStatus: "connected",
+							name: "Acme",
+						},
+						betterAuthRole: "user",
+						merchantRole: "admin",
+						viewer: {
+							email: "merchant@example.com",
+							id: "member_123",
+							initials: "JD",
+							name: "Jane Doe",
+						},
+					}),
+					{
+						headers: {
+							"set-cookie": "session_token=ba-session; Path=/; HttpOnly; Max-Age=3600",
+						},
+					},
+				);
+			}
+
+			return new Response(
+				JSON.stringify({
+					token: "convex-token",
+				}),
+				{
+					headers: {
+						"set-cookie": "better-auth.convex_jwt=convex-token; Path=/; HttpOnly; Max-Age=3600",
+					},
+				},
+			);
+		});
 
 		const response = await bootstrapShopifyMerchantSession(
 			new Request("https://storeai.ldev.cloud", {
@@ -44,11 +79,13 @@ describe("shopify bootstrap route", () => {
 				},
 			}),
 			{
+				authRequestHandler,
 				convexBootstrap: convexBootstrap as (sessionToken: string) => Promise<any>,
 			},
 		);
 
 		expect(convexBootstrap).toHaveBeenCalledWith("session-token");
+		expect(authRequestHandler).toHaveBeenCalledTimes(2);
 		expect(response.status).toBe(200);
 		expect(response.headers.get("set-cookie")).toContain("convex_jwt=convex-token");
 		await expect(response.json()).resolves.toEqual({
@@ -60,12 +97,12 @@ describe("shopify bootstrap route", () => {
 			},
 			authMode: "embedded",
 			convexToken: "convex-token",
-			convexTokenExpiresAt: 1_800_000_000_000,
+			convexTokenExpiresAt: null,
 			roles: ["shop_admin"],
 			state: "ready",
 			viewer: {
 				email: "merchant@example.com",
-				id: "actor_123",
+				id: "member_123",
 				initials: "JD",
 				name: "Jane Doe",
 				roles: ["shop_admin"],
@@ -74,31 +111,61 @@ describe("shopify bootstrap route", () => {
 	});
 
 	it("logs bootstrap failures when Convex does not issue a merchant token", async () => {
-		const logger = {
-			error: vi.fn(),
-		};
 		const convexBootstrap = vi.fn(async () => ({
-			merchantSession: {
-				expiresAt: 1_800_000_000_000,
-				token: "",
+			activeShop: {
+				domain: "acme.myshopify.com",
+				id: "shop_123",
+				installStatus: "connected",
+				name: "Acme",
 			},
-			persistedBootstrap: {
-				activeShop: {
-					domain: "acme.myshopify.com",
-					id: "shop_123",
-					installStatus: "connected",
-					name: "Acme",
-				},
-				roles: ["shop_admin"],
-				viewer: {
-					email: "merchant@example.com",
-					id: "actor_123",
-					initials: "JD",
-					name: "Jane Doe",
-					roles: ["shop_admin"],
-				},
+			bridgeRequest: {
+				initials: "JD",
+				lastAuthenticatedAt: 1_800_000_000_000,
+				name: "Jane Doe",
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopName: "Acme",
+				shopifyUserId: "shopify-user-1",
 			},
 		}));
+		const authRequestHandler = vi.fn(async (request: Request) => {
+			const url = new URL(request.url);
+
+			if (url.pathname === "/api/auth/sign-in/shopify-bridge") {
+				return new Response(
+					JSON.stringify({
+						activeShop: {
+							domain: "acme.myshopify.com",
+							id: "shop_123",
+							installStatus: "connected",
+							name: "Acme",
+						},
+						betterAuthRole: "user",
+						merchantRole: "admin",
+						viewer: {
+							email: "merchant@example.com",
+							id: "member_123",
+							initials: "JD",
+							name: "Jane Doe",
+						},
+					}),
+					{
+						headers: {
+							"set-cookie": "session_token=ba-session; Path=/; HttpOnly; Max-Age=3600",
+						},
+					},
+				);
+			}
+
+			return new Response(
+				JSON.stringify({
+					error: "Merchant bootstrap completed without issuing a Convex JWT.",
+				}),
+				{
+					status: 500,
+				},
+			);
+		});
 
 		const response = await bootstrapShopifyMerchantSession(
 			new Request("https://storeai.ldev.cloud", {
@@ -107,8 +174,8 @@ describe("shopify bootstrap route", () => {
 				},
 			}),
 			{
+				authRequestHandler,
 				convexBootstrap: convexBootstrap as (sessionToken: string) => Promise<any>,
-				logger,
 			},
 		);
 
@@ -116,13 +183,5 @@ describe("shopify bootstrap route", () => {
 		await expect(response.json()).resolves.toEqual({
 			error: "Merchant bootstrap completed without issuing a Convex JWT.",
 		});
-		expect(logger.error).toHaveBeenCalledWith(
-			"[shopify-merchant-auth] bootstrap_missing_convex_token",
-			expect.objectContaining({
-				merchantActorId: "actor_123",
-				shopDomain: "acme.myshopify.com",
-				stage: "issue_convex_jwt",
-			}),
-		);
 	});
 });

@@ -1,7 +1,12 @@
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
-import { adminClient } from "better-auth/client/plugins";
+import {
+	adminClient,
+	inferOrgAdditionalFields,
+	organizationClient,
+} from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { createContext, useContext, useSyncExternalStore } from "react";
+import { merchantOrganizationSchema } from "@/shared/contracts/better-auth-tenancy";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
 type Listener = () => void;
@@ -15,7 +20,13 @@ const SessionContext = createContext<SessionManager | null>(null);
 
 export const authClient = createAuthClient({
 	basePath: "/api/auth",
-	plugins: [adminClient(), convexClient()],
+	plugins: [
+		adminClient(),
+		organizationClient({
+			schema: inferOrgAdditionalFields(merchantOrganizationSchema),
+		}),
+		convexClient(),
+	],
 });
 
 export function SessionProvider({

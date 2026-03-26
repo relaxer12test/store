@@ -12,7 +12,7 @@ import {
 	type MerchantWorkflowRecord,
 	type MerchantWorkflowsData,
 } from "../src/shared/contracts/merchant-workspace";
-import { api, internal } from "./_generated/api";
+import { api, components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
 	action,
@@ -24,7 +24,7 @@ import {
 	type MutationCtx,
 	type QueryCtx,
 } from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims } from "./auth";
+import { requireMerchantActor, requireMerchantClaims, type MerchantActorRecord } from "./auth";
 import { getShopifyAccessFailureReason } from "./shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 
@@ -515,6 +515,32 @@ type ApprovalPayload =
 			tool: "enqueueWorkflow";
 	  };
 
+interface BetterAuthMemberSnapshot {
+	_id?: string;
+	id: string;
+	initials?: string | null;
+	lastAuthenticatedAt?: number | null;
+	organizationId: string;
+	role: string;
+	sessionId?: string | null;
+	shopifyUserId: string;
+	userId: string;
+}
+
+interface BetterAuthOrganizationSnapshot {
+	_id?: string;
+	id: string;
+	shopDomain: string;
+	shopId: string;
+}
+
+interface BetterAuthUserSnapshot {
+	_id?: string;
+	email: string;
+	id: string;
+	name: string;
+}
+
 function formatIso(value: number | null | undefined) {
 	return value ? new Date(value).toISOString() : null;
 }
@@ -551,6 +577,20 @@ function compactNumber(value: number) {
 		maximumFractionDigits: value >= 100 ? 0 : 1,
 		notation: "compact",
 	}).format(value);
+}
+
+function getInitials(name: string) {
+	const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
+
+	if (words.length === 0) {
+		return "SA";
+	}
+
+	return words.map((word) => word.charAt(0).toUpperCase()).join("");
+}
+
+function getAuthRecordId(record: { _id?: string; id?: string }) {
+	return record.id ?? record._id ?? "";
 }
 
 function normalizeText(value: string) {
@@ -882,16 +922,55 @@ function toApprovalCard(approval: Doc<"merchantActionApprovals">): MerchantAppro
 async function getRuntimeState(
 	ctx: QueryCtx,
 	args: {
-		merchantActorId: Id<"merchantActors">;
+		actorId: string;
 		shopDomain: string;
 		shopId: Id<"shops">;
-		shopifyUserId: string;
 	},
 ) {
-	const actor = await ctx.db.get(args.merchantActorId);
+	const member = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: "member",
+		where: [
+			{
+				field: "_id",
+				value: args.actorId,
+			},
+		],
+	})) as BetterAuthMemberSnapshot | null;
 
-	if (!actor || actor.shopId !== args.shopId || actor.shopifyUserId !== args.shopifyUserId) {
-		throw new Error("Authenticated merchant actor could not be resolved.");
+	if (!member) {
+		throw new Error("Authenticated merchant member could not be resolved.");
+	}
+
+	const organization = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: "organization",
+		where: [
+			{
+				field: "_id",
+				value: member.organizationId,
+			},
+		],
+	})) as BetterAuthOrganizationSnapshot | null;
+
+	if (
+		!organization ||
+		organization.shopId !== args.shopId ||
+		organization.shopDomain !== args.shopDomain
+	) {
+		throw new Error("Authenticated merchant organization could not be resolved.");
+	}
+
+	const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+		model: "user",
+		where: [
+			{
+				field: "_id",
+				value: member.userId,
+			},
+		],
+	})) as BetterAuthUserSnapshot | null;
+
+	if (!user) {
+		throw new Error("Authenticated Better Auth user could not be resolved.");
 	}
 
 	const shop = await ctx.db.get(args.shopId);
@@ -906,7 +985,20 @@ async function getRuntimeState(
 		.unique();
 
 	return {
-		actor,
+		actor: {
+			email: user.email,
+			id: getAuthRecordId(member),
+			initials: member.initials ?? getInitials(user.name),
+			lastAuthenticatedAt: member.lastAuthenticatedAt ?? null,
+			name: user.name,
+			organizationId: member.organizationId,
+			role: member.role,
+			sessionId: member.sessionId ?? null,
+			shopDomain: shop.domain,
+			shopId: shop._id,
+			shopifyUserId: member.shopifyUserId,
+			userId: getAuthRecordId(user),
+		} satisfies MerchantActorRecord,
 		installation,
 		shop,
 	};
@@ -929,7 +1021,7 @@ async function listConversationMessages(
 async function getLatestConversation(
 	ctx: QueryCtx,
 	options: {
-		actorId: Id<"merchantActors">;
+		actorId: string;
 		shopId: Id<"shops">;
 	},
 ) {
@@ -947,7 +1039,7 @@ async function getLatestConversation(
 async function loadConversationState(
 	ctx: QueryCtx,
 	options: {
-		actorId: Id<"merchantActors">;
+		actorId: string;
 		conversationId?: Id<"merchantCopilotConversations">;
 		shopId: Id<"shops">;
 	},
@@ -1121,7 +1213,7 @@ async function auditAction(
 	ctx: MutationCtx,
 	args: {
 		action: string;
-		actorId: Id<"merchantActors">;
+		actorId: string;
 		detail: string;
 		payload?: Record<string, unknown>;
 		shopId: Id<"shops">;
@@ -1344,10 +1436,9 @@ function mergeCitations(
 
 export const getRuntimeStateInternal = internalQuery({
 	args: {
-		merchantActorId: v.id("merchantActors"),
+		actorId: v.string(),
 		shopDomain: v.string(),
 		shopId: v.id("shops"),
-		shopifyUserId: v.string(),
 	},
 	handler: async (ctx, args) => {
 		return await getRuntimeState(ctx, args);
@@ -1356,7 +1447,7 @@ export const getRuntimeStateInternal = internalQuery({
 
 export const getConversationStateInternal = internalQuery({
 	args: {
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		conversationId: v.optional(v.id("merchantCopilotConversations")),
 		shopId: v.id("shops"),
 	},
@@ -1376,21 +1467,14 @@ export const getApprovalExecutionState = internalQuery({
 			return null;
 		}
 
-		const actor = await ctx.db.get(approval.actorId);
-
-		if (!actor) {
-			throw new Error("Approval actor could not be resolved.");
-		}
-
 		const runtime = await getRuntimeState(ctx, {
-			merchantActorId: approval.actorId,
+			actorId: approval.actorId,
 			shopDomain: approval.shopDomain,
 			shopId: approval.shopId,
-			shopifyUserId: actor.shopifyUserId,
 		});
 
 		return {
-			actor,
+			actor: runtime.actor,
 			approval,
 			installation: runtime.installation,
 			shop: runtime.shop,
@@ -1400,7 +1484,7 @@ export const getApprovalExecutionState = internalQuery({
 
 export const appendCopilotMessage = internalMutation({
 	args: {
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		approvalIds: v.optional(v.array(v.id("merchantActionApprovals"))),
 		body: v.string(),
 		citationsJson: v.optional(v.string()),
@@ -1442,7 +1526,7 @@ export const appendCopilotMessage = internalMutation({
 
 export const ensureConversation = internalMutation({
 	args: {
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		promptPreview: v.string(),
 		shopId: v.id("shops"),
 	},
@@ -1474,7 +1558,7 @@ export const ensureConversation = internalMutation({
 
 export const createApprovalRequest = internalMutation({
 	args: {
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		conversationId: v.id("merchantCopilotConversations"),
 		plannedChangesJson: v.string(),
 		requestPayload: v.any(),
@@ -1559,7 +1643,7 @@ export const setApprovalState = internalMutation({
 export const recordAuditLog = internalMutation({
 	args: {
 		action: v.string(),
-		actorId: v.id("merchantActors"),
+		actorId: v.string(),
 		detail: v.string(),
 		payload: v.optional(v.any()),
 		shopId: v.id("shops"),
@@ -1641,7 +1725,7 @@ export const copilotState = query({
 	handler: async (ctx, args): Promise<MerchantCopilotConversation> => {
 		const { actor, shop } = await requireMerchantActor(ctx);
 		return await loadConversationState(ctx, {
-			actorId: actor._id,
+			actorId: actor.id,
 			conversationId: args.conversationId,
 			shopId: shop._id,
 		});
@@ -1716,13 +1800,13 @@ export const uploadDocument = mutation({
 			summary: summarizeDocument(content),
 			title,
 			updatedAt: now,
-			uploadedByActorId: actor._id,
+			uploadedByActorId: actor.id,
 			visibility: args.visibility,
 		});
 
 		await auditAction(ctx, {
 			action: "merchant.document.uploaded",
-			actorId: actor._id,
+			actorId: actor.id,
 			detail: `Uploaded merchant knowledge document ${title}.`,
 			payload: {
 				documentId,
@@ -1756,7 +1840,7 @@ export const deleteDocument = mutation({
 
 		await auditAction(ctx, {
 			action: "merchant.document.deleted",
-			actorId: actor._id,
+			actorId: actor.id,
 			detail: `Deleted merchant knowledge document ${document.title}.`,
 			payload: {
 				documentId: document._id,
@@ -1791,7 +1875,7 @@ export const updateDocumentVisibility = mutation({
 
 		await auditAction(ctx, {
 			action: "merchant.document.visibility_updated",
-			actorId: actor._id,
+			actorId: actor.id,
 			detail: `Changed document visibility for ${document.title} to ${args.visibility}.`,
 			payload: {
 				documentId: document._id,
@@ -1822,7 +1906,7 @@ export const reprocessDocuments = mutation({
 
 		await auditAction(ctx, {
 			action: "merchant.document.reindex_requested",
-			actorId: actor._id,
+			actorId: actor.id,
 			detail: "Merchant requested document re-index workflow.",
 			payload: {
 				jobId,
@@ -2018,13 +2102,13 @@ export const askCopilot = action({
 		const conversationId =
 			args.conversationId ??
 			(await ctx.runMutation(internal.merchantWorkspace.ensureConversation, {
-				actorId: runtime.actor._id,
+				actorId: runtime.actor.id,
 				promptPreview: promptPreview(prompt),
 				shopId: runtime.shop._id,
 			}));
 
 		await ctx.runMutation(internal.merchantWorkspace.appendCopilotMessage, {
-			actorId: runtime.actor._id,
+			actorId: runtime.actor.id,
 			body: prompt,
 			conversationId,
 			role: "user",
@@ -2066,7 +2150,7 @@ export const askCopilot = action({
 		} else if (/(reindex|refresh|replay|rebuild|regenerate)/i.test(prompt)) {
 			const workflowType = classifyWorkflow(prompt);
 			const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-				actorId: runtime.actor._id,
+				actorId: runtime.actor.id,
 				conversationId,
 				plannedChangesJson: JSON.stringify([
 					{
@@ -2114,7 +2198,7 @@ export const askCopilot = action({
 						? "ACTIVE"
 						: "DRAFT";
 				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor._id,
+					actorId: runtime.actor.id,
 					conversationId,
 					plannedChangesJson: JSON.stringify([
 						{
@@ -2168,7 +2252,7 @@ export const askCopilot = action({
 			} else {
 				const mode = addMatch ? "add" : "remove";
 				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor._id,
+					actorId: runtime.actor.id,
 					conversationId,
 					plannedChangesJson: JSON.stringify(
 						tags.map((tag) => ({
@@ -2221,7 +2305,7 @@ export const askCopilot = action({
 					'Use a direct content instruction, for example: change title of "Unicorn Sparkle Backpack" to "Unicorn Trail Backpack".';
 			} else {
 				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor._id,
+					actorId: runtime.actor.id,
 					conversationId,
 					plannedChangesJson: JSON.stringify(
 						[
@@ -2293,7 +2377,7 @@ export const askCopilot = action({
 					(metafield) => metafield?.namespace === namespace && metafield.key === key,
 				);
 				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor._id,
+					actorId: runtime.actor.id,
 					conversationId,
 					plannedChangesJson: JSON.stringify([
 						{
@@ -2368,7 +2452,7 @@ export const askCopilot = action({
 					const approvalId = await ctx.runMutation(
 						internal.merchantWorkspace.createApprovalRequest,
 						{
-							actorId: runtime.actor._id,
+							actorId: runtime.actor.id,
 							conversationId,
 							plannedChangesJson: JSON.stringify([
 								{
@@ -2502,7 +2586,7 @@ export const askCopilot = action({
 		}
 
 		await ctx.runMutation(internal.merchantWorkspace.appendCopilotMessage, {
-			actorId: runtime.actor._id,
+			actorId: runtime.actor.id,
 			approvalIds,
 			body,
 			citationsJson: JSON.stringify(citations),
@@ -2514,7 +2598,7 @@ export const askCopilot = action({
 		});
 
 		return await ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {
-			actorId: runtime.actor._id,
+			actorId: runtime.actor.id,
 			conversationId,
 			shopId: runtime.shop._id,
 		});
@@ -2736,7 +2820,7 @@ export const approveAction = action({
 			});
 			await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
 				action: `merchant.approval.${state.approval.tool}.failed`,
-				actorId: state.actor._id,
+				actorId: state.actor.id,
 				detail: state.approval.summary,
 				payload: {
 					approvalId: state.approval._id,
@@ -2763,7 +2847,7 @@ export const approveAction = action({
 			});
 			await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
 				action: `merchant.approval.${state.approval.tool}.approved`,
-				actorId: state.actor._id,
+				actorId: state.actor.id,
 				detail: state.approval.summary,
 				payload: {
 					approvalId: state.approval._id,
@@ -2787,7 +2871,7 @@ export const approveAction = action({
 			});
 			await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
 				action: `merchant.approval.${state.approval.tool}.failed`,
-				actorId: state.actor._id,
+				actorId: state.actor.id,
 				detail: state.approval.summary,
 				payload: {
 					approvalId: state.approval._id,
@@ -2824,7 +2908,7 @@ export const rejectAction = mutation({
 		});
 		await auditAction(ctx, {
 			action: `merchant.approval.${approval.tool}.rejected`,
-			actorId: actor._id,
+			actorId: actor.id,
 			detail: approval.summary,
 			payload: {
 				approvalId: approval._id,

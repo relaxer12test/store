@@ -345,7 +345,7 @@ export const createDocumentRecord = internalMutation({
 		status: v.union(v.literal("failed"), v.literal("processing"), v.literal("ready")),
 		summary: v.string(),
 		title: v.string(),
-		uploadedByActorId: v.id("merchantActors"),
+		uploadedByActorId: v.string(),
 		visibility: v.union(v.literal("public"), v.literal("shop_private")),
 		r2Key: v.optional(v.string()),
 	},
@@ -499,7 +499,7 @@ export const finalizeDocumentUpload = action({
 				status: "processing",
 				summary: PROCESSING_PLACEHOLDER_SUMMARY,
 				title,
-				uploadedByActorId: claims.merchantActorId,
+				uploadedByActorId: claims.actorId,
 				visibility: args.visibility,
 			},
 		);
@@ -514,7 +514,7 @@ export const finalizeDocumentUpload = action({
 
 		await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
 			action: "merchant.document.uploaded",
-			actorId: claims.merchantActorId,
+			actorId: claims.actorId,
 			detail: `Uploaded knowledge document ${title}.`,
 			payload: {
 				documentId,
@@ -592,7 +592,7 @@ export const uploadInlineDocument = action({
 				status: "processing",
 				summary: summarizeDocument(content),
 				title,
-				uploadedByActorId: claims.merchantActorId,
+				uploadedByActorId: claims.actorId,
 				visibility: args.visibility,
 			},
 		);
@@ -607,7 +607,7 @@ export const uploadInlineDocument = action({
 
 		await ctx.runMutation(internal.merchantWorkspace.recordAuditLog, {
 			action: "merchant.document.uploaded",
-			actorId: claims.merchantActorId,
+			actorId: claims.actorId,
 			detail: `Uploaded inline knowledge document ${title}.`,
 			payload: {
 				documentId,
@@ -648,7 +648,7 @@ export const deleteDocument = mutation({
 		await ctx.db.delete(document._id);
 		await ctx.db.insert("auditLogs", {
 			action: "merchant.document.deleted",
-			actorId: actor._id,
+			actorId: actor.id,
 			createdAt: Date.now(),
 			detail: `Deleted merchant knowledge document ${document.title}.`,
 			payload: {
@@ -703,7 +703,7 @@ export const updateDocumentVisibility = mutation({
 
 		await ctx.db.insert("auditLogs", {
 			action: "merchant.document.visibility_updated",
-			actorId: actor._id,
+			actorId: actor.id,
 			createdAt: now,
 			detail: `Changed document visibility for ${document.title} to ${args.visibility}.`,
 			payload: {
@@ -754,7 +754,7 @@ export const reprocessDocument = mutation({
 
 		await ctx.db.insert("auditLogs", {
 			action: "merchant.document.reprocess_requested",
-			actorId: actor._id,
+			actorId: actor.id,
 			createdAt: now,
 			detail: `Queued document reprocessing for ${document.title}.`,
 			payload: {
@@ -806,7 +806,7 @@ export const reprocessDocuments = mutation({
 
 		await ctx.db.insert("auditLogs", {
 			action: "merchant.document.reindex_requested",
-			actorId: actor._id,
+			actorId: actor.id,
 			createdAt: now,
 			detail: "Merchant requested document re-index workflow.",
 			payload: {

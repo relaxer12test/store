@@ -516,10 +516,10 @@ export function buildExplorerColumns(rows: ExplorerRow[]): ColumnDef<ExplorerRow
 	const keys = Object.keys(rows[0] ?? {});
 
 	return keys.map((key) =>
-		columnHelper.accessor((row) => row[key], {
+		columnHelper.accessor((row) => row[key] as string | number | null, {
 			cell: (info) => renderCellValue(info.getValue() ?? null),
 			header: formatLabel(key),
 			id: key,
 		}),
-	);
+	) as ColumnDef<ExplorerRow>[];
 }

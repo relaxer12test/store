@@ -1,8 +1,25 @@
 import type { MetricCard, SignalLine, TableRecord } from "../src/shared/contracts/app-shell";
 import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status";
+import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { query } from "./_generated/server";
 import { requireAdmin } from "./auth";
+
+interface BetterAuthOrganizationSnapshot {
+	_id?: string;
+	id: string;
+	shopId: string;
+}
+
+interface BetterAuthMemberSnapshot {
+	_id?: string;
+	id: string;
+	organizationId: string;
+}
+
+function getAuthRecordId(record: { _id?: string; id?: string }) {
+	return record.id ?? record._id ?? "";
+}
 
 function formatTimestamp(value: number | undefined) {
 	if (!value) {
@@ -31,7 +48,7 @@ function toShopRecord(
 		name: shop.name,
 		scope_count: String(installation?.scopes.length ?? 0),
 		token_status: installation?.status ?? "missing",
-		merchant_actor_count: String(actorCount),
+		member_count: String(actorCount),
 	};
 }
 
@@ -157,7 +174,7 @@ function buildSignals({
 	cacheStateCount,
 	connectedShopCount,
 	connectedInstallationCount,
-	merchantActorCount,
+	merchantMemberCount,
 	shopCount,
 	syncJobCount,
 	webhookDeliveryCount,
@@ -166,7 +183,7 @@ function buildSignals({
 	cacheStateCount: number;
 	connectedShopCount: number;
 	connectedInstallationCount: number;
-	merchantActorCount: number;
+	merchantMemberCount: number;
 	shopCount: number;
 	syncJobCount: number;
 	webhookDeliveryCount: number;
@@ -189,12 +206,12 @@ function buildSignals({
 			tone: connectedInstallationCount > 0 ? "success" : "blocked",
 		},
 		{
-			label: "Merchant actors",
+			label: "Merchant memberships",
 			detail:
-				merchantActorCount > 0
-					? `${merchantActorCount} merchant actor record(s) have authenticated through the embedded app.`
-					: "No merchant actor has been created from a real embedded session yet.",
-			tone: merchantActorCount > 0 ? "success" : "watch",
+				merchantMemberCount > 0
+					? `${merchantMemberCount} Better Auth organization member record(s) exist for embedded merchants.`
+					: "No embedded merchant organization membership exists yet.",
+			tone: merchantMemberCount > 0 ? "success" : "watch",
 		},
 		{
 			label: "Cache freshness tracking",
@@ -236,7 +253,7 @@ function buildBlockers({
 	cacheStateCount,
 	connectedShopCount,
 	connectedInstallationCount,
-	merchantActorCount,
+	merchantMemberCount,
 	shopCount,
 	syncJobCount,
 	widgetConfigCount,
@@ -246,7 +263,7 @@ function buildBlockers({
 	cacheStateCount: number;
 	connectedShopCount: number;
 	connectedInstallationCount: number;
-	merchantActorCount: number;
+	merchantMemberCount: number;
 	shopCount: number;
 	syncJobCount: number;
 	widgetConfigCount: number;
@@ -260,8 +277,8 @@ function buildBlockers({
 		shopCount > 0 && connectedInstallationCount === 0
 			? "A shop record exists, but there is still no stored offline Admin API token."
 			: null,
-		shopCount > 0 && merchantActorCount === 0
-			? "No merchant actor has authenticated through a verified embedded session yet."
+		shopCount > 0 && merchantMemberCount === 0
+			? "No Better Auth merchant membership has authenticated through a verified embedded session yet."
 			: null,
 		shopCount > 0 && widgetConfigCount === 0
 			? "No widget configuration row exists yet for the connected shop."
@@ -283,7 +300,8 @@ export const snapshot = query({
 		const [
 			shops,
 			installations,
-			merchantActors,
+			organizations,
+			members,
 			widgetConfigs,
 			cacheStates,
 			syncJobs,
@@ -292,7 +310,20 @@ export const snapshot = query({
 		] = await Promise.all([
 			ctx.db.query("shops").take(50),
 			ctx.db.query("shopifyInstallations").take(50),
-			ctx.db.query("merchantActors").take(50),
+			ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: "organization",
+				paginationOpts: {
+					cursor: null,
+					numItems: 200,
+				},
+			}) as Promise<{ page: BetterAuthOrganizationSnapshot[] }>,
+			ctx.runQuery(components.betterAuth.adapter.findMany, {
+				model: "member",
+				paginationOpts: {
+					cursor: null,
+					numItems: 200,
+				},
+			}) as Promise<{ page: BetterAuthMemberSnapshot[] }>,
 			ctx.db.query("widgetConfigs").take(50),
 			ctx.db.query("shopifyCacheStates").take(50),
 			ctx.db.query("syncJobs").take(50),
@@ -303,9 +334,19 @@ export const snapshot = query({
 		const installationByShopId = new Map(
 			installations.map((installation) => [installation.shopId, installation]),
 		);
-		const actorCountByShopId = merchantActors.reduce<Map<Doc<"shops">["_id"], number>>(
-			(map, actor) => {
-				map.set(actor.shopId, (map.get(actor.shopId) ?? 0) + 1);
+		const shopIdByOrganizationId = new Map(
+			organizations.page.map((organization) => [
+				getAuthRecordId(organization),
+				organization.shopId,
+			]),
+		);
+		const actorCountByShopId = members.page.reduce<Map<Doc<"shops">["_id"], number>>(
+			(map, member) => {
+				const shopId = shopIdByOrganizationId.get(member.organizationId);
+
+				if (shopId) {
+					map.set(shopId as Doc<"shops">["_id"], (map.get(shopId as Doc<"shops">["_id"]) ?? 0) + 1);
+				}
 
 				return map;
 			},
@@ -314,7 +355,7 @@ export const snapshot = query({
 		const connectedInstallationCount = installations.filter(
 			(installation) => installation.status === "connected",
 		).length;
-		const merchantActorCount = merchantActors.length;
+		const merchantMemberCount = members.page.length;
 		const widgetConfigCount = widgetConfigs.length;
 		const connectedShopCount = shops.filter((shop) => shop.installStatus === "connected").length;
 
@@ -333,7 +374,7 @@ export const snapshot = query({
 				cacheStateCount: cacheStates.length,
 				connectedInstallationCount,
 				connectedShopCount,
-				merchantActorCount,
+				merchantMemberCount,
 				shopCount: shops.length,
 				syncJobCount: syncJobs.length,
 				webhookDeliveryCount: webhookDeliveries.length,
@@ -343,7 +384,7 @@ export const snapshot = query({
 				cacheStateCount: cacheStates.length,
 				connectedInstallationCount,
 				connectedShopCount,
-				merchantActorCount,
+				merchantMemberCount,
 				shopCount: shops.length,
 				syncJobCount: syncJobs.length,
 				widgetConfigCount,

@@ -1,9 +1,8 @@
-import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start";
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
+import { betterAuthServer } from "@/lib/better-auth-server";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
-import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
 import { bootstrapShopifyMerchantSession } from "@/routes/api.shopify.bootstrap";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
@@ -33,11 +32,6 @@ function serializeSessionEnvelopeError(error: unknown) {
 		stack: null,
 	};
 }
-
-const betterAuthServer = convexBetterAuthReactStart({
-	convexSiteUrl: getRequiredConvexHttpUrl(),
-	convexUrl: getRequiredConvexDeploymentUrl(),
-});
 
 function normalizeMyshopifyDomain(value: string | null) {
 	const trimmed = value?.trim().toLowerCase();
@@ -180,7 +174,9 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 	return null;
 }
 
-async function getEmbeddedBootstrapSessionEnvelope(requestUrl: URL): Promise<SessionEnvelope | null> {
+async function getEmbeddedBootstrapSessionEnvelope(
+	requestUrl: URL,
+): Promise<SessionEnvelope | null> {
 	const sessionToken = requestUrl.searchParams.get("id_token");
 
 	if (!sessionToken) {
@@ -233,8 +229,6 @@ async function getEmbeddedBootstrapSessionEnvelope(requestUrl: URL): Promise<Ses
 
 	return (await response.json()) as SessionEnvelope;
 }
-
-export const authHandler = betterAuthServer.handler;
 
 export function getEmbeddedFrameAncestors(
 	requestUrl: URL,

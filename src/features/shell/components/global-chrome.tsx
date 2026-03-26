@@ -1,14 +1,13 @@
 import { Link } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
-import { cn } from "@/lib/cn";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { cn } from "@/lib/cn";
 import { hasAdminSession } from "@/shared/contracts/session";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
-const viewerBadgeClass =
-	"min-w-0 max-w-64 rounded-[1.1rem] border px-4 py-2 leading-tight";
+const viewerBadgeClass = "min-w-0 max-w-64 rounded-[1.1rem] border px-4 py-2 leading-tight";
 
 export function GlobalChrome() {
 	const session = useSessionEnvelope();
@@ -82,9 +81,7 @@ export function GlobalChrome() {
 							)}
 						>
 							<p className="truncate text-sm font-semibold">{session.viewer.name}</p>
-							<p className="truncate pt-1 text-[0.68rem] text-slate-500">
-								{session.viewer.email}
-							</p>
+							<p className="truncate pt-1 text-[0.68rem] text-slate-500">{session.viewer.email}</p>
 						</div>
 					) : (
 						<StatusPill tone="neutral">Unauthenticated</StatusPill>

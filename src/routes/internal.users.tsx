@@ -12,7 +12,6 @@ interface ManagedUser {
 	name: string;
 	role?: string | null;
 	updatedAt?: Date | string | null;
-	userId?: string | null;
 }
 
 function formatTimestamp(value: Date | string | null | undefined) {
@@ -97,7 +96,7 @@ function InternalUsersRoute() {
 			</Panel>
 
 			<Panel
-				description="Users are resolved directly from Better Auth. Merchant-linked users show the linked Convex merchant actor id via the Convex Better Auth plugin field."
+				description="Users are resolved directly from Better Auth. Merchant tenancy now lives in Better Auth organizations and members rather than a separate Convex actor table."
 				title="Users"
 			>
 				{isLoading ? (
@@ -126,9 +125,6 @@ function InternalUsersRoute() {
 												<StatusPill tone={user.role === "admin" ? "accent" : "neutral"}>
 													{user.role ?? "user"}
 												</StatusPill>
-												<StatusPill tone={user.userId ? "success" : "watch"}>
-													{user.userId ? "Merchant linked" : "No merchant link"}
-												</StatusPill>
 												{user.banned ? <StatusPill tone="blocked">Banned</StatusPill> : null}
 												{isCurrentUser ? (
 													<StatusPill tone="accent">Current session</StatusPill>
@@ -138,10 +134,6 @@ function InternalUsersRoute() {
 												<div>
 													<dt className="font-semibold text-slate-900">Better Auth user id</dt>
 													<dd>{user.id}</dd>
-												</div>
-												<div>
-													<dt className="font-semibold text-slate-900">Merchant actor id</dt>
-													<dd>{user.userId ?? "n/a"}</dd>
 												</div>
 												<div>
 													<dt className="font-semibold text-slate-900">Created at</dt>

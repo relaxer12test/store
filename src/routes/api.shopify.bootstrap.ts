@@ -1,20 +1,52 @@
-import { JWT_COOKIE_NAME } from "@convex-dev/better-auth/plugins";
 import { createFileRoute } from "@tanstack/react-router";
-import { SECURE_COOKIE_PREFIX } from "better-auth/cookies";
 import { ConvexHttpClient } from "convex/browser";
+import { authHandler } from "@/lib/better-auth-server";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
-const BETTER_AUTH_COOKIE_PREFIX = "better-auth";
+const DEFAULT_AUTH_SECRET = "development-only-better-auth-secret-32";
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
+const SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER = "x-shopify-bootstrap-request-id";
 
 interface MerchantAuthLogger {
 	error: (...args: unknown[]) => void;
 	info?: (...args: unknown[]) => void;
 	warn?: (...args: unknown[]) => void;
+}
+
+interface MerchantBridgeRequest {
+	email?: string;
+	initials: string;
+	lastAuthenticatedAt: number;
+	name: string;
+	planDisplayName?: string;
+	sessionId?: string;
+	shopDomain: string;
+	shopId: string;
+	shopName: string;
+	shopifyShopId?: string;
+	shopifyUserId: string;
+}
+
+interface MerchantBootstrapBridgeResult {
+	activeShop: SessionEnvelope["activeShop"];
+	bridgeRequest: MerchantBridgeRequest;
+}
+
+interface MerchantBridgeSessionResponse {
+	activeShop: NonNullable<SessionEnvelope["activeShop"]>;
+	betterAuthRole?: string | null;
+	merchantRole?: string | null;
+	viewer: {
+		email: string;
+		id: string;
+		initials: string;
+		name: string;
+	};
 }
 
 function getBootstrapRequestId() {
@@ -118,18 +150,6 @@ const convexCloudflareLogger = {
 	},
 };
 
-interface MerchantBootstrapBridgeResult {
-	merchantSession: {
-		expiresAt: number;
-		token: string;
-	};
-	persistedBootstrap: {
-		activeShop: SessionEnvelope["activeShop"];
-		roles: SessionEnvelope["roles"];
-		viewer: SessionEnvelope["viewer"];
-	};
-}
-
 function getBearerToken(request: Request) {
 	const authorization = request.headers.get("Authorization");
 
@@ -157,26 +177,55 @@ function toBridgeErrorResponse(message: string, status: number) {
 	);
 }
 
-function buildConvexJwtCookie(request: Request, token: string, expiresAt: number) {
-	const maxAgeSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-	const secure = new URL(request.url).protocol === "https:";
-	const cookieName = `${BETTER_AUTH_COOKIE_PREFIX}.${JWT_COOKIE_NAME}`;
+function getBridgeSecret() {
+	return process.env.BETTER_AUTH_SECRET?.trim() || DEFAULT_AUTH_SECRET;
+}
 
-	return [
-		`${secure ? `${SECURE_COOKIE_PREFIX}${cookieName}` : cookieName}=${token}`,
-		"Path=/",
-		"HttpOnly",
-		"SameSite=Lax",
-		secure ? "Secure" : null,
-		`Max-Age=${maxAgeSeconds}`,
-	]
-		.filter(Boolean)
-		.join("; ");
+function getSetCookieHeaders(headers: Headers) {
+	const maybeGetSetCookie = (
+		headers as Headers & {
+			getSetCookie?: () => string[];
+		}
+	).getSetCookie;
+
+	if (typeof maybeGetSetCookie === "function") {
+		const values = maybeGetSetCookie.call(headers);
+
+		if (values.length > 0) {
+			return values;
+		}
+	}
+
+	const setCookie = headers.get("set-cookie");
+
+	if (!setCookie) {
+		return [];
+	}
+
+	return setCookie.split(/,(?=[^;]+=[^;]+)/g).map((value) => value.trim());
+}
+
+function toCookieHeader(setCookieHeaders: string[]) {
+	return setCookieHeaders.map((cookie) => cookie.split(";", 1)[0]).join("; ");
+}
+
+async function readResponseError(response: Response, fallbackMessage: string) {
+	const payload = await response
+		.clone()
+		.json()
+		.catch(() => null);
+
+	if (payload && typeof payload.error === "string" && payload.error.length > 0) {
+		return payload.error;
+	}
+
+	return fallbackMessage;
 }
 
 export async function bootstrapShopifyMerchantSession(
 	request: Request,
 	options?: {
+		authRequestHandler?: (request: Request) => Promise<Response>;
 		convexBootstrap?: (sessionToken: string) => Promise<MerchantBootstrapBridgeResult>;
 		logger?: MerchantAuthLogger;
 	},
@@ -211,57 +260,102 @@ export async function bootstrapShopifyMerchantSession(
 					sessionToken: token,
 				})) as MerchantBootstrapBridgeResult;
 			});
+		const authRequestHandler = options?.authRequestHandler ?? authHandler;
 		const bridge = await convexBootstrap(sessionToken);
+		const bridgeUrl = new URL("/api/auth/sign-in/shopify-bridge", request.url);
+		stage = "bridge_sign_in";
+
+		const bridgeResponse = await authRequestHandler(
+			new Request(bridgeUrl.toString(), {
+				body: JSON.stringify(bridge.bridgeRequest),
+				headers: {
+					"content-type": "application/json",
+					[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
+					[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getBridgeSecret(),
+				},
+				method: "POST",
+			}),
+		);
+
+		if (!bridgeResponse.ok) {
+			const message = await readResponseError(
+				bridgeResponse,
+				"Merchant bootstrap could not create a Better Auth session.",
+			);
+
+			return toBridgeErrorResponse(message, bridgeResponse.status);
+		}
+
+		const bridgeCookies = getSetCookieHeaders(bridgeResponse.headers);
+		const bridgeCookieHeader = toCookieHeader(bridgeCookies);
+
+		if (!bridgeCookieHeader) {
+			return toBridgeErrorResponse(
+				"Merchant bootstrap completed without issuing a Better Auth session cookie.",
+				500,
+			);
+		}
+
+		const tokenUrl = new URL("/api/auth/convex/token", request.url);
 		stage = "issue_convex_jwt";
-		const convexToken = bridge.merchantSession.token;
-		const convexTokenExpiresAt = bridge.merchantSession.expiresAt;
+		const tokenResponse = await authRequestHandler(
+			new Request(tokenUrl.toString(), {
+				headers: {
+					cookie: bridgeCookieHeader,
+				},
+				method: "GET",
+			}),
+		);
+
+		if (!tokenResponse.ok) {
+			const message = await readResponseError(
+				tokenResponse,
+				"Merchant bootstrap completed without issuing a Convex JWT.",
+			);
+
+			return toBridgeErrorResponse(message, tokenResponse.status);
+		}
+
+		const tokenPayload = (await tokenResponse.json()) as {
+			token?: string;
+		};
+		const convexToken = tokenPayload.token ?? null;
 
 		if (!convexToken) {
-			logMerchantAuthEvent({
-				details: {
-					...requestContext,
-					merchantActorId: bridge.persistedBootstrap.viewer?.id ?? null,
-					shopDomain: bridge.persistedBootstrap.activeShop?.domain ?? null,
-					stage,
-				},
-				event: "bootstrap_missing_convex_token",
-				level: "error",
-				logger,
-			});
-
 			return toBridgeErrorResponse(
 				"Merchant bootstrap completed without issuing a Convex JWT.",
 				500,
 			);
 		}
 
+		const bridgePayload = (await bridgeResponse.json()) as MerchantBridgeSessionResponse;
 		const roles = deriveViewerRoles({
-			merchantRole: "shop_admin",
+			betterAuthRole: bridgePayload.betterAuthRole,
+			merchantRole: bridgePayload.merchantRole,
 		});
 		const session: SessionEnvelope = {
+			activeShop: bridgePayload.activeShop,
 			authMode: "embedded",
-			state: "ready",
-			activeShop: bridge.persistedBootstrap.activeShop,
-			roles,
-			viewer: bridge.persistedBootstrap.viewer
-				? {
-						...bridge.persistedBootstrap.viewer,
-						email: bridge.persistedBootstrap.viewer.email,
-						roles,
-					}
-				: null,
 			convexToken,
-			convexTokenExpiresAt: convexTokenExpiresAt ?? getConvexTokenExpiresAt(convexToken),
+			convexTokenExpiresAt: getConvexTokenExpiresAt(convexToken),
+			roles,
+			state: "ready",
+			viewer: {
+				email: bridgePayload.viewer.email,
+				id: bridgePayload.viewer.id,
+				initials: bridgePayload.viewer.initials,
+				name: bridgePayload.viewer.name,
+				roles,
+			},
 		};
 		const headers = new Headers({
 			"Cache-Control": "no-store",
 			"Content-Type": "application/json",
 		});
 
-		headers.append(
-			"Set-Cookie",
-			buildConvexJwtCookie(request, convexToken, session.convexTokenExpiresAt ?? Date.now()),
-		);
+		for (const cookie of [...bridgeCookies, ...getSetCookieHeaders(tokenResponse.headers)]) {
+			headers.append("Set-Cookie", cookie);
+		}
 
 		return new Response(JSON.stringify(session), {
 			headers,

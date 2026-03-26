@@ -1,7 +1,6 @@
-import { type BetterAuthJwkDoc, issueMerchantSessionToken } from "@convex/merchantSessionToken";
 import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
-import type { SessionEnvelope, ShopSummary, ViewerSummary } from "@/shared/contracts/session";
+import type { ShopSummary } from "@/shared/contracts/session";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
@@ -9,7 +8,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 } from "@/shared/contracts/storefront-widget";
-import { components, internal } from "./_generated/api";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import {
@@ -150,39 +149,48 @@ function getActorName(options: {
 	return `Shopify user ${options.fallbackUserId}`;
 }
 
-interface PersistBootstrapResult {
-	activeShop: ShopSummary;
-	roles: SessionEnvelope["roles"];
-	viewer: ViewerSummary;
-}
-
 export interface MerchantBootstrapBridgeResult {
-	merchantSession: {
-		expiresAt: number;
-		token: string;
+	activeShop: ShopSummary;
+	bridgeRequest: {
+		email?: string;
+		initials: string;
+		lastAuthenticatedAt: number;
+		name: string;
+		planDisplayName?: string;
+		sessionId?: string;
+		shopDomain: string;
+		shopId: string;
+		shopName: string;
+		shopifyShopId?: string;
+		shopifyUserId: string;
 	};
-	persistedBootstrap: PersistBootstrapResult;
 }
 
 export function buildPersistBootstrapResult({
 	actorEmail,
-	actorId,
 	actorInitials,
 	actorName,
-	roles,
+	lastAuthenticatedAt,
 	shopDomain,
 	shopId,
 	shopName,
+	planDisplayName,
+	sessionId,
+	shopifyShopId,
+	shopifyUserId,
 }: {
 	actorEmail?: string;
-	actorId: Id<"merchantActors">;
 	actorInitials: string;
 	actorName: string;
-	roles: SessionEnvelope["roles"];
+	lastAuthenticatedAt: number;
+	planDisplayName?: string;
+	sessionId?: string;
 	shopDomain: string;
 	shopId: Id<"shops">;
 	shopName: string;
-}): PersistBootstrapResult {
+	shopifyShopId?: string;
+	shopifyUserId: string;
+}): MerchantBootstrapBridgeResult {
 	return {
 		activeShop: {
 			domain: shopDomain,
@@ -190,13 +198,18 @@ export function buildPersistBootstrapResult({
 			installStatus: "connected",
 			name: shopName,
 		},
-		roles,
-		viewer: {
-			email: actorEmail ?? "",
-			id: actorId,
+		bridgeRequest: {
+			email: actorEmail,
 			initials: actorInitials,
+			lastAuthenticatedAt,
 			name: actorName,
-			roles,
+			planDisplayName,
+			sessionId,
+			shopDomain,
+			shopId,
+			shopName,
+			shopifyShopId,
+			shopifyUserId,
 		},
 	};
 }
@@ -352,6 +365,7 @@ export const prepareMerchantAuthBridge = action({
 			firstName: associatedUser?.first_name,
 			lastName: associatedUser?.last_name,
 		});
+		const lastAuthenticatedAt = Date.now();
 
 		const persistedBootstrap = await ctx.runMutation(internal.shopify.persistBootstrap, {
 			accessToken: offlineSession.accessToken,
@@ -360,7 +374,7 @@ export const prepareMerchantAuthBridge = action({
 			actorInitials: getInitials(actorName),
 			actorName,
 			installScopes: metadata.scopes.length > 0 ? metadata.scopes : offlineSession.scopes,
-			lastAuthenticatedAt: Date.now(),
+			lastAuthenticatedAt,
 			planDisplayName: metadata.planDisplayName ?? undefined,
 			refreshToken: offlineSession.refreshToken ?? undefined,
 			refreshTokenExpiresAt: offlineSession.refreshTokenExpiresAt ?? undefined,
@@ -370,42 +384,8 @@ export const prepareMerchantAuthBridge = action({
 			shopifyShopId: metadata.shopifyShopId,
 			shopifyUserId: String(decoded.sub ?? "unknown"),
 		});
-		const signingJwkResult: { page: BetterAuthJwkDoc[] } = await ctx.runQuery(
-			components.betterAuth.adapter.findMany,
-			{
-				model: "jwks",
-				paginationOpts: {
-					cursor: null,
-					numItems: 1,
-				},
-				sortBy: {
-					direction: "desc",
-					field: "createdAt",
-				},
-			},
-		);
-		const latestSigningJwk = signingJwkResult.page[0];
 
-		if (!latestSigningJwk) {
-			throw new Error("Better Auth JWKS are unavailable for merchant session signing.");
-		}
-		const merchantSession = await issueMerchantSessionToken({
-			claims: {
-				email: associatedUser?.email ?? undefined,
-				merchantActorId: persistedBootstrap.viewer.id as Id<"merchantActors">,
-				name: persistedBootstrap.viewer.name,
-				roles: persistedBootstrap.roles,
-				shopDomain: persistedBootstrap.activeShop.domain,
-				shopId: persistedBootstrap.activeShop.id as Id<"shops">,
-				shopifyUserId: String(decoded.sub ?? "unknown"),
-			},
-			signingJwk: latestSigningJwk,
-		});
-
-		return {
-			merchantSession,
-			persistedBootstrap,
-		};
+		return persistedBootstrap;
 	},
 });
 
@@ -585,7 +565,7 @@ export const persistBootstrap = internalMutation({
 		shopifyShopId: v.string(),
 		shopifyUserId: v.string(),
 	},
-	handler: async (ctx, args): Promise<PersistBootstrapResult> => {
+	handler: async (ctx, args): Promise<MerchantBootstrapBridgeResult> => {
 		const now = Date.now();
 		const existingShop = await ctx.db
 			.query("shops")
@@ -649,39 +629,6 @@ export const persistBootstrap = internalMutation({
 			});
 		}
 
-		const existingActor = await ctx.db
-			.query("merchantActors")
-			.withIndex("by_shop_and_shopify_user_id", (query) =>
-				query.eq("shopId", shopId).eq("shopifyUserId", args.shopifyUserId),
-			)
-			.unique();
-
-		let actorId: Id<"merchantActors">;
-
-		if (existingActor) {
-			actorId = existingActor._id;
-			await ctx.db.patch(existingActor._id, {
-				email: args.actorEmail,
-				initials: args.actorInitials,
-				lastAuthenticatedAt: args.lastAuthenticatedAt,
-				name: args.actorName,
-				sessionId: args.sessionId,
-				shopDomain: args.shopDomain,
-			});
-		} else {
-			actorId = await ctx.db.insert("merchantActors", {
-				createdAt: now,
-				email: args.actorEmail,
-				initials: args.actorInitials,
-				lastAuthenticatedAt: args.lastAuthenticatedAt,
-				name: args.actorName,
-				sessionId: args.sessionId,
-				shopDomain: args.shopDomain,
-				shopId,
-				shopifyUserId: args.shopifyUserId,
-			});
-		}
-
 		const existingWidgetConfig = await ctx.db
 			.query("widgetConfigs")
 			.withIndex("by_shop", (query) => query.eq("shopId", shopId))
@@ -703,12 +650,12 @@ export const persistBootstrap = internalMutation({
 
 		await ctx.db.insert("auditLogs", {
 			action: "shopify.bootstrap.completed",
-			actorId,
 			createdAt: now,
 			detail: "Embedded merchant bootstrap exchanged tokens and refreshed shop context.",
 			payload: {
 				scopes: args.installScopes,
 				sessionId: args.sessionId,
+				shopifyUserId: args.shopifyUserId,
 				shopDomain: args.shopDomain,
 			},
 			shopId,
@@ -725,13 +672,16 @@ export const persistBootstrap = internalMutation({
 
 		return buildPersistBootstrapResult({
 			actorEmail: args.actorEmail,
-			actorId,
 			actorInitials: args.actorInitials,
 			actorName: args.actorName,
-			roles: ["shop_admin"],
+			lastAuthenticatedAt: args.lastAuthenticatedAt,
+			planDisplayName: args.planDisplayName,
+			sessionId: args.sessionId,
 			shopDomain: args.shopDomain,
 			shopId,
 			shopName: args.shopName,
+			shopifyShopId: args.shopifyShopId,
+			shopifyUserId: args.shopifyUserId,
 		});
 	},
 });

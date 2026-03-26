@@ -1,6 +1,5 @@
 import type { Session } from "@shopify/shopify-api";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { Id } from "./_generated/dataModel";
 import {
 	buildPersistBootstrapResult,
 	buildWebhookDeliveryKey,
@@ -105,13 +104,17 @@ describe("shopify installation helpers", () => {
 	it("builds token claims and ready session summaries without reading from the database", () => {
 		expect(
 			buildPersistBootstrapResult({
-				actorId: "actor_123" as Id<"merchantActors">,
+				actorEmail: "merchant@example.com",
 				actorInitials: "JD",
 				actorName: "Jane Doe",
-				roles: ["shop_admin"],
+				lastAuthenticatedAt: 1_800_000_000_000,
+				planDisplayName: "Basic",
+				sessionId: "session_123",
 				shopDomain: "acme.myshopify.com",
-				shopId: "shop_123" as Id<"shops">,
+				shopId: "shop_123" as any,
 				shopName: "Acme",
+				shopifyShopId: "gid://shopify/Shop/1",
+				shopifyUserId: "shopify-user-1",
 			}),
 		).toEqual({
 			activeShop: {
@@ -120,13 +123,18 @@ describe("shopify installation helpers", () => {
 				installStatus: "connected",
 				name: "Acme",
 			},
-			roles: ["shop_admin"],
-			viewer: {
-				email: "",
-				id: "actor_123",
+			bridgeRequest: {
+				email: "merchant@example.com",
 				initials: "JD",
+				lastAuthenticatedAt: 1_800_000_000_000,
 				name: "Jane Doe",
-				roles: ["shop_admin"],
+				planDisplayName: "Basic",
+				sessionId: "session_123",
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopName: "Acme",
+				shopifyShopId: "gid://shopify/Shop/1",
+				shopifyUserId: "shopify-user-1",
 			},
 		});
 	});

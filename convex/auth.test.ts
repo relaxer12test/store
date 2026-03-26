@@ -37,24 +37,17 @@ describe("auth", () => {
 
 	it("resolves the active merchant actor and shop from the Better Auth userId link", async () => {
 		const identity = {
+			activeOrganizationId: "org_1",
 			role: "admin",
-			userId: "actor_1",
+			sessionId: "session_1",
+			subject: "user_1",
 		} as any;
 		const ctx = {
 			auth: {
 				getUserIdentity: async () => identity,
 			},
 			db: {
-				get: async (id: string) => {
-					if (id === "actor_1") {
-						return {
-							_id: "actor_1",
-							shopDomain: "acme.myshopify.com",
-							shopId: "shop_1",
-							shopifyUserId: "shopify-user-1",
-						};
-					}
-
+				get: async () => {
 					return {
 						_id: "shop_1",
 						domain: "acme.myshopify.com",
@@ -62,20 +55,54 @@ describe("auth", () => {
 					};
 				},
 			},
+			runQuery: async (_ref: unknown, args: { model: string }) => {
+				switch (args.model) {
+					case "session":
+						return {
+							_id: "session_1",
+							activeOrganizationId: "org_1",
+						};
+					case "user":
+						return {
+							_id: "user_1",
+							email: "merchant@example.com",
+							name: "Jane Doe",
+							role: "admin",
+						};
+					case "organization":
+						return {
+							_id: "org_1",
+							shopDomain: "acme.myshopify.com",
+							shopId: "shop_1",
+						};
+					case "member":
+						return {
+							_id: "member_1",
+							organizationId: "org_1",
+							role: "owner",
+							shopifyUserId: "shopify-user-1",
+							userId: "user_1",
+						};
+					default:
+						return null;
+				}
+			},
 		} as any;
 
 		const context = await requireMerchantActor(ctx);
 		const claims = await requireMerchantClaims(ctx);
 
-		expect(context.actor._id).toBe("actor_1");
+		expect(context.actor.id).toBe("member_1");
 		expect(context.shop._id).toBe("shop_1");
 		expect(context.roles).toEqual(["shop_admin", "admin"]);
 		expect(claims).toEqual({
-			merchantActorId: "actor_1",
+			actorId: "member_1",
+			organizationId: "org_1",
 			roles: ["shop_admin", "admin"],
 			shopDomain: "acme.myshopify.com",
 			shopId: "shop_1",
 			shopifyUserId: "shopify-user-1",
+			userId: "user_1",
 		});
 	});
 
@@ -84,26 +111,49 @@ describe("auth", () => {
 			auth: {
 				getUserIdentity: async () =>
 					({
-						userId: "actor_1",
+						activeOrganizationId: "org_1",
+						sessionId: "session_1",
+						subject: "user_1",
 					}) as any,
 			},
 			db: {
-				get: async (id: string) => {
-					if (id === "actor_1") {
-						return {
-							_id: "actor_1",
-							shopDomain: "acme.myshopify.com",
-							shopId: "shop_1",
-							shopifyUserId: "shopify-user-1",
-						};
-					}
-
-					return {
+				get: async () =>
+					({
 						_id: "shop_1",
 						domain: "acme.myshopify.com",
 						installStatus: "inactive",
-					};
-				},
+					}) as any,
+			},
+			runQuery: async (_ref: unknown, args: { model: string }) => {
+				switch (args.model) {
+					case "session":
+						return {
+							_id: "session_1",
+							activeOrganizationId: "org_1",
+						};
+					case "user":
+						return {
+							_id: "user_1",
+							email: "merchant@example.com",
+							name: "Jane Doe",
+						};
+					case "organization":
+						return {
+							_id: "org_1",
+							shopDomain: "acme.myshopify.com",
+							shopId: "shop_1",
+						};
+					case "member":
+						return {
+							_id: "member_1",
+							organizationId: "org_1",
+							role: "owner",
+							shopifyUserId: "shopify-user-1",
+							userId: "user_1",
+						};
+					default:
+						return null;
+				}
 			},
 		} as any;
 

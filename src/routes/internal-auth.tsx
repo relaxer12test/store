@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/cata/button";
-import { Input } from "@/components/ui/cata/input";
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Input } from "@/components/ui/cata/input";
 import { authClient } from "@/lib/auth-client";
 import { getSessionEnvelope } from "@/lib/auth-server";
 import { hasAdminSession } from "@/shared/contracts/session";
@@ -77,9 +77,7 @@ function InternalAuthRoute() {
 
 											if (!hasAdminSession(session)) {
 												await authClient.signOut();
-												throw new Error(
-													"This Better Auth account is not an admin.",
-												);
+												throw new Error("This Better Auth account is not an admin.");
 											}
 
 											window.location.assign("/internal");
@@ -146,9 +144,7 @@ function InternalAuthRoute() {
 						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
 							Admin access
 						</p>
-						<h1 className="mt-3 font-serif text-3xl text-slate-950">
-							Reset password
-						</h1>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Reset password</h1>
 						<p className="mt-3 text-sm leading-6 text-slate-600">
 							Enter your admin email and we'll send a reset link.
 						</p>
@@ -165,11 +161,10 @@ function InternalAuthRoute() {
 								startTransition(() => {
 									void (async () => {
 										try {
-											const result =
-												await authClient.requestPasswordReset({
-													email,
-													redirectTo: `${window.location.origin}/internal-reset-password`,
-												});
+											const result = await authClient.requestPasswordReset({
+												email,
+												redirectTo: `${window.location.origin}/internal-reset-password`,
+											});
 
 											if (result.error) {
 												throw new Error(result.error.message);
@@ -208,11 +203,7 @@ function InternalAuthRoute() {
 								<Button color="dark/zinc" disabled={isPending} type="submit">
 									{isPending ? "Sending..." : "Send reset link"}
 								</Button>
-								<Button
-									onClick={() => switchTo("sign-in")}
-									plain
-									type="button"
-								>
+								<Button onClick={() => switchTo("sign-in")} plain type="button">
 									Back to sign in
 								</Button>
 							</div>
@@ -231,20 +222,14 @@ function InternalAuthRoute() {
 						<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
 							Admin access
 						</p>
-						<h1 className="mt-3 font-serif text-3xl text-slate-950">
-							Check your email
-						</h1>
+						<h1 className="mt-3 font-serif text-3xl text-slate-950">Check your email</h1>
 						<p className="mt-3 text-sm leading-6 text-slate-600">
 							If an account exists for{" "}
-							<span className="font-medium text-slate-900">{sentEmail}</span>,
-							you'll receive a password reset link shortly.
+							<span className="font-medium text-slate-900">{sentEmail}</span>, you'll receive a
+							password reset link shortly.
 						</p>
 						<div className="mt-8">
-							<Button
-								onClick={() => switchTo("sign-in")}
-								plain
-								type="button"
-							>
+							<Button onClick={() => switchTo("sign-in")} plain type="button">
 								Back to sign in
 							</Button>
 						</div>
