@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* Switch dark mode to class-based so OS dark-mode preferences don't break
+   the light-only UI (Catalyst components ship dark: variants that would
+   otherwise make text invisible on white backgrounds). */
+@variant dark (&:where(.dark, .dark *));
