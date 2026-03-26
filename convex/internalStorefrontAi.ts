@@ -1,10 +1,10 @@
+import { v } from "convex/values";
 import type {
 	InternalStorefrontAiSessionSummary,
 	InternalStorefrontAiSessionsData,
 	InternalStorefrontAiTranscriptData,
 	InternalStorefrontAiTranscriptMessage,
 } from "@/shared/contracts/internal-storefront-ai";
-import { v } from "convex/values";
 import { components } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
@@ -59,13 +59,11 @@ function toSessionSummary(
 	};
 }
 
-function getMessageRole(
-	message: {
-		message?: {
-			role?: string;
-		};
-	},
-): InternalStorefrontAiTranscriptMessage["role"] {
+function getMessageRole(message: {
+	message?: {
+		role?: string;
+	};
+}): InternalStorefrontAiTranscriptMessage["role"] {
 	const role = message.message?.role;
 
 	switch (role) {
@@ -139,15 +137,13 @@ async function readThread(
 	ctx: QueryCtx,
 	threadId: string,
 ): Promise<{
-		error: string | null;
-		thread:
-			| {
-					status: "active" | "archived";
-					title?: string;
-					userId?: string;
-				}
-			| null;
-	}> {
+	error: string | null;
+	thread: {
+		status: "active" | "archived";
+		title?: string;
+		userId?: string;
+	} | null;
+}> {
 	try {
 		const thread = await ctx.runQuery(components.agent.threads.getThread, {
 			threadId,
@@ -175,10 +171,29 @@ async function readTranscriptMessages(
 	ctx: QueryCtx,
 	threadId: string,
 ): Promise<{
-		error: string | null;
-		messages: InternalStorefrontAiTranscriptMessage[];
-		truncated: boolean;
-	}> {
+	error: string | null;
+	messages: InternalStorefrontAiTranscriptMessage[];
+	truncated: boolean;
+}> {
+	type TranscriptMessagePage = {
+		continueCursor: string;
+		isDone: boolean;
+		page: Array<{
+			_creationTime: number;
+			_id: string;
+			error?: string;
+			message?: {
+				role?: string;
+			};
+			model?: string;
+			order: number;
+			provider?: string;
+			status: "failed" | "pending" | "success";
+			stepOrder: number;
+			text?: string;
+		}>;
+	};
+
 	const messages: InternalStorefrontAiTranscriptMessage[] = [];
 	let cursor: string | null = null;
 
@@ -186,15 +201,18 @@ async function readTranscriptMessages(
 		while (messages.length < MAX_TRANSCRIPT_MESSAGES) {
 			const remaining = MAX_TRANSCRIPT_MESSAGES - messages.length;
 			const pageSize = Math.min(MESSAGE_PAGE_SIZE, remaining);
-			const result = await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-				excludeToolMessages: true,
-				order: "asc",
-				paginationOpts: {
-					cursor,
-					numItems: pageSize,
+			const result: TranscriptMessagePage = await ctx.runQuery(
+				components.agent.messages.listMessagesByThreadId,
+				{
+					excludeToolMessages: true,
+					order: "asc" as const,
+					paginationOpts: {
+						cursor,
+						numItems: pageSize,
+					},
+					threadId,
 				},
-				threadId,
-			});
+			);
 
 			messages.push(...result.page.map(toTranscriptMessage));
 
@@ -241,7 +259,9 @@ export const sessions = query({
 
 		return {
 			generatedAt: new Date().toISOString(),
-			sessions: sessionRows.map((session) => toSessionSummary(session, shopMap.get(session.shopId) ?? null)),
+			sessions: sessionRows.map((session) =>
+				toSessionSummary(session, shopMap.get(session.shopId) ?? null),
+			),
 		};
 	},
 });

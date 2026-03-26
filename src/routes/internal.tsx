@@ -32,7 +32,8 @@ const internalNav: SurfaceNavItem[] = [
 		to: "/internal/action-audits",
 	},
 	{
-		description: "Full storefront AI session transcripts backed by the persisted agent thread data.",
+		description:
+			"Full storefront AI session transcripts backed by the persisted agent thread data.",
 		title: "AI chats",
 		to: "/internal/ai-chats",
 	},

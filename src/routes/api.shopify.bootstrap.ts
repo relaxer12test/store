@@ -122,7 +122,9 @@ export async function bootstrapShopifyMerchantSession(
 		const convexBootstrap =
 			options?.convexBootstrap ??
 			(async (token: string) => {
-				const client = new ConvexHttpClient(getRequiredConvexDeploymentUrl());
+				const client = new ConvexHttpClient(getRequiredConvexDeploymentUrl(), {
+					logger: false,
+				});
 
 				return (await client.action(api.shopify.prepareMerchantAuthBridge, {
 					sessionToken: token,

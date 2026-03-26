@@ -90,20 +90,16 @@ export function InternalAiChatPage() {
 	});
 	const selectedFromFilter = filteredSessions.find((session) => session.id === selectedSessionId);
 	const activeSessionId = selectedFromFilter?.id ?? filteredSessions[0]?.id ?? null;
-	const transcriptQuery = activeSessionId
-		? getInternalStorefrontAiTranscriptQuery(activeSessionId)
-		: null;
 	const transcript = useQuery({
-		...(transcriptQuery ?? {
-			queryFn: async () => null,
-			queryKey: ["internal-storefront-ai", "empty"],
-		}),
-		enabled: transcriptQuery !== null,
-		placeholderData: (previousData) => previousData,
+		...getInternalStorefrontAiTranscriptQuery(activeSessionId ?? "skip"),
+		placeholderData: (previousData) => previousData ?? null,
 	});
 
 	useEffect(() => {
-		if (selectedSessionId && sessionsData.sessions.some((session) => session.id === selectedSessionId)) {
+		if (
+			selectedSessionId &&
+			sessionsData.sessions.some((session) => session.id === selectedSessionId)
+		) {
 			return;
 		}
 
@@ -160,7 +156,9 @@ export function InternalAiChatPage() {
 										</StatusPill>
 										{session.lastRefusalReason ? (
 											<StatusPill
-												className={isSelected ? "border-white/20 bg-white/10 text-white" : undefined}
+												className={
+													isSelected ? "border-white/20 bg-white/10 text-white" : undefined
+												}
 												tone="watch"
 											>
 												{session.lastRefusalReason}
@@ -357,9 +355,13 @@ export function InternalAiChatPage() {
 									<div className="flex flex-wrap items-center gap-2">
 										<StatusPill tone={getRoleTone(message.role)}>{message.role}</StatusPill>
 										<StatusPill tone={getStatusTone(message.status)}>{message.status}</StatusPill>
-										<StatusPill tone="neutral">{formatTimestampLabel(message.createdAt)}</StatusPill>
+										<StatusPill tone="neutral">
+											{formatTimestampLabel(message.createdAt)}
+										</StatusPill>
 										<StatusPill tone="neutral">{`order ${message.order}.${message.stepOrder}`}</StatusPill>
-										{message.provider ? <StatusPill tone="neutral">{message.provider}</StatusPill> : null}
+										{message.provider ? (
+											<StatusPill tone="neutral">{message.provider}</StatusPill>
+										) : null}
 										{message.model ? <StatusPill tone="neutral">{message.model}</StatusPill> : null}
 									</div>
 

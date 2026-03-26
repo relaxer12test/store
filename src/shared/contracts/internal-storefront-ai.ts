@@ -1,5 +1,7 @@
+import type { Id } from "@convex/_generated/dataModel";
+
 export interface InternalStorefrontAiSessionSummary {
-	id: string;
+	id: Id<"storefrontAiSessions">;
 	clientFingerprint: string | null;
 	createdAt: string;
 	lastPromptAt: string;
@@ -10,7 +12,7 @@ export interface InternalStorefrontAiSessionSummary {
 	lastRefusalReason: string | null;
 	sessionId: string;
 	shopDomain: string;
-	shopId: string;
+	shopId: Id<"shops">;
 	shopName: string;
 	threadId: string;
 	updatedAt: string;
@@ -48,10 +50,10 @@ export interface InternalStorefrontAiTranscriptData {
 	lastReplyTone: "answer" | "refusal" | null;
 	messages: InternalStorefrontAiTranscriptMessage[];
 	messagesTruncated: boolean;
-	sessionDocumentId: string;
+	sessionDocumentId: Id<"storefrontAiSessions">;
 	sessionId: string;
 	shopDomain: string;
-	shopId: string;
+	shopId: Id<"shops">;
 	shopName: string;
 	threadError: string | null;
 	threadId: string;
