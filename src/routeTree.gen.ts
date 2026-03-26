@@ -30,7 +30,7 @@ import { Route as AppCopilotRouteImport } from './routes/app.copilot'
 import { Route as ApiShopifyWidgetRouteImport } from './routes/api.shopify.widget'
 import { Route as ApiShopifyWebhooksRouteImport } from './routes/api.shopify.webhooks'
 import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bootstrap'
-import { Route as ApiAuthSplatRouteImport } from './routes/api.auth.$'
+import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
 const InternalResetPasswordRoute = InternalResetPasswordRouteImport.update({

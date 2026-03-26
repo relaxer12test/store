@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { ConvexHttpClient } from "convex/browser";
-import { authHandler } from "@/lib/better-auth-server";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
-import { getRequiredConvexDeploymentUrl } from "@/lib/env";
+import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
@@ -225,7 +224,6 @@ async function readResponseError(response: Response, fallbackMessage: string) {
 export async function bootstrapShopifyMerchantSession(
 	request: Request,
 	options?: {
-		authRequestHandler?: (request: Request) => Promise<Response>;
 		convexBootstrap?: (sessionToken: string) => Promise<MerchantBootstrapBridgeResult>;
 		logger?: MerchantAuthLogger;
 	},
@@ -260,22 +258,21 @@ export async function bootstrapShopifyMerchantSession(
 					sessionToken: token,
 				})) as MerchantBootstrapBridgeResult;
 			});
-		const authRequestHandler = options?.authRequestHandler ?? authHandler;
+		const convexAuthBaseUrl = getRequiredConvexHttpUrl();
 		const bridge = await convexBootstrap(sessionToken);
-		const bridgeUrl = new URL("/api/auth/sign-in/shopify-bridge", request.url);
+		const bridgeUrl = new URL("/api/auth/sign-in/shopify-bridge", convexAuthBaseUrl);
 		stage = "bridge_sign_in";
 
-		const bridgeResponse = await authRequestHandler(
-			new Request(bridgeUrl.toString(), {
-				body: JSON.stringify(bridge.bridgeRequest),
-				headers: {
-					"content-type": "application/json",
-					[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
-					[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getBridgeSecret(),
-				},
-				method: "POST",
-			}),
-		);
+		const bridgeResponse = await fetch(bridgeUrl, {
+			body: JSON.stringify(bridge.bridgeRequest),
+			headers: {
+				"content-type": "application/json",
+				[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
+				[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getBridgeSecret(),
+			},
+			method: "POST",
+			redirect: "manual",
+		});
 
 		if (!bridgeResponse.ok) {
 			const message = await readResponseError(
@@ -296,16 +293,15 @@ export async function bootstrapShopifyMerchantSession(
 			);
 		}
 
-		const tokenUrl = new URL("/api/auth/convex/token", request.url);
+		const tokenUrl = new URL("/api/auth/convex/token", convexAuthBaseUrl);
 		stage = "issue_convex_jwt";
-		const tokenResponse = await authRequestHandler(
-			new Request(tokenUrl.toString(), {
-				headers: {
-					cookie: bridgeCookieHeader,
-				},
-				method: "GET",
-			}),
-		);
+		const tokenResponse = await fetch(tokenUrl, {
+			headers: {
+				cookie: bridgeCookieHeader,
+			},
+			method: "GET",
+			redirect: "manual",
+		});
 
 		if (!tokenResponse.ok) {
 			const message = await readResponseError(

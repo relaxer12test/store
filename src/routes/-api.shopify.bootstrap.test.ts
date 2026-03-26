@@ -1,7 +1,11 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { bootstrapShopifyMerchantSession } from "./api.shopify.bootstrap";
 
 describe("shopify bootstrap route", () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
 	it("rejects requests without a Shopify session token", async () => {
 		const response = await bootstrapShopifyMerchantSession(
 			new Request("https://storeai.ldev.cloud"),
@@ -14,25 +18,8 @@ describe("shopify bootstrap route", () => {
 	});
 
 	it("creates an embedded session from the Shopify bridge and forwards auth cookies", async () => {
-		const convexBootstrap = vi.fn(async () => ({
-			activeShop: {
-				domain: "acme.myshopify.com",
-				id: "shop_123",
-				installStatus: "connected",
-				name: "Acme",
-			},
-			bridgeRequest: {
-				initials: "JD",
-				lastAuthenticatedAt: 1_800_000_000_000,
-				name: "Jane Doe",
-				shopDomain: "acme.myshopify.com",
-				shopId: "shop_123",
-				shopName: "Acme",
-				shopifyUserId: "shopify-user-1",
-			},
-		}));
-		const authRequestHandler = vi.fn(async (request: Request) => {
-			const url = new URL(request.url);
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
 
 			if (url.pathname === "/api/auth/sign-in/shopify-bridge") {
 				return new Response(
@@ -71,7 +58,24 @@ describe("shopify bootstrap route", () => {
 				},
 			);
 		});
-
+		vi.stubGlobal("fetch", fetchMock);
+		const convexBootstrap = vi.fn(async () => ({
+			activeShop: {
+				domain: "acme.myshopify.com",
+				id: "shop_123",
+				installStatus: "connected",
+				name: "Acme",
+			},
+			bridgeRequest: {
+				initials: "JD",
+				lastAuthenticatedAt: 1_800_000_000_000,
+				name: "Jane Doe",
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopName: "Acme",
+				shopifyUserId: "shopify-user-1",
+			},
+		}));
 		const response = await bootstrapShopifyMerchantSession(
 			new Request("https://storeai.ldev.cloud", {
 				headers: {
@@ -79,13 +83,12 @@ describe("shopify bootstrap route", () => {
 				},
 			}),
 			{
-				authRequestHandler,
 				convexBootstrap: convexBootstrap as (sessionToken: string) => Promise<any>,
 			},
 		);
 
 		expect(convexBootstrap).toHaveBeenCalledWith("session-token");
-		expect(authRequestHandler).toHaveBeenCalledTimes(2);
+		expect(fetchMock).toHaveBeenCalledTimes(2);
 		expect(response.status).toBe(200);
 		expect(response.headers.get("set-cookie")).toContain("convex_jwt=convex-token");
 		await expect(response.json()).resolves.toEqual({
@@ -111,25 +114,8 @@ describe("shopify bootstrap route", () => {
 	});
 
 	it("logs bootstrap failures when Convex does not issue a merchant token", async () => {
-		const convexBootstrap = vi.fn(async () => ({
-			activeShop: {
-				domain: "acme.myshopify.com",
-				id: "shop_123",
-				installStatus: "connected",
-				name: "Acme",
-			},
-			bridgeRequest: {
-				initials: "JD",
-				lastAuthenticatedAt: 1_800_000_000_000,
-				name: "Jane Doe",
-				shopDomain: "acme.myshopify.com",
-				shopId: "shop_123",
-				shopName: "Acme",
-				shopifyUserId: "shopify-user-1",
-			},
-		}));
-		const authRequestHandler = vi.fn(async (request: Request) => {
-			const url = new URL(request.url);
+		const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+			const url = new URL(typeof input === "string" ? input : input instanceof URL ? input : input.url);
 
 			if (url.pathname === "/api/auth/sign-in/shopify-bridge") {
 				return new Response(
@@ -166,7 +152,24 @@ describe("shopify bootstrap route", () => {
 				},
 			);
 		});
-
+		vi.stubGlobal("fetch", fetchMock);
+		const convexBootstrap = vi.fn(async () => ({
+			activeShop: {
+				domain: "acme.myshopify.com",
+				id: "shop_123",
+				installStatus: "connected",
+				name: "Acme",
+			},
+			bridgeRequest: {
+				initials: "JD",
+				lastAuthenticatedAt: 1_800_000_000_000,
+				name: "Jane Doe",
+				shopDomain: "acme.myshopify.com",
+				shopId: "shop_123",
+				shopName: "Acme",
+				shopifyUserId: "shopify-user-1",
+			},
+		}));
 		const response = await bootstrapShopifyMerchantSession(
 			new Request("https://storeai.ldev.cloud", {
 				headers: {
@@ -174,7 +177,6 @@ describe("shopify bootstrap route", () => {
 				},
 			}),
 			{
-				authRequestHandler,
 				convexBootstrap: convexBootstrap as (sessionToken: string) => Promise<any>,
 			},
 		);
