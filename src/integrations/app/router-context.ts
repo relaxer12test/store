@@ -124,7 +124,9 @@ function serializeEmbeddedSessionError(error: unknown) {
 }
 
 function createManagedAppRouterContext(): ManagedAppRouterContext {
-	const convexQueryClient = new ConvexQueryClient(getRequiredConvexDeploymentUrl());
+	const convexQueryClient = new ConvexQueryClient(getRequiredConvexDeploymentUrl(), {
+		expectAuth: true,
+	});
 	const embeddedApp = createEmbeddedAppManager();
 	const queryClient = new QueryClient({
 		defaultOptions: {
@@ -141,6 +143,13 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
 	let canBootstrapEmbeddedSession = isServer;
+	let resolveBootstrapEnabled: (() => void) | null = null;
+	// Hold the first Convex auth lookup until the provider enables embedded bootstrap after mount.
+	const bootstrapEnabledPromise = isServer
+		? Promise.resolve()
+		: new Promise<void>((resolve) => {
+				resolveBootstrapEnabled = resolve;
+			});
 	let sessionFingerprint: string | null = null;
 	const sessionManager = createSessionManager(guestSession);
 
@@ -275,13 +284,21 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 	};
 
 	const enableEmbeddedSessionBootstrap = () => {
-		if (!isServer) {
-			canBootstrapEmbeddedSession = true;
+		if (isServer || canBootstrapEmbeddedSession) {
+			return;
 		}
+
+		canBootstrapEmbeddedSession = true;
+		resolveBootstrapEnabled?.();
+		resolveBootstrapEnabled = null;
 	};
 
 	if (!isServer) {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
+			if (!canBootstrapEmbeddedSession) {
+				await bootstrapEnabledPromise;
+			}
+
 			const currentSession = sessionManager.getState();
 
 			if (
