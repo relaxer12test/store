@@ -2,6 +2,7 @@ import { JWT_COOKIE_NAME } from "@convex-dev/better-auth/plugins";
 import { createFileRoute } from "@tanstack/react-router";
 import { parseSetCookieHeader, splitSetCookieHeader } from "better-auth/cookies";
 import { ConvexHttpClient } from "convex/browser";
+import { authHandler } from "@/lib/auth-server";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
@@ -262,21 +263,21 @@ export async function bootstrapShopifyMerchantSession(
 			});
 		const bridge = await convexBootstrap(sessionToken);
 		stage = "call_better_auth_bridge";
-		const fetchImpl = options?.fetchImpl ?? fetch;
-		const authResponse = await fetchImpl(
-			new URL(`/api/auth${SHOPIFY_MERCHANT_BRIDGE_PATH}`, request.url),
-			{
-				body: JSON.stringify(bridge.bridgePayload),
-				headers: {
-					Accept: "application/json",
-					"Content-Type": "application/json",
-					[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
-					[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]:
-						options?.authSecret ?? getRequiredBetterAuthSecret(),
-				},
-				method: "POST",
+		const authBridgeUrl = new URL(`/api/auth${SHOPIFY_MERCHANT_BRIDGE_PATH}`, request.url);
+		const authBridgeRequestInit = {
+			body: JSON.stringify(bridge.bridgePayload),
+			headers: {
+				Accept: "application/json",
+				"Content-Type": "application/json",
+				[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
+				[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]:
+					options?.authSecret ?? getRequiredBetterAuthSecret(),
 			},
-		);
+			method: "POST",
+		} satisfies RequestInit;
+		const authResponse = options?.fetchImpl
+			? await options.fetchImpl(authBridgeUrl, authBridgeRequestInit)
+			: await authHandler(new Request(authBridgeUrl, authBridgeRequestInit));
 		const setCookieHeaders = getSetCookieHeaders(authResponse);
 
 		if (!authResponse.ok) {
