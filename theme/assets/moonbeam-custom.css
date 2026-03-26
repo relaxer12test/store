@@ -1,0 +1,71 @@
+/* Moonbeam Unicorn Club — Custom Brand Overrides */
+
+/* Softer button hover transitions */
+.button, .shopify-challenge__button, button.shopify-payment-button__button {
+  transition: all 0.25s ease;
+}
+.button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(123, 107, 138, 0.2);
+}
+
+/* Rounded product card images */
+.card__media img {
+  border-radius: 12px;
+}
+
+/* Softer announcement bar */
+.announcement-bar {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Collection list cards — softer hover */
+.collection-list .card:hover {
+  transform: translateY(-2px);
+  transition: transform 0.3s ease;
+}
+
+/* Product title styling */
+.product__title h1 {
+  letter-spacing: -0.01em;
+}
+
+/* Collapsible content — softer borders */
+.collapsible-content .accordion {
+  border-color: rgba(200, 162, 200, 0.2);
+}
+
+/* Newsletter section — centered and warm */
+.newsletter-form__field-wrapper {
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* Badge styling — rounder, softer */
+.badge {
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 0.7em;
+}
+
+/* Image banner hero — better text readability */
+.banner__content .banner__heading {
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Quick add button — match brand style */
+.quick-add__submit {
+  border-radius: 20px;
+}
+
+/* Cart drawer — softer feel */
+.cart-drawer {
+  border-radius: 16px 0 0 16px;
+}
+
+/* Multicolumn value chips — centered icons */
+.multicolumn-card__info {
+  text-align: center;
+}

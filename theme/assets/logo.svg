@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" fill="none">
+  <!-- Unicorn silhouette -->
+  <g transform="translate(8, 8)">
+    <!-- Body -->
+    <path d="M28 52 C28 38, 38 28, 52 28 C58 28, 62 30, 64 34 L66 28 C66 28, 68 18, 62 12 L58 8 C58 8, 56 14, 54 16 C50 12, 44 10, 38 12 C30 14, 24 22, 22 32 C20 40, 22 48, 28 52Z" fill="#C8A2C8"/>
+    <!-- Horn -->
+    <path d="M58 8 L54 0 L52 10Z" fill="#F0D5A8"/>
+    <!-- Mane -->
+    <path d="M54 16 C56 20, 58 24, 56 28 C60 26, 62 22, 60 18Z" fill="#F4C2C2" opacity="0.8"/>
+    <path d="M50 14 C52 18, 52 22, 50 26 C54 24, 56 20, 54 16Z" fill="#B2DFDB" opacity="0.7"/>
+    <!-- Eye -->
+    <circle cx="46" cy="22" r="2" fill="#3E3E3E"/>
+    <!-- Legs -->
+    <path d="M32 48 L30 60 M38 50 L37 60 M46 48 L47 60 M52 46 L54 58" stroke="#C8A2C8" stroke-width="3" stroke-linecap="round"/>
+    <!-- Tail -->
+    <path d="M28 42 C20 38, 16 44, 18 50 C14 46, 12 40, 16 36" stroke="#F4C2C2" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+    <!-- Star accent -->
+    <path d="M12 16 L13.5 20 L17.5 20 L14.5 23 L15.5 27 L12 24.5 L8.5 27 L9.5 23 L6.5 20 L10.5 20Z" fill="#F0D5A8" opacity="0.6"/>
+    <!-- Small moon -->
+    <circle cx="70" cy="10" r="5" fill="#F0D5A8" opacity="0.4"/>
+    <circle cx="72" cy="9" r="4" fill="#FFFEF2"/>
+  </g>
+  <!-- Text: Moonbeam Unicorn Club -->
+  <text x="90" y="38" font-family="'Quicksand', 'Nunito Sans', sans-serif" font-weight="700" font-size="22" fill="#6B5B7B" letter-spacing="0.5">Moonbeam</text>
+  <text x="90" y="60" font-family="'Quicksand', 'Nunito Sans', sans-serif" font-weight="500" font-size="14" fill="#C8A2C8" letter-spacing="2">UNICORN CLUB</text>
+  <!-- Small sparkle dots -->
+  <circle cx="230" cy="28" r="1.5" fill="#F4C2C2" opacity="0.6"/>
+  <circle cx="242" cy="22" r="1" fill="#B2DFDB" opacity="0.5"/>
+  <circle cx="250" cy="32" r="1.2" fill="#F0D5A8" opacity="0.5"/>
+</svg>
