@@ -2,6 +2,7 @@ import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import { getSessionEnvelope } from "@/lib/auth-server";
+import { hasFreshConvexToken } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
 import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
 
@@ -78,16 +79,13 @@ function getSessionFingerprint(session: SessionEnvelope) {
 	});
 }
 
-function hasFreshConvexToken(session: SessionEnvelope) {
-	return Boolean(
-		session.convexToken &&
-		session.convexTokenExpiresAt &&
-		session.convexTokenExpiresAt > Date.now() + CONVEX_TOKEN_REFRESH_BUFFER_MS,
-	);
-}
-
 function hasFreshMerchantToken(session: SessionEnvelope) {
-	return hasEmbeddedMerchantSession(session) && hasFreshConvexToken(session);
+	return (
+		hasEmbeddedMerchantSession(session) &&
+		hasFreshConvexToken(session, {
+			refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
+		})
+	);
 }
 
 function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
@@ -249,7 +247,12 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
 			const currentSession = sessionManager.getState();
 
-			if (!forceRefreshToken && hasFreshConvexToken(currentSession)) {
+			if (
+				!forceRefreshToken &&
+				hasFreshConvexToken(currentSession, {
+					refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
+				})
+			) {
 				return currentSession.convexToken;
 			}
 

@@ -2,6 +2,7 @@ import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start"
 import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
 import { api } from "@/lib/convex-api";
+import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
@@ -136,7 +137,7 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 			},
 			roles,
 			convexToken: token,
-			convexTokenExpiresAt: null,
+			convexTokenExpiresAt: getConvexTokenExpiresAt(token),
 		} satisfies SessionEnvelope;
 	}
 
@@ -154,7 +155,7 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 			activeShop: null,
 			roles,
 			convexToken: token,
-			convexTokenExpiresAt: null,
+			convexTokenExpiresAt: getConvexTokenExpiresAt(token),
 		} satisfies SessionEnvelope;
 	}
 

@@ -3,6 +3,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { parseSetCookieHeader, splitSetCookieHeader } from "better-auth/cookies";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/lib/convex-api";
+import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
@@ -227,7 +228,7 @@ export async function bootstrapShopifyMerchantSession(
 					}
 				: null,
 			convexToken,
-			convexTokenExpiresAt: null,
+			convexTokenExpiresAt: getConvexTokenExpiresAt(convexToken),
 		};
 		const headers = new Headers({
 			"Cache-Control": "no-store",
