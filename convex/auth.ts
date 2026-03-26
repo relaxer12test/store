@@ -245,7 +245,7 @@ function getAuthBaseUrl() {
 	return getOptionalEnv("SHOPIFY_APP_URL") ?? DEFAULT_AUTH_BASE_URL;
 }
 
-function getAuthSecret() {
+export function getAuthSecret() {
 	return getOptionalEnv("BETTER_AUTH_SECRET") ?? DEFAULT_AUTH_SECRET;
 }
 
