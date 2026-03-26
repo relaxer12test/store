@@ -1,185 +1,204 @@
 import { httpRouter } from "convex/server";
-import { api } from "./_generated/api";
-import { httpAction } from "./_generated/server";
-import { authComponent, createAuth } from "./auth";
-import { streamStorefrontWidgetReply } from "./storefrontWidgetRuntime";
+import { api } from "@convex/_generated/api";
+import { httpAction } from "@convex/_generated/server";
+import { authComponent, createAuth } from "@convex/auth";
+import { resend } from "@convex/mail";
+import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 
 const http = httpRouter();
 const PUBLIC_CORS_HEADERS = {
-	"Access-Control-Allow-Headers": "Content-Type",
-	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-	"Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Origin": "*",
 };
 
 function getWebhookHeaders(request: Request) {
-	return {
-		apiVersion: request.headers.get("X-Shopify-API-Version") ?? undefined,
-		domain: request.headers.get("X-Shopify-Shop-Domain") ?? undefined,
-		eventId: request.headers.get("X-Shopify-Event-Id") ?? undefined,
-		hmac: request.headers.get("X-Shopify-Hmac-Sha256") ?? undefined,
-		name: request.headers.get("X-Shopify-Name") ?? undefined,
-		subTopic: request.headers.get("X-Shopify-Sub-Topic") ?? undefined,
-		topic: request.headers.get("X-Shopify-Topic") ?? undefined,
-		triggeredAt: request.headers.get("X-Shopify-Triggered-At") ?? undefined,
-		webhookId: request.headers.get("X-Shopify-Webhook-Id") ?? undefined,
-	};
+  return {
+    apiVersion: request.headers.get("X-Shopify-API-Version") ?? undefined,
+    domain: request.headers.get("X-Shopify-Shop-Domain") ?? undefined,
+    eventId: request.headers.get("X-Shopify-Event-Id") ?? undefined,
+    hmac: request.headers.get("X-Shopify-Hmac-Sha256") ?? undefined,
+    name: request.headers.get("X-Shopify-Name") ?? undefined,
+    subTopic: request.headers.get("X-Shopify-Sub-Topic") ?? undefined,
+    topic: request.headers.get("X-Shopify-Topic") ?? undefined,
+    triggeredAt: request.headers.get("X-Shopify-Triggered-At") ?? undefined,
+    webhookId: request.headers.get("X-Shopify-Webhook-Id") ?? undefined,
+  };
 }
 
 function withPublicCorsHeaders(headers?: HeadersInit) {
-	const mergedHeaders = new Headers(headers);
+  const mergedHeaders = new Headers(headers);
 
-	for (const [key, value] of Object.entries(PUBLIC_CORS_HEADERS)) {
-		mergedHeaders.set(key, value);
-	}
+  for (const [key, value] of Object.entries(PUBLIC_CORS_HEADERS)) {
+    mergedHeaders.set(key, value);
+  }
 
-	return mergedHeaders;
+  return mergedHeaders;
 }
 
 authComponent.registerRoutes(http, createAuth);
 
 http.route({
-	path: "/shopify/webhooks",
-	method: "POST",
-	handler: httpAction(async (ctx, request) => {
-		const rawBody = await request.text();
-		const result = await ctx.runAction(api.shopify.processWebhook, {
-			headers: getWebhookHeaders(request),
-			rawBody,
-		});
-
-		if (result.ok) {
-			return new Response(null, {
-				status: result.status,
-			});
-		}
-
-		return Response.json(
-			{
-				error: result.reason ?? "Shopify webhook validation failed.",
-			},
-			{
-				status: result.status,
-			},
-		);
-	}),
+  path: "/resend-webhook",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    return await resend.handleResendEventWebhook(ctx, request);
+  }),
 });
 
 http.route({
-	path: "/shopify/widget",
-	method: "OPTIONS",
-	handler: httpAction(
-		async () => new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
-	),
+  path: "/shopify/webhooks",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    const rawBody = await request.text();
+    const result = await ctx.runAction(api.shopify.processWebhook, {
+      headers: getWebhookHeaders(request),
+      rawBody,
+    });
+
+    if (result.ok) {
+      return new Response(null, {
+        status: result.status,
+      });
+    }
+
+    return Response.json(
+      {
+        error: result.reason ?? "Shopify webhook validation failed.",
+      },
+      {
+        status: result.status,
+      },
+    );
+  }),
 });
 
 http.route({
-	path: "/shopify/widget",
-	method: "GET",
-	handler: httpAction(async (ctx, request) => {
-		const shopDomain = new URL(request.url).searchParams.get("shop");
-
-		if (!shopDomain) {
-			return Response.json(
-				{
-					error: "Missing `shop` query parameter.",
-				},
-				{
-					status: 400,
-					headers: withPublicCorsHeaders({
-						"Cache-Control": "no-store",
-					}),
-				},
-			);
-		}
-
-		const config = await ctx.runQuery(api.storefrontWidget.getConfig, {
-			shopDomain,
-		});
-
-		return Response.json(config, {
-			headers: withPublicCorsHeaders({
-				"Cache-Control": "public, max-age=60, stale-while-revalidate=300",
-			}),
-		});
-	}),
+  path: "/shopify/widget",
+  method: "OPTIONS",
+  handler: httpAction(
+    async () =>
+      new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
+  ),
 });
 
 http.route({
-	path: "/shopify/widget/chat",
-	method: "OPTIONS",
-	handler: httpAction(
-		async () => new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
-	),
+  path: "/shopify/widget",
+  method: "GET",
+  handler: httpAction(async (ctx, request) => {
+    const shopDomain = new URL(request.url).searchParams.get("shop");
+
+    if (!shopDomain) {
+      return Response.json(
+        {
+          error: "Missing `shop` query parameter.",
+        },
+        {
+          status: 400,
+          headers: withPublicCorsHeaders({
+            "Cache-Control": "no-store",
+          }),
+        },
+      );
+    }
+
+    const config = await ctx.runQuery(api.storefrontWidget.getConfig, {
+      shopDomain,
+    });
+
+    return Response.json(config, {
+      headers: withPublicCorsHeaders({
+        "Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+      }),
+    });
+  }),
 });
 
 http.route({
-	path: "/shopify/widget/chat",
-	method: "POST",
-	handler: httpAction(async (ctx, request) => {
-		let payload: {
-			clientFingerprint?: unknown;
-			message?: unknown;
-			pageTitle?: unknown;
-			sessionId?: unknown;
-			shopDomain?: unknown;
-		};
-
-		try {
-			payload = (await request.json()) as typeof payload;
-		} catch {
-			return Response.json(
-				{
-					error: "Widget chat requests must be valid JSON.",
-				},
-				{
-					status: 400,
-					headers: withPublicCorsHeaders({
-						"Cache-Control": "no-store",
-					}),
-				},
-			);
-		}
-
-		if (typeof payload.shopDomain !== "string" || typeof payload.message !== "string") {
-			return new Response(
-				JSON.stringify({
-					error: "Widget chat requests require `shopDomain` and `message` string fields.",
-				}),
-				{
-					status: 400,
-					headers: withPublicCorsHeaders({
-						"Cache-Control": "no-store",
-						"Content-Type": "application/json",
-					}),
-				},
-			);
-		}
-
-		const response = await streamStorefrontWidgetReply(ctx, {
-			clientFingerprint:
-				typeof payload.clientFingerprint === "string" ? payload.clientFingerprint : undefined,
-			message: payload.message,
-			pageTitle: typeof payload.pageTitle === "string" ? payload.pageTitle : undefined,
-			sessionId: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
-			shopDomain: payload.shopDomain,
-		});
-
-		return new Response(response.body, {
-			headers: withPublicCorsHeaders(response.headers),
-			status: response.status,
-			statusText: response.statusText,
-		});
-	}),
+  path: "/shopify/widget/chat",
+  method: "OPTIONS",
+  handler: httpAction(
+    async () =>
+      new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
+  ),
 });
 
 http.route({
-	path: "/shopify/health",
-	method: "GET",
-	handler: httpAction(async () =>
-		Response.json({
-			ok: true,
-		}),
-	),
+  path: "/shopify/widget/chat",
+  method: "POST",
+  handler: httpAction(async (ctx, request) => {
+    let payload: {
+      clientFingerprint?: unknown;
+      message?: unknown;
+      pageTitle?: unknown;
+      sessionId?: unknown;
+      shopDomain?: unknown;
+    };
+
+    try {
+      payload = (await request.json()) as typeof payload;
+    } catch {
+      return Response.json(
+        {
+          error: "Widget chat requests must be valid JSON.",
+        },
+        {
+          status: 400,
+          headers: withPublicCorsHeaders({
+            "Cache-Control": "no-store",
+          }),
+        },
+      );
+    }
+
+    if (
+      typeof payload.shopDomain !== "string" ||
+      typeof payload.message !== "string"
+    ) {
+      return new Response(
+        JSON.stringify({
+          error:
+            "Widget chat requests require `shopDomain` and `message` string fields.",
+        }),
+        {
+          status: 400,
+          headers: withPublicCorsHeaders({
+            "Cache-Control": "no-store",
+            "Content-Type": "application/json",
+          }),
+        },
+      );
+    }
+
+    const response = await streamStorefrontWidgetReply(ctx, {
+      clientFingerprint:
+        typeof payload.clientFingerprint === "string"
+          ? payload.clientFingerprint
+          : undefined,
+      message: payload.message,
+      pageTitle:
+        typeof payload.pageTitle === "string" ? payload.pageTitle : undefined,
+      sessionId:
+        typeof payload.sessionId === "string" ? payload.sessionId : undefined,
+      shopDomain: payload.shopDomain,
+    });
+
+    return new Response(response.body, {
+      headers: withPublicCorsHeaders(response.headers),
+      status: response.status,
+      statusText: response.statusText,
+    });
+  }),
+});
+
+http.route({
+  path: "/shopify/health",
+  method: "GET",
+  handler: httpAction(async () =>
+    Response.json({
+      ok: true,
+    }),
+  ),
 });
 
 export default http;

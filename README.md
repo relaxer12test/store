@@ -95,6 +95,10 @@ npm run convex:dev
 - `SHOPIFY_API_SECRET`
 - `BETTER_AUTH_SECRET`
 - `BETTER_AUTH_JWKS` (optional static JWKS cache for Better Auth Convex tokens)
+- `RESEND_API_KEY` (required to actually deliver password reset emails)
+- `RESEND_FROM_EMAIL` (required to send password reset emails)
+- `RESEND_FROM_NAME` (optional, defaults to `StoreAI`)
+- `RESEND_WEBHOOK_SECRET` (optional until you configure the webhook below)
 - `CONVEX_OPENAI_API_KEY` or `OPENAI_API_KEY`
 - `CONVEX_STOREFRONT_CONCIERGE_MODEL` (optional override)
 
@@ -110,6 +114,7 @@ Production deploy target:
 - TanStack Start on Cloudflare Workers at `storeai.ldev.cloud`
 - Shopify app config with `application_url = "https://storeai.ldev.cloud"`
 - Convex custom domain for bootstrap, webhook, widget, document, and merchant-protected backend traffic
+- Resend webhook at `<your CONVEX_SITE_URL>/resend-webhook` once you add the webhook in Resend
 
 Deploy commands:
 
