@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1440 600" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <linearGradient id="sky" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#F3E8FF"/>
+      <stop offset="30%" style="stop-color:#FDEEF4"/>
+      <stop offset="60%" style="stop-color:#E8F5F0"/>
+      <stop offset="100%" style="stop-color:#FFF8E7"/>
+    </linearGradient>
+    <linearGradient id="rainbow" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#F4C2C2;stop-opacity:0.6"/>
+      <stop offset="20%" style="stop-color:#F8D5E0;stop-opacity:0.5"/>
+      <stop offset="40%" style="stop-color:#F0D5A8;stop-opacity:0.5"/>
+      <stop offset="60%" style="stop-color:#B2DFDB;stop-opacity:0.5"/>
+      <stop offset="80%" style="stop-color:#C8A2C8;stop-opacity:0.5"/>
+      <stop offset="100%" style="stop-color:#E8D0F0;stop-opacity:0.4"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Sky background -->
+  <rect width="1440" height="600" fill="url(#sky)"/>
+
+  <!-- Soft clouds -->
+  <ellipse cx="200" cy="120" rx="120" ry="50" fill="white" opacity="0.5"/>
+  <ellipse cx="160" cy="110" rx="80" ry="40" fill="white" opacity="0.6"/>
+  <ellipse cx="240" cy="100" rx="70" ry="35" fill="white" opacity="0.55"/>
+
+  <ellipse cx="900" cy="80" rx="100" ry="45" fill="white" opacity="0.45"/>
+  <ellipse cx="860" cy="70" rx="70" ry="35" fill="white" opacity="0.55"/>
+  <ellipse cx="940" cy="65" rx="60" ry="30" fill="white" opacity="0.5"/>
+
+  <ellipse cx="1250" cy="150" rx="90" ry="40" fill="white" opacity="0.4"/>
+  <ellipse cx="1210" cy="140" rx="60" ry="30" fill="white" opacity="0.5"/>
+
+  <!-- Rainbow arc -->
+  <path d="M300 500 Q720 100 1140 500" stroke="url(#rainbow)" stroke-width="40" fill="none" opacity="0.35"/>
+  <path d="M320 500 Q720 130 1120 500" stroke="url(#rainbow)" stroke-width="25" fill="none" opacity="0.25"/>
+
+  <!-- Stars -->
+  <g fill="#F0D5A8" opacity="0.5">
+    <path d="M100 200 l3 8 8 0 -6 5 2 8 -7-5 -7 5 2-8 -6-5 8 0z" transform="scale(1.2)"/>
+    <path d="M1300 100 l3 8 8 0 -6 5 2 8 -7-5 -7 5 2-8 -6-5 8 0z" transform="scale(1.5)"/>
+    <path d="M1100 180 l3 8 8 0 -6 5 2 8 -7-5 -7 5 2-8 -6-5 8 0z"/>
+    <path d="M400 80 l3 8 8 0 -6 5 2 8 -7-5 -7 5 2-8 -6-5 8 0z" transform="scale(0.8)"/>
+    <path d="M700 50 l3 8 8 0 -6 5 2 8 -7-5 -7 5 2-8 -6-5 8 0z" transform="scale(1.1)"/>
+  </g>
+
+  <!-- Sparkle dots -->
+  <circle cx="180" cy="250" r="3" fill="#C8A2C8" opacity="0.4"/>
+  <circle cx="520" cy="100" r="2.5" fill="#F4C2C2" opacity="0.5"/>
+  <circle cx="780" cy="140" r="3" fill="#B2DFDB" opacity="0.45"/>
+  <circle cx="1050" cy="90" r="2" fill="#F0D5A8" opacity="0.5"/>
+  <circle cx="1350" cy="200" r="3.5" fill="#C8A2C8" opacity="0.35"/>
+  <circle cx="350" cy="180" r="2" fill="#F4C2C2" opacity="0.4"/>
+  <circle cx="650" cy="60" r="2.5" fill="#B2DFDB" opacity="0.4"/>
+  <circle cx="1200" cy="250" r="2" fill="#F0D5A8" opacity="0.45"/>
+
+  <!-- Unicorn silhouette (center-right, larger) -->
+  <g transform="translate(1050, 280) scale(2.5)" opacity="0.12">
+    <path d="M28 52 C28 38, 38 28, 52 28 C58 28, 62 30, 64 34 L66 28 C66 28, 68 18, 62 12 L58 8 C58 8, 56 14, 54 16 C50 12, 44 10, 38 12 C30 14, 24 22, 22 32 C20 40, 22 48, 28 52Z" fill="#7B6B8A"/>
+    <path d="M58 8 L54 0 L52 10Z" fill="#C8A2C8"/>
+    <path d="M32 48 L30 60 M38 50 L37 60 M46 48 L47 60 M52 46 L54 58" stroke="#7B6B8A" stroke-width="3" stroke-linecap="round"/>
+    <path d="M28 42 C20 38, 16 44, 18 50" stroke="#C8A2C8" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  </g>
+
+  <!-- Small unicorn silhouette (left, subtle) -->
+  <g transform="translate(120, 350) scale(1.8)" opacity="0.08">
+    <path d="M28 52 C28 38, 38 28, 52 28 C58 28, 62 30, 64 34 L66 28 C66 28, 68 18, 62 12 L58 8 C58 8, 56 14, 54 16 C50 12, 44 10, 38 12 C30 14, 24 22, 22 32 C20 40, 22 48, 28 52Z" fill="#C8A2C8"/>
+    <path d="M58 8 L54 0 L52 10Z" fill="#F0D5A8"/>
+    <path d="M32 48 L30 60 M38 50 L37 60 M46 48 L47 60 M52 46 L54 58" stroke="#C8A2C8" stroke-width="3" stroke-linecap="round"/>
+  </g>
+
+  <!-- Soft rolling hills at bottom -->
+  <path d="M0 520 Q200 460, 400 490 Q600 520, 800 480 Q1000 440, 1200 470 Q1350 490, 1440 460 L1440 600 L0 600Z" fill="#E8D0F0" opacity="0.3"/>
+  <path d="M0 550 Q300 500, 600 530 Q900 560, 1100 520 Q1300 480, 1440 510 L1440 600 L0 600Z" fill="#F4C2C2" opacity="0.2"/>
+
+  <!-- Small hearts -->
+  <g fill="#F4C2C2" opacity="0.3">
+    <path d="M460 160 c-2-4-8-4-8 0 c0 4 4 7 4 7 s4-3 4-7z" transform="scale(1.5)"/>
+    <path d="M980 200 c-2-4-8-4-8 0 c0 4 4 7 4 7 s4-3 4-7z" transform="scale(1.2)"/>
+  </g>
+</svg>

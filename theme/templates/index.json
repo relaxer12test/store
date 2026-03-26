@@ -10,51 +10,12 @@
 {
   "sections": {
     "hero-banner": {
-      "type": "image-banner",
-      "blocks": {
-        "hero-heading": {
-          "type": "heading",
-          "settings": {
-            "heading": "A Little More Magic For Everyday Play",
-            "heading_size": "h0"
-          }
-        },
-        "hero-text": {
-          "type": "text",
-          "settings": {
-            "text": "Discover unicorn costumes, cuddle toys, party kits, and room-brightening favourites for birthdays, sleepovers, and imaginative afternoons.",
-            "text_style": "subtitle"
-          }
-        },
-        "hero-buttons": {
-          "type": "buttons",
-          "settings": {
-            "button_label_1": "Shop Best Sellers",
-            "button_link_1": "shopify://collections/frontpage",
-            "button_style_secondary_1": false,
-            "button_label_2": "Plan A Unicorn Party",
-            "button_link_2": "shopify://collections/party-shop",
-            "button_style_secondary_2": true
-          }
-        }
-      },
-      "block_order": [
-        "hero-heading",
-        "hero-text",
-        "hero-buttons"
-      ],
-      "custom_css": [],
+      "type": "custom-liquid",
       "settings": {
-        "image_overlay_opacity": 20,
-        "image_height": "large",
-        "desktop_content_position": "middle-center",
-        "show_text_box": true,
-        "desktop_content_alignment": "center",
+        "custom_liquid": "<div class=\"moonbeam-hero\">\n  <div class=\"moonbeam-hero__bg\">\n    <img src=\"{{ 'hero-background.svg' | asset_url }}\" alt=\"\" class=\"moonbeam-hero__bg-img\" loading=\"eager\">\n  </div>\n  <div class=\"moonbeam-hero__content\">\n    <h1 class=\"moonbeam-hero__heading\">A Little More Magic<br>For Everyday Play</h1>\n    <p class=\"moonbeam-hero__text\">Discover unicorn costumes, cuddle toys, party kits, and room-brightening favourites for birthdays, sleepovers, and imaginative afternoons.</p>\n    <div class=\"moonbeam-hero__buttons\">\n      <a href=\"/collections/frontpage\" class=\"button button--primary moonbeam-hero__btn\">Shop Best Sellers</a>\n      <a href=\"/collections/party-shop\" class=\"button button--secondary moonbeam-hero__btn moonbeam-hero__btn--outline\">Plan A Unicorn Party</a>\n    </div>\n  </div>\n</div>\n<style>\n.moonbeam-hero { position: relative; min-height: 520px; display: flex; align-items: center; justify-content: center; overflow: hidden; }\n.moonbeam-hero__bg { position: absolute; inset: 0; z-index: 0; }\n.moonbeam-hero__bg-img { width: 100%; height: 100%; object-fit: cover; }\n.moonbeam-hero__content { position: relative; z-index: 1; text-align: center; max-width: 700px; padding: 40px 24px; }\n.moonbeam-hero__heading { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1.15; color: #5A4A6A; margin-bottom: 16px; letter-spacing: -0.02em; }\n.moonbeam-hero__text { font-size: clamp(1rem, 2vw, 1.2rem); color: #6B5B7B; margin-bottom: 28px; line-height: 1.6; }\n.moonbeam-hero__buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }\n.moonbeam-hero__btn { padding: 14px 32px; border-radius: 24px; font-weight: 700; font-size: 0.95rem; text-decoration: none; transition: all 0.25s ease; }\n.moonbeam-hero__btn:not(.moonbeam-hero__btn--outline) { background: #7B6B8A; color: #fff; }\n.moonbeam-hero__btn:not(.moonbeam-hero__btn--outline):hover { background: #6A5A79; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(123,107,138,0.3); }\n.moonbeam-hero__btn--outline { background: transparent; color: #7B6B8A; border: 2px solid #C8A2C8; }\n.moonbeam-hero__btn--outline:hover { background: #C8A2C8; color: #fff; transform: translateY(-1px); }\n@media (max-width: 749px) { .moonbeam-hero { min-height: 420px; } .moonbeam-hero__content { padding: 32px 20px; } }\n</style>",
         "color_scheme": "background-1",
-        "image_behavior": "none",
-        "mobile_content_alignment": "center",
-        "stack_images_on_mobile": true,
-        "show_text_below": false
+        "padding_top": 0,
+        "padding_bottom": 0
       }
     },
     "collection-list": {
