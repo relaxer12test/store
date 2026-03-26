@@ -1,11 +1,14 @@
 import { Link } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
+import { cn } from "@/lib/cn";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
 import { hasAdminSession } from "@/shared/contracts/session";
 
 const navLinkClass =
 	"inline-flex items-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-600 transition hover:border-slate-300 hover:text-slate-900";
+const viewerBadgeClass =
+	"min-w-0 max-w-64 rounded-[1.1rem] border px-4 py-2 leading-tight";
 
 export function GlobalChrome() {
 	const session = useSessionEnvelope();
@@ -70,9 +73,19 @@ export function GlobalChrome() {
 					) : null}
 
 					{session.viewer ? (
-						<StatusPill tone={session.roles.includes("admin") ? "accent" : "neutral"}>
-							{session.viewer.name}
-						</StatusPill>
+						<div
+							className={cn(
+								viewerBadgeClass,
+								session.roles.includes("admin")
+									? "border-blue-200 bg-blue-50 text-blue-950"
+									: "border-slate-200 bg-slate-100 text-slate-900",
+							)}
+						>
+							<p className="truncate text-sm font-semibold">{session.viewer.name}</p>
+							<p className="truncate pt-1 text-[0.68rem] text-slate-500">
+								{session.viewer.email}
+							</p>
+						</div>
 					) : (
 						<StatusPill tone="neutral">Unauthenticated</StatusPill>
 					)}
