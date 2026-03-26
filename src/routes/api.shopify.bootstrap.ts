@@ -1,5 +1,6 @@
 import { JWT_COOKIE_NAME } from "@convex-dev/better-auth/plugins";
 import { createFileRoute } from "@tanstack/react-router";
+import { SECURE_COOKIE_PREFIX } from "better-auth/cookies";
 import { ConvexHttpClient } from "convex/browser";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
@@ -7,6 +8,7 @@ import { getRequiredConvexDeploymentUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
+const BETTER_AUTH_COOKIE_PREFIX = "better-auth";
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
 interface MerchantAuthLogger {
@@ -158,9 +160,10 @@ function toBridgeErrorResponse(message: string, status: number) {
 function buildConvexJwtCookie(request: Request, token: string, expiresAt: number) {
 	const maxAgeSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
 	const secure = new URL(request.url).protocol === "https:";
+	const cookieName = `${BETTER_AUTH_COOKIE_PREFIX}.${JWT_COOKIE_NAME}`;
 
 	return [
-		`${JWT_COOKIE_NAME}=${token}`,
+		`${secure ? `${SECURE_COOKIE_PREFIX}${cookieName}` : cookieName}=${token}`,
 		"Path=/",
 		"HttpOnly",
 		"SameSite=Lax",

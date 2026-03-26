@@ -1,12 +1,29 @@
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { StatusPill } from "@/components/ui/feedback";
+import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { useSessionEnvelope } from "@/lib/auth-client";
+import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 const cardClass =
 	"group flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 transition hover:border-slate-300 hover:shadow-sm";
 
 export function LandingPage() {
+	const navigate = useNavigate();
+	const embeddedApp = useEmbeddedAppBootstrap();
 	const session = useSessionEnvelope();
+	const hasMerchantSession = hasEmbeddedMerchantSession(session);
+
+	useEffect(() => {
+		if (!embeddedApp.isEmbedded || !hasMerchantSession) {
+			return;
+		}
+
+		void navigate({
+			replace: true,
+			to: "/app",
+		});
+	}, [embeddedApp.isEmbedded, hasMerchantSession, navigate]);
 
 	return (
 		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
