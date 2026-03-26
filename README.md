@@ -7,6 +7,7 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 - `src/`: TanStack Start app shell, embedded admin routes, merchant UI, internal diagnostics, and API proxy routes.
 - `convex/`: shop auth/bootstrap, webhook ingestion, sync/cache workflows, merchant copilot flows, document processing, and storefront AI runtime.
 - `extensions/storefront-ai/`: theme app embed that mounts the shopper-facing assistant on the Online Store.
+- `theme/`: custom Shopify theme source that is pushed directly to the live theme.
 - `wrangler.jsonc`: Cloudflare Workers deployment for `storeai.ldev.cloud`.
 - `shopify.app.toml`: embedded Shopify app config and webhook subscriptions.
 
@@ -116,15 +117,23 @@ Deploy commands:
 npm run deploy
 ```
 
-That runs the app build, pushes Convex to the configured production deployment with
-`convex deploy --yes`, deploys the Worker with Wrangler, and then publishes the
-Shopify app configuration plus theme app extension with `shopify app deploy`.
+That runs the app build, pushes Convex to the configured deployment with
+`convex dev --once`, deploys the Worker with Wrangler, publishes the
+Shopify app configuration plus theme app extension with `shopify app deploy`,
+and then pushes the custom `/theme` directory to the live theme with
+`shopify theme push --path theme --live --allow-live`.
 
 If you only need to push the Worker runtime without releasing a Shopify app version,
 use:
 
 ```bash
 npm run deploy:runtime
+```
+
+If you only need to push the custom Shopify theme, use:
+
+```bash
+npm run theme:deploy
 ```
 
 After `shopify app deploy`, open the embedded app in Shopify admin, go to
