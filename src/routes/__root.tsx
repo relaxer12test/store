@@ -1,14 +1,22 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
+import { createRootRouteWithContext, HeadContent, ScriptOnce, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { GlobalChrome } from "@/features/shell/components/global-chrome";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
 import { getSessionEnvelope } from "@/lib/auth-server";
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
-import appCss from "../styles.css?url";
+import appCss from "@/styles.css?url";
 
 const shopifyApiKey = getOptionalShopifyApiKey();
+const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
+
+function serializeInlineScript(value: unknown) {
+	return JSON.stringify(value)
+		.replace(/</g, "\\u003c")
+		.replace(/\u2028/g, "\\u2028")
+		.replace(/\u2029/g, "\\u2029");
+}
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context }) => {
@@ -62,6 +70,9 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 		<html lang="en">
 			<head>
 				<HeadContent />
+				<ScriptOnce
+					children={`window.${INITIAL_SESSION_WINDOW_KEY} = ${serializeInlineScript(context.session)};`}
+				/>
 				{shopifyApiKey ? <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" /> : null}
 			</head>
 			<body className="min-h-screen bg-slate-50 text-slate-900 antialiased">

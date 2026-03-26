@@ -9,6 +9,7 @@ import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contr
 type Listener = () => void;
 const CONVEX_TOKEN_REFRESH_BUFFER_MS = 1000 * 60;
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
 
 const guestSession: SessionEnvelope = {
 	authMode: "none",
@@ -123,11 +124,26 @@ function serializeEmbeddedSessionError(error: unknown) {
 	};
 }
 
+function getInitialBrowserSession() {
+	if (isServer) {
+		return guestSession;
+	}
+
+	const initialSession = (
+		window as typeof window & {
+			[INITIAL_SESSION_WINDOW_KEY]?: SessionEnvelope;
+		}
+	)[INITIAL_SESSION_WINDOW_KEY];
+
+	return initialSession ?? guestSession;
+}
+
 function createManagedAppRouterContext(): ManagedAppRouterContext {
 	const convexQueryClient = new ConvexQueryClient(getRequiredConvexDeploymentUrl(), {
 		expectAuth: true,
 	});
 	const embeddedApp = createEmbeddedAppManager();
+	const initialSession = getInitialBrowserSession();
 	const queryClient = new QueryClient({
 		defaultOptions: {
 			queries: {
@@ -150,8 +166,8 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		: new Promise<void>((resolve) => {
 				resolveBootstrapEnabled = resolve;
 			});
-	let sessionFingerprint: string | null = null;
-	const sessionManager = createSessionManager(guestSession);
+	let sessionFingerprint: string | null = isServer ? null : getSessionFingerprint(initialSession);
+	const sessionManager = createSessionManager(initialSession);
 
 	const setSession = (session: SessionEnvelope) => {
 		const nextFingerprint = getSessionFingerprint(session);
@@ -295,10 +311,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	if (!isServer) {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
-			if (!canBootstrapEmbeddedSession) {
-				await bootstrapEnabledPromise;
-			}
-
 			const currentSession = sessionManager.getState();
 
 			if (
@@ -308,6 +320,21 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				})
 			) {
 				return currentSession.convexToken;
+			}
+
+			if (!canBootstrapEmbeddedSession) {
+				await bootstrapEnabledPromise;
+			}
+
+			const refreshedSession = sessionManager.getState();
+
+			if (
+				!forceRefreshToken &&
+				hasFreshConvexToken(refreshedSession, {
+					refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
+				})
+			) {
+				return refreshedSession.convexToken;
 			}
 
 			const session = await ensureEmbeddedSession({
