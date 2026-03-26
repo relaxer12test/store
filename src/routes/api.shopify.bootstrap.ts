@@ -8,6 +8,35 @@ import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/sess
 
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
+const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
+
+function normalizeConvexLogArgs(args: unknown[]) {
+	if (
+		typeof args[0] === "string" &&
+		args[0].startsWith(CONVEX_COLOR_PREFIX) &&
+		typeof args[1] === "string" &&
+		args[1].startsWith("color:")
+	) {
+		return [args[0].slice(2), ...args.slice(2)];
+	}
+
+	return args;
+}
+
+const convexCloudflareLogger = {
+	logVerbose(...args: unknown[]) {
+		console.debug(...normalizeConvexLogArgs(args));
+	},
+	log(...args: unknown[]) {
+		console.log(...normalizeConvexLogArgs(args));
+	},
+	warn(...args: unknown[]) {
+		console.warn(...normalizeConvexLogArgs(args));
+	},
+	error(...args: unknown[]) {
+		console.error(...normalizeConvexLogArgs(args));
+	},
+};
 
 interface MerchantBootstrapBridgeResult {
 	bridgePayload: {
@@ -123,7 +152,7 @@ export async function bootstrapShopifyMerchantSession(
 			options?.convexBootstrap ??
 			(async (token: string) => {
 				const client = new ConvexHttpClient(getRequiredConvexDeploymentUrl(), {
-					logger: false,
+					logger: convexCloudflareLogger,
 				});
 
 				return (await client.action(api.shopify.prepareMerchantAuthBridge, {
