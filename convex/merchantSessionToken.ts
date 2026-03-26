@@ -1,9 +1,21 @@
+import { symmetricDecrypt } from "better-auth/crypto";
 import { type JWK, SignJWT, importJWK } from "jose";
-import type { ViewerRole } from "../src/shared/contracts/session";
+import type { ViewerRole } from "@/shared/contracts/session";
 import type { Id } from "./_generated/dataModel";
 
-const AUTH_ALGORITHM = "ES256";
+const AUTH_ALGORITHM = "RS256";
+const AUTH_AUDIENCE = "convex";
 const DEFAULT_TOKEN_TTL_SECONDS = 60 * 15;
+
+export interface BetterAuthJwkDoc {
+	alg?: string | null;
+	createdAt: number;
+	crv?: string | null;
+	expiresAt?: number | null;
+	id: string;
+	privateKey: string;
+	publicKey: string;
+}
 
 export interface MerchantSessionTokenClaims {
 	email?: string;
@@ -23,6 +35,7 @@ export interface InternalSessionTokenClaims {
 }
 
 let signingKeyPromise: Promise<Awaited<ReturnType<typeof importJWK>>> | null = null;
+let signingKeyCacheKey: string | null = null;
 
 function getRequiredEnv(name: string) {
 	const env = (
@@ -41,30 +54,12 @@ function getRequiredEnv(name: string) {
 	return value;
 }
 
-function parseJsonEnv<T>(name: string): T {
-	try {
-		return JSON.parse(getRequiredEnv(name)) as T;
-	} catch (error) {
-		throw new Error(
-			`Convex environment variable ${name} must contain valid JSON: ${
-				error instanceof Error ? error.message : "invalid JSON"
-			}`,
-		);
-	}
+function getRequiredConvexIssuer() {
+	return getRequiredEnv("CONVEX_SITE_URL");
 }
 
-function getSigningJwk() {
-	const jwk = parseJsonEnv<JWK & { kid?: string; kty?: string }>("CONVEX_APP_AUTH_PRIVATE_JWK");
-
-	if (jwk.kty !== "EC") {
-		throw new Error("CONVEX_APP_AUTH_PRIVATE_JWK must be an EC private JWK for ES256.");
-	}
-
-	if (!jwk.kid) {
-		throw new Error("CONVEX_APP_AUTH_PRIVATE_JWK must include a `kid`.");
-	}
-
-	return jwk as JWK & { kid: string; kty: "EC" };
+function getBetterAuthSecret() {
+	return getRequiredEnv("BETTER_AUTH_SECRET");
 }
 
 function getTokenTtlSeconds() {
@@ -89,34 +84,64 @@ function getTokenTtlSeconds() {
 	return ttlSeconds;
 }
 
-async function getSigningKey() {
-	signingKeyPromise ??= importJWK(getSigningJwk(), AUTH_ALGORITHM);
+async function getPrivateWebKey(signingJwk: BetterAuthJwkDoc) {
+	const trimmedPrivateKey = signingJwk.privateKey.trim();
 
-	return signingKeyPromise;
+	if (trimmedPrivateKey.startsWith('"')) {
+		return await symmetricDecrypt({
+			data: JSON.parse(trimmedPrivateKey) as string,
+			key: getBetterAuthSecret(),
+		});
+	}
+
+	return trimmedPrivateKey;
+}
+
+async function getSigningKey(signingJwk: BetterAuthJwkDoc) {
+	const cacheKey = `${signingJwk.id}:${signingJwk.privateKey}`;
+
+	if (!signingKeyPromise || signingKeyCacheKey !== cacheKey) {
+		signingKeyCacheKey = cacheKey;
+		signingKeyPromise = (async () => {
+			const privateWebKey = await getPrivateWebKey(signingJwk);
+			const privateJwk = JSON.parse(privateWebKey) as JWK;
+			const algorithm = signingJwk.alg ?? AUTH_ALGORITHM;
+
+			if (algorithm !== AUTH_ALGORITHM) {
+				throw new Error(
+					`Merchant embedded tokens require ${AUTH_ALGORITHM}, received ${algorithm}.`,
+				);
+			}
+
+			return await importJWK(privateJwk, algorithm);
+		})();
+	}
+
+	return await signingKeyPromise;
 }
 
 async function issueSessionToken({
 	claims,
+	signingJwk,
 	subject,
 }: {
 	claims: Record<string, string | string[] | undefined>;
+	signingJwk: BetterAuthJwkDoc;
 	subject: string;
 }) {
 	const issuedAt = Math.floor(Date.now() / 1000);
 	const expiresAt = issuedAt + getTokenTtlSeconds();
-	const issuer = getRequiredEnv("CONVEX_APP_AUTH_ISSUER");
-	const audience = getRequiredEnv("CONVEX_APP_AUTH_AUDIENCE");
-	const signingJwk = getSigningJwk();
-	const signingKey = await getSigningKey();
+	const issuer = getRequiredConvexIssuer();
+	const signingKey = await getSigningKey(signingJwk);
 
 	const token = await new SignJWT(claims)
 		.setProtectedHeader({
 			alg: AUTH_ALGORITHM,
-			kid: signingJwk.kid,
+			kid: signingJwk.id,
 			typ: "JWT",
 		})
 		.setIssuer(issuer)
-		.setAudience(audience)
+		.setAudience(AUTH_AUDIENCE)
 		.setSubject(subject)
 		.setIssuedAt(issuedAt)
 		.setExpirationTime(expiresAt)
@@ -128,7 +153,13 @@ async function issueSessionToken({
 	};
 }
 
-export async function issueMerchantSessionToken(claims: MerchantSessionTokenClaims) {
+export async function issueMerchantSessionToken({
+	claims,
+	signingJwk,
+}: {
+	claims: MerchantSessionTokenClaims;
+	signingJwk: BetterAuthJwkDoc;
+}) {
 	return await issueSessionToken({
 		claims: {
 			authMode: "embedded",
@@ -139,12 +170,20 @@ export async function issueMerchantSessionToken(claims: MerchantSessionTokenClai
 			shopDomain: claims.shopDomain,
 			shopId: claims.shopId,
 			shopifyUserId: claims.shopifyUserId,
+			userId: claims.merchantActorId,
 		},
+		signingJwk,
 		subject: claims.merchantActorId,
 	});
 }
 
-export async function issueInternalSessionToken(claims: InternalSessionTokenClaims) {
+export async function issueInternalSessionToken({
+	claims,
+	signingJwk,
+}: {
+	claims: InternalSessionTokenClaims;
+	signingJwk: BetterAuthJwkDoc;
+}) {
 	return await issueSessionToken({
 		claims: {
 			authMode: "internal",
@@ -153,6 +192,7 @@ export async function issueInternalSessionToken(claims: InternalSessionTokenClai
 			name: claims.name,
 			roles: claims.roles,
 		},
+		signingJwk,
 		subject: claims.internalUserId,
 	});
 }

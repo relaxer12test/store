@@ -204,11 +204,18 @@ function getIdentityRole(identity: UserIdentity | null) {
 }
 
 function getMerchantActorId(identity: UserIdentity | null) {
-	if (typeof identity?.userId !== "string" || identity.userId.length === 0) {
+	const merchantActorId =
+		typeof identity?.merchantActorId === "string" && identity.merchantActorId.length > 0
+			? identity.merchantActorId
+			: typeof identity?.userId === "string" && identity.userId.length > 0
+				? identity.userId
+				: null;
+
+	if (!merchantActorId) {
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
 
-	return identity.userId as Id<"merchantActors">;
+	return merchantActorId as Id<"merchantActors">;
 }
 
 function getMerchantRoles(identity: UserIdentity) {
@@ -543,15 +550,19 @@ export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<Merchant
 export const getCurrentViewer = query({
 	args: {},
 	handler: async (ctx) => {
+		const identity = await ctx.auth.getUserIdentity();
 		const user = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
 
-		if (!user) {
-			return null;
-		}
-
-		const betterAuthRole = user.role ?? null;
-		const merchantActorId =
-			typeof user.userId === "string" && user.userId.length > 0 ? user.userId : null;
+		const betterAuthRole = user?.role ?? null;
+		const merchantActorId = user
+			? typeof user.userId === "string" && user.userId.length > 0
+				? user.userId
+				: null
+			: typeof identity?.merchantActorId === "string" && identity.merchantActorId.length > 0
+				? identity.merchantActorId
+				: typeof identity?.userId === "string" && identity.userId.length > 0
+					? identity.userId
+					: null;
 
 		if (merchantActorId) {
 			const actor = await ctx.db.get(merchantActorId as Id<"merchantActors">);
@@ -568,18 +579,24 @@ export const getCurrentViewer = query({
 
 			return {
 				authKind: "merchant" as const,
-				betterAuthRole,
-				contactEmail: user.email,
-				email: user.email,
+				betterAuthRole: betterAuthRole ?? (hasAdminIdentity(identity) ? "admin" : null),
+				contactEmail:
+					user?.email ??
+					(typeof identity?.email === "string" ? identity.email : (actor.email ?? "")),
+				email: user?.email ?? (typeof identity?.email === "string" ? identity.email : ""),
 				merchantActorId: actor._id,
 				merchantRole: "shop_admin" as const,
-				name: user.name,
+				name: user?.name ?? (typeof identity?.name === "string" ? identity.name : actor.name),
 				shopDomain: shop.domain,
 				shopId: shop._id,
 				shopName: shop.name,
 				shopifyUserId: actor.shopifyUserId,
 				userId: actor._id,
 			};
+		}
+
+		if (!user) {
+			return null;
 		}
 
 		if (betterAuthRole === "admin") {

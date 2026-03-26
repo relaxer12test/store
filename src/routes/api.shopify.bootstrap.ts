@@ -1,16 +1,11 @@
 import { JWT_COOKIE_NAME } from "@convex-dev/better-auth/plugins";
 import { createFileRoute } from "@tanstack/react-router";
-import { parseSetCookieHeader, splitSetCookieHeader } from "better-auth/cookies";
 import { ConvexHttpClient } from "convex/browser";
-import { authHandler } from "@/lib/auth-server";
 import { api } from "@/lib/convex-api";
 import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
-const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
-const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
-const SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER = "x-shopify-bootstrap-request-id";
 const CONVEX_COLOR_PREFIX = "%c[CONVEX ";
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
@@ -42,12 +37,6 @@ function serializeAuthError(error: unknown) {
 		name: "UnknownError",
 		stack: null,
 	};
-}
-
-function getCookieNames(setCookieHeaders: string[]) {
-	return setCookieHeaders
-		.map((setCookie) => parseSetCookieHeader(setCookie).keys().next().value ?? null)
-		.filter((cookieName): cookieName is string => Boolean(cookieName));
 }
 
 function getMerchantRequestContext(request: Request, requestId: string) {
@@ -128,35 +117,15 @@ const convexCloudflareLogger = {
 };
 
 interface MerchantBootstrapBridgeResult {
-	bridgePayload: {
-		email?: string;
-		merchantActorId: string;
-		name: string;
-		shopDomain: string;
-		shopifyUserId: string;
+	merchantSession: {
+		expiresAt: number;
+		token: string;
 	};
 	persistedBootstrap: {
 		activeShop: SessionEnvelope["activeShop"];
 		roles: SessionEnvelope["roles"];
 		viewer: SessionEnvelope["viewer"];
 	};
-}
-
-function getRequiredBetterAuthSecret() {
-	const value =
-		(
-			globalThis as typeof globalThis & {
-				process?: {
-					env?: Record<string, string | undefined>;
-				};
-			}
-		).process?.env?.BETTER_AUTH_SECRET?.trim() ?? "";
-
-	if (!value) {
-		throw new Error("Missing BETTER_AUTH_SECRET for the Shopify auth bridge.");
-	}
-
-	return value;
 }
 
 function getBearerToken(request: Request) {
@@ -169,47 +138,11 @@ function getBearerToken(request: Request) {
 	return authorization.slice("Bearer ".length).trim() || null;
 }
 
-function getSetCookieHeaders(response: Response) {
-	const headers = response.headers as Headers & {
-		getSetCookie?: () => string[];
-	};
-
-	if (typeof headers.getSetCookie === "function") {
-		return headers.getSetCookie();
-	}
-
-	const setCookie = response.headers.get("set-cookie");
-
-	return setCookie ? splitSetCookieHeader(setCookie) : [];
-}
-
-function appendSetCookieHeaders(headers: Headers, setCookieHeaders: string[]) {
-	for (const setCookie of setCookieHeaders) {
-		headers.append("Set-Cookie", setCookie);
-	}
-}
-
-function getCookieValue(setCookieHeaders: string[], cookieName: string) {
-	for (const setCookie of setCookieHeaders) {
-		const value = parseSetCookieHeader(setCookie).get(cookieName)?.value;
-
-		if (value) {
-			return value;
-		}
-	}
-
-	return null;
-}
-
-function toBridgeErrorResponse(message: string, status: number, setCookieHeaders?: string[]) {
+function toBridgeErrorResponse(message: string, status: number) {
 	const headers = new Headers({
 		"Cache-Control": "no-store",
 		"Content-Type": "application/json",
 	});
-
-	if (setCookieHeaders) {
-		appendSetCookieHeaders(headers, setCookieHeaders);
-	}
 
 	return new Response(
 		JSON.stringify({
@@ -222,12 +155,26 @@ function toBridgeErrorResponse(message: string, status: number, setCookieHeaders
 	);
 }
 
+function buildConvexJwtCookie(request: Request, token: string, expiresAt: number) {
+	const maxAgeSeconds = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+	const secure = new URL(request.url).protocol === "https:";
+
+	return [
+		`${JWT_COOKIE_NAME}=${token}`,
+		"Path=/",
+		"HttpOnly",
+		"SameSite=Lax",
+		secure ? "Secure" : null,
+		`Max-Age=${maxAgeSeconds}`,
+	]
+		.filter(Boolean)
+		.join("; ");
+}
+
 export async function bootstrapShopifyMerchantSession(
 	request: Request,
 	options?: {
-		authSecret?: string;
 		convexBootstrap?: (sessionToken: string) => Promise<MerchantBootstrapBridgeResult>;
-		fetchImpl?: typeof fetch;
 		logger?: MerchantAuthLogger;
 	},
 ) {
@@ -247,7 +194,7 @@ export async function bootstrapShopifyMerchantSession(
 		return toBridgeErrorResponse("Missing Shopify session token.", 401);
 	}
 
-	let stage = "prepare_merchant_auth_bridge";
+	let stage = "prepare_merchant_session";
 
 	try {
 		const convexBootstrap =
@@ -262,89 +209,30 @@ export async function bootstrapShopifyMerchantSession(
 				})) as MerchantBootstrapBridgeResult;
 			});
 		const bridge = await convexBootstrap(sessionToken);
-		stage = "call_better_auth_bridge";
-		const authBridgeUrl = new URL(`/api/auth${SHOPIFY_MERCHANT_BRIDGE_PATH}`, request.url);
-		const authBridgeRequestInit = {
-			body: JSON.stringify(bridge.bridgePayload),
-			headers: {
-				Accept: "application/json",
-				"Content-Type": "application/json",
-				[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
-				[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]:
-					options?.authSecret ?? getRequiredBetterAuthSecret(),
-			},
-			method: "POST",
-		} satisfies RequestInit;
-		const authResponse = options?.fetchImpl
-			? await options.fetchImpl(authBridgeUrl, authBridgeRequestInit)
-			: await authHandler(new Request(authBridgeUrl, authBridgeRequestInit));
-		const setCookieHeaders = getSetCookieHeaders(authResponse);
-
-		if (!authResponse.ok) {
-			let errorMessage = `Merchant auth bridge failed with status ${authResponse.status}.`;
-
-			try {
-				const payload = (await authResponse.json()) as {
-					error?: {
-						message?: string;
-					};
-					message?: string;
-				};
-				errorMessage = payload.error?.message ?? payload.message ?? errorMessage;
-			} catch {
-				// ignore parsing failures and use the status-based fallback
-			}
-
-			logMerchantAuthEvent({
-				details: {
-					...requestContext,
-					errorMessage,
-					setCookieNames: getCookieNames(setCookieHeaders),
-					stage,
-					status: authResponse.status,
-				},
-				event: "bootstrap_bridge_request_failed",
-				level: "error",
-				logger,
-			});
-
-			return toBridgeErrorResponse(errorMessage, authResponse.status, setCookieHeaders);
-		}
-
-		stage = "parse_bridge_session";
-		const authPayload = (await authResponse.json()) as {
-			user: {
-				email: string;
-				role?: string | null;
-			};
-		};
-		const convexToken = getCookieValue(setCookieHeaders, JWT_COOKIE_NAME);
+		stage = "issue_convex_jwt";
+		const convexToken = bridge.merchantSession.token;
+		const convexTokenExpiresAt = bridge.merchantSession.expiresAt;
 
 		if (!convexToken) {
 			logMerchantAuthEvent({
 				details: {
 					...requestContext,
-					authUserEmailPresent: Boolean(authPayload.user.email),
-					authUserRole: authPayload.user.role ?? null,
-					merchantActorId: bridge.bridgePayload.merchantActorId,
-					setCookieNames: getCookieNames(setCookieHeaders),
-					shopDomain: bridge.bridgePayload.shopDomain,
+					merchantActorId: bridge.persistedBootstrap.viewer?.id ?? null,
+					shopDomain: bridge.persistedBootstrap.activeShop?.domain ?? null,
 					stage,
 				},
-				event: "bootstrap_missing_convex_jwt_cookie",
+				event: "bootstrap_missing_convex_token",
 				level: "error",
 				logger,
 			});
 
 			return toBridgeErrorResponse(
-				"Merchant auth bridge completed without issuing a Convex JWT.",
+				"Merchant bootstrap completed without issuing a Convex JWT.",
 				500,
-				setCookieHeaders,
 			);
 		}
 
 		const roles = deriveViewerRoles({
-			betterAuthRole: authPayload.user.role ?? null,
 			merchantRole: "shop_admin",
 		});
 		const session: SessionEnvelope = {
@@ -355,19 +243,22 @@ export async function bootstrapShopifyMerchantSession(
 			viewer: bridge.persistedBootstrap.viewer
 				? {
 						...bridge.persistedBootstrap.viewer,
-						email: authPayload.user.email,
+						email: bridge.persistedBootstrap.viewer.email,
 						roles,
 					}
 				: null,
 			convexToken,
-			convexTokenExpiresAt: getConvexTokenExpiresAt(convexToken),
+			convexTokenExpiresAt: convexTokenExpiresAt ?? getConvexTokenExpiresAt(convexToken),
 		};
 		const headers = new Headers({
 			"Cache-Control": "no-store",
 			"Content-Type": "application/json",
 		});
 
-		appendSetCookieHeaders(headers, setCookieHeaders);
+		headers.append(
+			"Set-Cookie",
+			buildConvexJwtCookie(request, convexToken, session.convexTokenExpiresAt ?? Date.now()),
+		);
 
 		return new Response(JSON.stringify(session), {
 			headers,

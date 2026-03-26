@@ -1,3 +1,4 @@
+import { type BetterAuthJwkDoc, issueMerchantSessionToken } from "@convex/merchantSessionToken";
 import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
 import type { SessionEnvelope, ShopSummary, ViewerSummary } from "@/shared/contracts/session";
@@ -8,7 +9,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 } from "@/shared/contracts/storefront-widget";
-import { internal } from "./_generated/api";
+import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { action, internalMutation, internalQuery } from "./_generated/server";
 import {
@@ -156,12 +157,9 @@ interface PersistBootstrapResult {
 }
 
 export interface MerchantBootstrapBridgeResult {
-	bridgePayload: {
-		email?: string;
-		merchantActorId: Id<"merchantActors">;
-		name: string;
-		shopDomain: string;
-		shopifyUserId: string;
+	merchantSession: {
+		expiresAt: number;
+		token: string;
 	};
 	persistedBootstrap: PersistBootstrapResult;
 }
@@ -372,15 +370,40 @@ export const prepareMerchantAuthBridge = action({
 			shopifyShopId: metadata.shopifyShopId,
 			shopifyUserId: String(decoded.sub ?? "unknown"),
 		});
+		const signingJwkResult: { page: BetterAuthJwkDoc[] } = await ctx.runQuery(
+			components.betterAuth.adapter.findMany,
+			{
+				model: "jwks",
+				paginationOpts: {
+					cursor: null,
+					numItems: 1,
+				},
+				sortBy: {
+					direction: "desc",
+					field: "createdAt",
+				},
+			},
+		);
+		const latestSigningJwk = signingJwkResult.page[0];
 
-		return {
-			bridgePayload: {
+		if (!latestSigningJwk) {
+			throw new Error("Better Auth JWKS are unavailable for merchant session signing.");
+		}
+		const merchantSession = await issueMerchantSessionToken({
+			claims: {
 				email: associatedUser?.email ?? undefined,
 				merchantActorId: persistedBootstrap.viewer.id as Id<"merchantActors">,
 				name: persistedBootstrap.viewer.name,
+				roles: persistedBootstrap.roles,
 				shopDomain: persistedBootstrap.activeShop.domain,
+				shopId: persistedBootstrap.activeShop.id as Id<"shops">,
 				shopifyUserId: String(decoded.sub ?? "unknown"),
 			},
+			signingJwk: latestSigningJwk,
+		});
+
+		return {
+			merchantSession,
 			persistedBootstrap,
 		};
 	},
