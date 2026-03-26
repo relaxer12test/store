@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Input } from "@/components/ui/cata/input";
@@ -21,7 +21,7 @@ function InternalResetPasswordRoute() {
 
 	const [view, setView] = useState<ResetView>(initialView);
 	const [error, setError] = useState<string | null>(null);
-	const [isPending, startTransition] = useTransition();
+	const [isPending, setIsPending] = useState(false);
 
 	return (
 		<div className="flex min-h-dvh items-center justify-center bg-slate-50 px-4">
@@ -38,9 +38,11 @@ function InternalResetPasswordRoute() {
 
 						<form
 							className="mt-8"
-							onSubmit={(event) => {
+							onSubmit={async (event) => {
 								event.preventDefault();
+								if (isPending) return;
 								setError(null);
+								setIsPending(true);
 
 								const formData = new FormData(event.currentTarget);
 								const newPassword = (formData.get("newPassword") as string) ?? "";
@@ -48,36 +50,36 @@ function InternalResetPasswordRoute() {
 
 								if (newPassword !== confirmPassword) {
 									setError("Passwords do not match.");
+									setIsPending(false);
 									return;
 								}
 
 								if (newPassword.length < 8) {
 									setError("Password must be at least 8 characters.");
+									setIsPending(false);
 									return;
 								}
 
-								startTransition(() => {
-									void (async () => {
-										try {
-											const result = await authClient.resetPassword({
-												newPassword,
-												token: token!,
-											});
+								try {
+									const result = await authClient.resetPassword({
+										newPassword,
+										token: token!,
+									});
 
-											if (result.error) {
-												throw new Error(result.error.message);
-											}
+									if (result.error) {
+										throw new Error(result.error.message);
+									}
 
-											setView("success");
-										} catch (resetError) {
-											setError(
-												resetError instanceof Error
-													? resetError.message
-													: "Failed to reset password.",
-											);
-										}
-									})();
-								});
+									setView("success");
+								} catch (resetError) {
+									setError(
+										resetError instanceof Error
+											? resetError.message
+											: "Failed to reset password.",
+									);
+								} finally {
+									setIsPending(false);
+								}
 							}}
 						>
 							<Fieldset>
@@ -105,7 +107,7 @@ function InternalResetPasswordRoute() {
 
 							<div className="mt-6">
 								<Button color="dark/zinc" disabled={isPending} type="submit">
-									{isPending ? "Resetting..." : "Reset password"}
+									{isPending ? "Resetting\u2026" : "Reset password"}
 								</Button>
 							</div>
 

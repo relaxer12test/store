@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRef, useState, useTransition } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Input } from "@/components/ui/cata/input";
@@ -29,7 +29,7 @@ export const Route = createFileRoute("/internal-auth")({
 function InternalAuthRoute() {
 	const [view, setView] = useState<AuthView>("sign-in");
 	const [error, setError] = useState<string | null>(null);
-	const [isPending, startTransition] = useTransition();
+	const [isPending, setIsPending] = useState(false);
 	const [sentEmail, setSentEmail] = useState("");
 	const emailRef = useRef<HTMLInputElement>(null);
 
@@ -53,43 +53,42 @@ function InternalAuthRoute() {
 
 						<form
 							className="mt-8"
-							onSubmit={(event) => {
+							onSubmit={async (event) => {
 								event.preventDefault();
+								if (isPending) return;
 								setError(null);
+								setIsPending(true);
 
 								const formData = new FormData(event.currentTarget);
 								const email = ((formData.get("email") as string) ?? "").trim();
 								const password = (formData.get("password") as string) ?? "";
 
-								startTransition(() => {
-									void (async () => {
-										try {
-											const result = await authClient.signIn.email({
-												email,
-												password,
-											});
+								try {
+									const result = await authClient.signIn.email({
+										email,
+										password,
+									});
 
-											if (result.error) {
-												throw new Error(result.error.message);
-											}
+									if (result.error) {
+										throw new Error(result.error.message);
+									}
 
-											const session = await getSessionEnvelope();
+									const session = await getSessionEnvelope();
 
-											if (!hasAdminSession(session)) {
-												await authClient.signOut();
-												throw new Error("This Better Auth account is not an admin.");
-											}
+									if (!hasAdminSession(session)) {
+										await authClient.signOut();
+										throw new Error("This Better Auth account is not an admin.");
+									}
 
-											window.location.assign("/internal");
-										} catch (authError) {
-											setError(
-												authError instanceof Error
-													? authError.message
-													: "Admin authentication failed.",
-											);
-										}
-									})();
-								});
+									window.location.assign("/internal");
+								} catch (authError) {
+									setError(
+										authError instanceof Error
+											? authError.message
+											: "Admin authentication failed.",
+									);
+									setIsPending(false);
+								}
 							}}
 						>
 							<Fieldset>
@@ -119,7 +118,7 @@ function InternalAuthRoute() {
 
 							<div className="mt-6 flex items-center justify-between">
 								<Button color="dark/zinc" disabled={isPending} type="submit">
-									{isPending ? "Signing in..." : "Sign in"}
+									{isPending ? "Signing in\u2026" : "Sign in"}
 								</Button>
 								<button
 									className="text-sm font-medium text-slate-600 transition hover:text-slate-900"
@@ -151,36 +150,36 @@ function InternalAuthRoute() {
 
 						<form
 							className="mt-8"
-							onSubmit={(event) => {
+							onSubmit={async (event) => {
 								event.preventDefault();
+								if (isPending) return;
 								setError(null);
+								setIsPending(true);
 
 								const formData = new FormData(event.currentTarget);
 								const email = ((formData.get("email") as string) ?? "").trim();
 
-								startTransition(() => {
-									void (async () => {
-										try {
-											const result = await authClient.requestPasswordReset({
-												email,
-												redirectTo: `${window.location.origin}/internal-reset-password`,
-											});
+								try {
+									const result = await authClient.requestPasswordReset({
+										email,
+										redirectTo: `${window.location.origin}/internal-reset-password`,
+									});
 
-											if (result.error) {
-												throw new Error(result.error.message);
-											}
+									if (result.error) {
+										throw new Error(result.error.message);
+									}
 
-											setSentEmail(email);
-											setView("reset-email-sent");
-										} catch (resetError) {
-											setError(
-												resetError instanceof Error
-													? resetError.message
-													: "Failed to send reset link.",
-											);
-										}
-									})();
-								});
+									setSentEmail(email);
+									setView("reset-email-sent");
+								} catch (resetError) {
+									setError(
+										resetError instanceof Error
+											? resetError.message
+											: "Failed to send reset link.",
+									);
+								} finally {
+									setIsPending(false);
+								}
 							}}
 						>
 							<Fieldset>
@@ -201,7 +200,7 @@ function InternalAuthRoute() {
 
 							<div className="mt-6 flex items-center gap-3">
 								<Button color="dark/zinc" disabled={isPending} type="submit">
-									{isPending ? "Sending..." : "Send reset link"}
+									{isPending ? "Sending\u2026" : "Send reset link"}
 								</Button>
 								<Button onClick={() => switchTo("sign-in")} plain type="button">
 									Back to sign in
