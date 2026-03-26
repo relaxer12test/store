@@ -25,6 +25,8 @@ export interface EmbeddedAppManager {
 }
 
 const HOST_STORAGE_KEY = "shopify-admin-host";
+const SHOPIFY_APP_BRIDGE_POLL_INTERVAL_MS = 50;
+const SHOPIFY_APP_BRIDGE_TIMEOUT_MS = 1_500;
 
 function getPersistedHost() {
 	if (isServer) {
@@ -48,6 +50,28 @@ function getShopifyGlobal() {
 	}
 
 	return window.shopify ?? globalThis.shopify;
+}
+
+function wait(ms: number) {
+	return new Promise((resolve) => {
+		setTimeout(resolve, ms);
+	});
+}
+
+async function waitForShopifyGlobal() {
+	if (isServer) {
+		return undefined;
+	}
+
+	const deadline = Date.now() + SHOPIFY_APP_BRIDGE_TIMEOUT_MS;
+	let shopify = getShopifyGlobal();
+
+	while (!shopify?.idToken && Date.now() < deadline) {
+		await wait(SHOPIFY_APP_BRIDGE_POLL_INTERVAL_MS);
+		shopify = getShopifyGlobal();
+	}
+
+	return shopify;
 }
 
 function createInitialState(): EmbeddedBootstrapState {
@@ -93,7 +117,7 @@ async function requestSessionToken({
 		};
 	}
 
-	const shopify = getShopifyGlobal();
+	const shopify = await waitForShopifyGlobal();
 
 	if (shopify?.idToken) {
 		try {
@@ -133,7 +157,7 @@ export function createEmbeddedAppManager(): EmbeddedAppManager {
 			return state;
 		}
 
-		if (state.status === "ready") {
+		if (state.status === "ready" && (!state.isEmbedded || state.sessionToken)) {
 			return state;
 		}
 

@@ -191,19 +191,19 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				return sessionManager.getState();
 			}
 
-			if (!embeddedState.sessionToken) {
+			const sessionToken = embeddedState.sessionToken ?? (await embeddedApp.getSessionToken());
+
+			if (!sessionToken) {
 				return sessionManager.getState();
 			}
 
 			try {
 				const response = await fetch("/api/shopify/bootstrap", {
 					method: "POST",
-					headers: mergeHeaders(
-						{
-							Accept: "application/json",
-						},
-						await getEmbeddedHeaders(),
-					),
+					headers: mergeHeaders({
+						Accept: "application/json",
+						Authorization: `Bearer ${sessionToken}`,
+					}),
 				});
 
 				if (!response.ok) {
