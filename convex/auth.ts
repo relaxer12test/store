@@ -11,7 +11,6 @@ import {
 	type QueryCtx,
 } from "@convex/_generated/server";
 import authSchema from "@convex/betterAuth/schema";
-import { sendPasswordResetEmail } from "@convex/mail";
 import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
@@ -871,14 +870,27 @@ export function createAuthOptions(ctx: AuthCtx) {
 		emailAndPassword: {
 			enabled: true,
 			sendResetPassword: async ({ user, url }) => {
-				if (!("runMutation" in ctx) || typeof ctx.runMutation !== "function") {
-					throw new Error("Password reset email requires a mutation-capable auth context.");
+				if (!("runAction" in ctx) || typeof ctx.runAction !== "function") {
+					throw new Error("Password reset email requires an action-capable auth context.");
 				}
 
-				await sendPasswordResetEmail(ctx, {
+				await ctx.runAction(internal.emailActions.sendPasswordReset, {
 					email: user.email,
 					name: user.name,
 					resetUrl: url,
+				});
+			},
+		},
+		emailVerification: {
+			sendVerificationEmail: async ({ user, url }) => {
+				if (!("runAction" in ctx) || typeof ctx.runAction !== "function") {
+					throw new Error("Verification email requires an action-capable auth context.");
+				}
+
+				await ctx.runAction(internal.emailActions.sendVerificationEmail, {
+					email: user.email,
+					name: user.name,
+					verificationUrl: url,
 				});
 			},
 		},

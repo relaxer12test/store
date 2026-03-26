@@ -11,6 +11,10 @@
 import type * as auth from "../auth.js";
 import type * as crons from "../crons.js";
 import type * as documentStorage from "../documentStorage.js";
+import type * as emailActions from "../emailActions.js";
+import type * as emails_Layout from "../emails/Layout.js";
+import type * as emails_PasswordResetEmail from "../emails/PasswordResetEmail.js";
+import type * as emails_VerifyEmailEmail from "../emails/VerifyEmailEmail.js";
 import type * as http from "../http.js";
 import type * as internalStorefrontAi from "../internalStorefrontAi.js";
 import type * as mail from "../mail.js";
@@ -39,6 +43,10 @@ declare const fullApi: ApiFromModules<{
   auth: typeof auth;
   crons: typeof crons;
   documentStorage: typeof documentStorage;
+  emailActions: typeof emailActions;
+  "emails/Layout": typeof emails_Layout;
+  "emails/PasswordResetEmail": typeof emails_PasswordResetEmail;
+  "emails/VerifyEmailEmail": typeof emails_VerifyEmailEmail;
   http: typeof http;
   internalStorefrontAi: typeof internalStorefrontAi;
   mail: typeof mail;
