@@ -53,9 +53,11 @@ function MerchantLayoutRoute() {
 			navItems={appNav}
 			notice={<EmbeddedAppShellBanner />}
 			statusLabel={
-				auth.viewer?.activeShop?.name ??
-				embeddedApp.shop ??
-				(embeddedApp.isEmbedded ? "Shopify admin shell" : "Local development shell")
+				auth.isMerchant
+					? "Merchant workspace ready"
+					: embeddedApp.isEmbedded
+						? "Shopify admin shell"
+						: "Local development shell"
 			}
 			title="Store operating cockpit"
 		>

@@ -82,12 +82,12 @@ export function InstallPage() {
 									{auth.isMerchant ? "Merchant auth ready" : "Merchant auth pending"}
 								</StatusPill>
 								{auth.viewer?.activeShop ? (
-									<StatusPill tone="neutral">{auth.viewer.activeShop.domain}</StatusPill>
+									<StatusPill tone="neutral">Embedded shop resolved</StatusPill>
 								) : null}
 							</div>
 							<Text className="mt-3">
 								{auth.viewer?.activeShop
-									? `The current embedded session resolved the active shop as ${auth.viewer.activeShop.name}.`
+									? "The current embedded session resolved an active shop context."
 									: "The app shell has not resolved an embedded shop context yet."}
 							</Text>
 						</div>

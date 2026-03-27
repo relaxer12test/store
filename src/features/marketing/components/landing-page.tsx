@@ -20,7 +20,7 @@ export function LandingPage() {
 					{auth.hasSession ? "Better Auth session ready" : "No browser session"}
 				</StatusPill>
 				{auth.viewer?.activeShop ? (
-					<StatusPill tone="success">{auth.viewer.activeShop.domain}</StatusPill>
+					<StatusPill tone="success">Shop connected</StatusPill>
 				) : (
 					<StatusPill tone="neutral">No shop connected</StatusPill>
 				)}

@@ -505,8 +505,10 @@
 			loadedSessionId: null,
 			open: false,
 			pending: false,
+			suggestionCount: 0,
 			sessions: [],
 			sessionId: getSessionId(shopDomain),
+			view: "chat",
 		};
 
 		var shell = createElement("section", "storefront-ai-widget-shell");
@@ -520,8 +522,37 @@
 		var title = createElement("div", "storefront-ai-widget-title");
 		var eyebrow = createElement("span", "storefront-ai-widget-eyebrow", "Moonbeam");
 		var heading = createElement("span", "storefront-ai-widget-heading", "Unicorn Concierge");
+		var headerActions = createElement("div", "storefront-ai-widget-header-actions");
+		var chatsButton = createElement(
+			"button",
+			"storefront-ai-widget-header-button storefront-ai-widget-header-button--secondary",
+			"Chats",
+		);
+		var newChatButton = createElement(
+			"button",
+			"storefront-ai-widget-header-button",
+			"New chat",
+		);
 		var close = createElement("button", "storefront-ai-widget-close", "x");
-		var sessionStrip = createElement("div", "storefront-ai-widget-session-strip");
+		var sessionPage = createElement("div", "storefront-ai-widget-session-page");
+		var sessionIntro = createElement("div", "storefront-ai-widget-session-intro");
+		var sessionKicker = createElement("p", "storefront-ai-widget-session-kicker", "Chats");
+		var sessionHeading = createElement(
+			"h3",
+			"storefront-ai-widget-session-heading",
+			"Pick up where you left off",
+		);
+		var sessionCopy = createElement(
+			"p",
+			"storefront-ai-widget-session-copy",
+			"Open an earlier chat or start a new one. Fresh chats appear here after the first answer.",
+		);
+		var sessionStartButton = createElement(
+			"button",
+			"storefront-ai-widget-session-cta",
+			"Start a new chat",
+		);
+		var sessionListView = createElement("div", "storefront-ai-widget-session-list");
 		var feed = createElement("div", "storefront-ai-widget-feed");
 		var suggestions = createElement("div", "storefront-ai-widget-suggestions");
 		var form = createElement("form", "storefront-ai-widget-form");
@@ -548,22 +579,37 @@
 
 		close.type = "button";
 		close.setAttribute("aria-label", "Close storefront AI assistant");
+		chatsButton.type = "button";
+		chatsButton.setAttribute("aria-label", "Open saved chats");
+		newChatButton.type = "button";
+		newChatButton.setAttribute("aria-label", "Start a new chat");
+		sessionStartButton.type = "button";
 
 		input.placeholder = "What are you shopping for today?";
 		input.rows = 4;
 		input.maxLength = 500;
 
 		submit.type = "submit";
+		sessionPage.hidden = true;
 		suggestions.hidden = true;
 
 		header.appendChild(title);
-		header.appendChild(close);
+		headerActions.appendChild(chatsButton);
+		headerActions.appendChild(newChatButton);
+		headerActions.appendChild(close);
+		header.appendChild(headerActions);
+		sessionIntro.appendChild(sessionKicker);
+		sessionIntro.appendChild(sessionHeading);
+		sessionIntro.appendChild(sessionCopy);
+		sessionIntro.appendChild(sessionStartButton);
+		sessionPage.appendChild(sessionIntro);
+		sessionPage.appendChild(sessionListView);
 		toolbar.appendChild(helper);
 		toolbar.appendChild(submit);
 		form.appendChild(input);
 		form.appendChild(toolbar);
 		panel.appendChild(header);
-		panel.appendChild(sessionStrip);
+		panel.appendChild(sessionPage);
 		panel.appendChild(feed);
 		panel.appendChild(suggestions);
 		panel.appendChild(form);
@@ -611,15 +657,35 @@
 			submit.textContent = nextPending ? "Sending..." : "Send";
 		}
 
+		function syncPanelView() {
+			var showingSessions = state.view === "sessions";
+
+			sessionPage.hidden = !showingSessions;
+			feed.hidden = showingSessions;
+			form.hidden = showingSessions;
+			suggestions.hidden = showingSessions || state.suggestionCount === 0;
+			chatsButton.textContent = showingSessions ? "Back to chat" : "Chats";
+			chatsButton.setAttribute(
+				"aria-label",
+				showingSessions ? "Return to the current chat" : "Open saved chats",
+			);
+		}
+
+		function setView(nextView) {
+			state.view = nextView === "sessions" ? "sessions" : "chat";
+			syncPanelView();
+		}
+
 		function scrollFeedToBottom() {
 			feed.scrollTop = feed.scrollHeight;
 		}
 
 		function renderSuggestions(promptSuggestions) {
 			suggestions.innerHTML = "";
+			state.suggestionCount = Array.isArray(promptSuggestions) ? promptSuggestions.length : 0;
 
-			if (!Array.isArray(promptSuggestions) || promptSuggestions.length === 0) {
-				suggestions.hidden = true;
+			if (state.suggestionCount === 0) {
+				suggestions.hidden = state.view === "sessions";
 				return;
 			}
 
@@ -633,7 +699,7 @@
 				suggestions.appendChild(suggestion);
 			});
 
-			suggestions.hidden = false;
+			suggestions.hidden = state.view === "sessions";
 		}
 
 		function clearFeed() {
@@ -657,6 +723,7 @@
 		}
 
 		function seedGreeting() {
+			setView("chat");
 			clearFeed();
 			addAssistantReply(buildGreetingReplyPayload());
 			state.loadedSessionId = state.sessionId;
@@ -676,74 +743,92 @@
 		}
 
 		function renderSessionList(sessionList) {
-			sessionStrip.innerHTML = "";
+			sessionListView.innerHTML = "";
 			state.sessions = Array.isArray(sessionList) ? sessionList : [];
 
-			var newChatButton = createElement(
-				"button",
-				"storefront-ai-widget-session storefront-ai-widget-session--new",
-				"New chat",
-			);
-			newChatButton.type = "button";
-			newChatButton.addEventListener("click", function () {
-				state.sessionId = createSessionId();
-				setSessionId(shopDomain, state.sessionId);
-				renderSessionList(state.sessions);
-				seedGreeting();
-				window.setTimeout(function () {
-					input.focus();
-				}, 0);
-			});
-
-			if (
-				!state.sessions.some(function (session) {
-					return session.sessionId === state.sessionId;
-				})
-			) {
-				newChatButton.classList.add("is-active");
+			if (state.sessions.length === 0) {
+				var emptyState = createElement("div", "storefront-ai-widget-session-empty");
+				emptyState.appendChild(
+					createElement("strong", "", "No saved chats yet"),
+				);
+				emptyState.appendChild(
+					createElement(
+						"p",
+						"",
+						"Start a new chat and it will appear here after the first answer.",
+					),
+				);
+				sessionListView.appendChild(emptyState);
+				return;
 			}
-
-			sessionStrip.appendChild(newChatButton);
 
 			state.sessions.forEach(function (session) {
 				var button = createElement("button", "storefront-ai-widget-session");
+				var row = createElement("div", "storefront-ai-widget-session-row");
+				var content = createElement("div", "storefront-ai-widget-session-stack");
 				var titleNode = createElement(
 					"span",
 					"storefront-ai-widget-session-title",
 					session.title || "Chat",
 				);
+				var metaText = formatSessionTimestamp(session.lastUpdatedAt);
 				var metaNode = createElement(
 					"span",
 					"storefront-ai-widget-session-meta",
-					formatSessionTimestamp(session.lastUpdatedAt),
+					metaText ? "Updated " + metaText : "",
+				);
+				var previewNode = createElement(
+					"p",
+					"storefront-ai-widget-session-preview",
+					session.lastReplyPreview || "Open this chat to keep going.",
 				);
 
 				button.type = "button";
-				button.appendChild(titleNode);
+				content.appendChild(titleNode);
 				if (metaNode.textContent) {
-					button.appendChild(metaNode);
+					content.appendChild(metaNode);
 				}
+				row.appendChild(content);
 
 				if (session.sessionId === state.sessionId) {
 					button.classList.add("is-active");
+					row.appendChild(
+						createElement("span", "storefront-ai-widget-session-badge", "Current"),
+					);
 				}
 
-				button.addEventListener("click", function () {
-					if (
-						state.sessionId === session.sessionId &&
-						state.loadedSessionId === session.sessionId
-					) {
-						return;
-					}
+				button.appendChild(row);
+				button.appendChild(previewNode);
 
+				button.addEventListener("click", function () {
 					state.sessionId = session.sessionId;
 					setSessionId(shopDomain, state.sessionId);
 					renderSessionList(state.sessions);
+					setView("chat");
+
+					if (state.loadedSessionId === session.sessionId) {
+						window.setTimeout(function () {
+							input.focus();
+						}, 0);
+						return;
+					}
+
 					void loadSessionDetail(session.sessionId);
 				});
 
-				sessionStrip.appendChild(button);
+				sessionListView.appendChild(button);
 			});
+		}
+
+		function startNewChat() {
+			state.sessionId = createSessionId();
+			state.loadedSessionId = null;
+			setSessionId(shopDomain, state.sessionId);
+			renderSessionList(state.sessions);
+			seedGreeting();
+			window.setTimeout(function () {
+				input.focus();
+			}, 0);
 		}
 
 		function ensureWidgetAuth() {
@@ -799,8 +884,9 @@
 		}
 
 		function loadSessionDetail(sessionId) {
+			setView("chat");
 			clearFeed();
-			addSystemMessage("Loading conversation...");
+			addSystemMessage("Loading your chat...");
 
 			return fetchWidgetJson(
 				"/api/shopify/widget/session?shop=" +
@@ -832,7 +918,7 @@
 				})
 				.catch(function (error) {
 					clearFeed();
-					addSystemMessage(
+					addErrorMessage(
 						error instanceof Error
 							? error.message
 							: "The conversation could not be loaded right now.",
@@ -855,7 +941,7 @@
 				})
 				.catch(function (error) {
 					seedGreeting();
-					addSystemMessage(
+					addErrorMessage(
 						error instanceof Error
 							? error.message
 							: "The storefront assistant could not restore your conversations.",
@@ -869,6 +955,7 @@
 		}
 
 		function addAssistantReply(reply) {
+			setView("chat");
 			feed.appendChild(
 				createMessage(reply.tone === "refusal" ? "refusal" : "assistant", {
 					cards: reply.cards || [],
@@ -884,6 +971,7 @@
 		}
 
 		function addUserMessage(text) {
+			setView("chat");
 			feed.appendChild(
 				createMessage("user", {
 					cards: [],
@@ -896,8 +984,22 @@
 		}
 
 		function addSystemMessage(text) {
+			setView("chat");
 			feed.appendChild(
 				createMessage("system", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
+			scrollFeedToBottom();
+		}
+
+		function addErrorMessage(text) {
+			setView("chat");
+			feed.appendChild(
+				createMessage("error", {
 					cards: [],
 					cartPlan: null,
 					references: [],
@@ -1038,7 +1140,7 @@
 					addSystemMessage("Added the plan to your cart. Your cart has been updated.");
 				})
 				.catch(function (error) {
-					addSystemMessage(
+					addErrorMessage(
 						error instanceof Error
 							? error.message
 							: "The cart plan could not be applied right now.",
@@ -1055,6 +1157,7 @@
 				return;
 			}
 
+			setView("chat");
 			state.open = true;
 			panel.hidden = false;
 			toggle.setAttribute("aria-expanded", "true");
@@ -1154,7 +1257,7 @@
 				})
 				.catch(function (error) {
 					streamingMessage.remove();
-					addSystemMessage(
+					addErrorMessage(
 						error instanceof Error ? error.message : "The storefront assistant could not respond.",
 					);
 				})
@@ -1173,6 +1276,27 @@
 		});
 
 		close.addEventListener("click", closePanel);
+		chatsButton.addEventListener("click", function () {
+			if (state.view === "sessions") {
+				setView("chat");
+				window.setTimeout(function () {
+					input.focus();
+				}, 0);
+				return;
+			}
+
+			setView("sessions");
+			void loadSessionList().catch(function (error) {
+				setView("chat");
+				addErrorMessage(
+					error instanceof Error
+						? error.message
+						: "Your saved chats could not be loaded right now.",
+				);
+			});
+		});
+		newChatButton.addEventListener("click", startNewChat);
+		sessionStartButton.addEventListener("click", startNewChat);
 
 		input.addEventListener("keydown", function (event) {
 			if (event.key !== "Enter" || event.isComposing) {
@@ -1195,7 +1319,7 @@
 		fetchJson(apiBase + "/api/shopify/widget?shop=" + encodeURIComponent(shopDomain))
 			.then(function (config) {
 				state.config = config;
-				heading.textContent = config.shopName || "Unicorn Concierge";
+				heading.textContent = "Unicorn Concierge";
 				helper.textContent = config.enabled
 					? "Ask about products, gifts, party planning, sizing, or shipping."
 					: "Enable the widget in merchant settings before shoppers can use it.";

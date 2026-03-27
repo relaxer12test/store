@@ -26,7 +26,6 @@ export function EmbeddedAppShellBanner() {
 				<StatusPill tone={embeddedApp.sessionToken ? "success" : "watch"}>
 					{embeddedApp.sessionToken ? "Bearer ready" : "Waiting for token"}
 				</StatusPill>
-				{embeddedApp.shop ? <StatusPill tone="neutral">{embeddedApp.shop}</StatusPill> : null}
 				{embeddedApp.host ? <StatusPill tone="neutral">host set</StatusPill> : null}
 			</div>
 		</Panel>

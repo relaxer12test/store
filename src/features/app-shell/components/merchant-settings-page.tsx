@@ -267,10 +267,7 @@ export function MerchantSettingsPage({
 					</div>
 
 					<div className="mt-5">
-						<DetailRow
-							label="Shop"
-							value={`${data.installHealth.shopName} (${data.installHealth.shopDomain})`}
-						/>
+						<DetailRow label="Shop" value="Connected Shopify shop" />
 						<DetailRow label="App URL" value={data.installHealth.appUrl} />
 						<DetailRow
 							label="Scopes"
