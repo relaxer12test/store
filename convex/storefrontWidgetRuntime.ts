@@ -3,7 +3,7 @@ import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ActionCtx } from "@convex/_generated/server";
-import { generateText, Output } from "ai";
+import { generateText, Output, tool } from "ai";
 import { z } from "zod";
 import type {
 	CartPlan,
@@ -491,7 +491,7 @@ function buildUserTurnPrompt(prepared: PreparedRequest) {
 
 function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 	return {
-		answerPolicyQuestion: {
+		answerPolicyQuestion: tool({
 			description:
 				"Answer public shipping, returns, or contact questions using merchant-authored storefront-safe policy text.",
 			execute: async (input: { question: string }) => {
@@ -508,8 +508,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 					.describe("The shopper's policy question in plain language."),
 			}),
 			strict: true,
-		},
-		buildCartPlan: {
+		}),
+		buildCartPlan: tool({
 			description:
 				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts.",
 			execute: async (input: { explanation?: string; handles: string[]; note?: string }) => {
@@ -526,8 +526,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 				note: z.string().min(1).max(200).optional(),
 			}),
 			strict: true,
-		},
-		compareProducts: {
+		}),
+		compareProducts: tool({
 			description: "Compare a few public products by exact product handles.",
 			execute: async (input: { handles: string[] }) => {
 				return await ctx.runQuery(internal.storefrontConcierge.compareProducts, {
@@ -539,8 +539,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 				handles: z.array(z.string().min(1).max(120)).min(1).max(3),
 			}),
 			strict: true,
-		},
-		getCollectionDetail: {
+		}),
+		getCollectionDetail: tool({
 			description: "Get a single public collection by exact handle.",
 			execute: async (input: { handle: string }) => {
 				return await ctx.runQuery(internal.storefrontConcierge.getCollectionDetail, {
@@ -552,8 +552,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 				handle: z.string().min(1).max(120),
 			}),
 			strict: true,
-		},
-		getProductDetail: {
+		}),
+		getProductDetail: tool({
 			description: "Get a single public product by exact handle.",
 			execute: async (input: { handle: string }) => {
 				return await ctx.runQuery(internal.storefrontConcierge.getProductDetail, {
@@ -565,8 +565,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 				handle: z.string().min(1).max(120),
 			}),
 			strict: true,
-		},
-		recommendBundle: {
+		}),
+		recommendBundle: tool({
 			description:
 				"Recommend a safe starter bundle or complementary products using public storefront catalog data.",
 			execute: async (input: { query?: string }) => {
@@ -585,8 +585,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 					.describe("Optional search phrase when bundling around a category or use case."),
 			}),
 			strict: true,
-		},
-		searchCatalog: {
+		}),
+		searchCatalog: tool({
 			description:
 				"Search the shop's public product catalog with a real shopper query. Do not use this for generic greetings.",
 			execute: async (input: { limit?: number; query: string }) => {
@@ -609,8 +609,8 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 					.describe("The real product search phrase from the shopper."),
 			}),
 			strict: true,
-		},
-		searchCollections: {
+		}),
+		searchCollections: tool({
 			description: "Search the shop's public collections with a real shopper query.",
 			execute: async (input: { limit?: number; query: string }) => {
 				return await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
@@ -628,7 +628,7 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 					.describe("The real collection search phrase from the shopper."),
 			}),
 			strict: true,
-		},
+		}),
 	} as const;
 }
 

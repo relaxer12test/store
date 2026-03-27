@@ -7,8 +7,8 @@ import {
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
 import { Strong, Text } from "@/components/ui/cata/text";
-import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
+import { Panel } from "@/components/ui/layout";
 import {
 	CodeValue,
 	ResourceDetailCard,
@@ -125,9 +125,7 @@ function InternalShopDetailRoute() {
 					>
 						<div className="min-w-0 text-left">
 							<Strong>Workflows</Strong>
-							<Text className="truncate text-xs">
-								{recentWorkflows[0]?.type ?? "No records"}
-							</Text>
+							<Text className="truncate text-xs">{recentWorkflows[0]?.type ?? "No records"}</Text>
 						</div>
 					</Button>
 					<Button

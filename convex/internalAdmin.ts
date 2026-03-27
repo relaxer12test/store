@@ -247,60 +247,6 @@ function toUserSummary(record: BetterAuthUserRecord): InternalUserSummary {
 	};
 }
 
-function getMessageRole(message: {
-	message?: {
-		role?: string;
-	};
-}): InternalAiTranscriptMessage["role"] {
-	switch (message.message?.role) {
-		case "assistant":
-		case "system":
-		case "tool":
-		case "user":
-			return message.message.role;
-		default:
-			return "assistant";
-	}
-}
-
-function getMessageBody(message: { creationError?: string; error?: string; text?: string }) {
-	const text = message.text?.trim();
-
-	if (text) {
-		return text;
-	}
-
-	return message.error?.trim() ?? message.creationError?.trim() ?? "No text content was persisted.";
-}
-
-function toTranscriptMessage(message: {
-	_creationTime: number;
-	_id: string;
-	error?: string;
-	message?: {
-		role?: string;
-	};
-	model?: string;
-	order: number;
-	provider?: string;
-	status: "failed" | "pending" | "success";
-	stepOrder: number;
-	text?: string;
-}): InternalAiTranscriptMessage {
-	return {
-		body: getMessageBody(message),
-		createdAt: new Date(message._creationTime).toISOString(),
-		error: message.error ?? null,
-		id: message._id,
-		model: message.model ?? null,
-		order: message.order,
-		provider: message.provider ?? null,
-		role: getMessageRole(message),
-		status: message.status,
-		stepOrder: message.stepOrder,
-	};
-}
-
 function toSessionTranscriptMessage(
 	message: Doc<"storefrontAiSessionMessages">,
 ): InternalAiTranscriptMessage {

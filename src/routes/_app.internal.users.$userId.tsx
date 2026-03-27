@@ -7,8 +7,8 @@ import {
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
 import { Text } from "@/components/ui/cata/text";
-import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
+import { Panel } from "@/components/ui/layout";
 import {
 	CodeValue,
 	formatTimestampLabel,

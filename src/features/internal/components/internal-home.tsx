@@ -9,10 +9,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 			<MetricGrid metrics={snapshot.metrics} />
 
 			<div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-				<Panel
-					description="Live signals derived from Convex state."
-					title="Watchlist"
-				>
+				<Panel description="Live signals derived from Convex state." title="Watchlist">
 					{snapshot.signals.length > 0 ? (
 						<div className="space-y-3">
 							{snapshot.signals.map((signal) => (
