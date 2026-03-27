@@ -85,20 +85,7 @@ export function InternalAiChatPage({
 	const deferredSearchValue = useDeferredValue(searchQuery);
 	const normalizedSearch = deferredSearchValue.trim().toLowerCase();
 	const sessionsData = sessionsQuery.data;
-
-	if (sessionsQuery.isPending) {
-		return <Text>Loading storefront AI sessions…</Text>;
-	}
-
-	if (sessionsQuery.isError || !sessionsData) {
-		return (
-			<Text className="text-red-600 dark:text-red-500">
-				Failed to load storefront AI sessions.
-			</Text>
-		);
-	}
-
-	const filteredSessions = sessionsData.sessions.filter((session) => {
+	const filteredSessions = (sessionsData?.sessions ?? []).filter((session) => {
 		if (normalizedSearch.length === 0) {
 			return true;
 		}
@@ -121,8 +108,21 @@ export function InternalAiChatPage({
 	const activeSessionId = selectedFromFilter?.id ?? filteredSessions[0]?.id ?? null;
 	const transcript = useQuery({
 		...getInternalStorefrontAiTranscriptQuery(activeSessionId ?? "skip"),
+		enabled: Boolean(activeSessionId),
 		placeholderData: (previousData) => previousData ?? null,
 	});
+
+	if (sessionsQuery.isPending) {
+		return <Text>Loading storefront AI sessions…</Text>;
+	}
+
+	if (sessionsQuery.isError || !sessionsData) {
+		return (
+			<Text className="text-red-600 dark:text-red-500">
+				Failed to load storefront AI sessions.
+			</Text>
+		);
+	}
 
 	return (
 		<div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
