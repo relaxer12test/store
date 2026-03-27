@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
@@ -16,18 +16,17 @@ import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalAuditDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/audits/$auditId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalAuditDetailQuery(params.auditId));
+	},
 	component: InternalAuditDetailRoute,
 });
 
 function InternalAuditDetailRoute() {
 	const { auditId } = Route.useParams();
-	const detailQuery = useQuery(getInternalAuditDetailQuery(auditId));
+	const { data } = useSuspenseQuery(getInternalAuditDetailQuery(auditId));
 
-	if (detailQuery.isPending) {
-		return <Text>Loading audit detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="Audit detail unavailable">
 				<EmptyState body="The selected audit row could not be loaded." title="Unavailable" />
@@ -35,7 +34,7 @@ function InternalAuditDetailRoute() {
 		);
 	}
 
-	const { record } = detailQuery.data;
+	const { record } = data;
 
 	return (
 		<InternalDetailCard title={record.action}>

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
@@ -26,6 +26,15 @@ import {
 
 export const Route = createFileRoute("/_app/internal/ai-sessions/$sessionDocumentId")({
 	validateSearch: validateInternalAiSessionDetailSearch,
+	loaderDeps: ({ search }) => search,
+	loader: async ({ context, deps, params }) => {
+		await Promise.all([
+			context.preload.ensureQueryData(getInternalAiSessionDetailQuery(params.sessionDocumentId)),
+			context.preload.ensureQueryData(
+				getInternalAiTranscriptPageQuery(deps, params.sessionDocumentId),
+			),
+		]);
+	},
 	component: InternalAiSessionDetailRoute,
 });
 
@@ -35,14 +44,12 @@ function InternalAiSessionDetailRoute() {
 	});
 	const { sessionDocumentId } = Route.useParams();
 	const search = Route.useSearch();
-	const detailQuery = useQuery(getInternalAiSessionDetailQuery(sessionDocumentId));
-	const transcriptQuery = useQuery(getInternalAiTranscriptPageQuery(search, sessionDocumentId));
+	const { data } = useSuspenseQuery(getInternalAiSessionDetailQuery(sessionDocumentId));
+	const transcriptQuery = useSuspenseQuery(
+		getInternalAiTranscriptPageQuery(search, sessionDocumentId),
+	);
 
-	if (detailQuery.isPending) {
-		return <Text>Loading session detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="Session detail unavailable">
 				<EmptyState
@@ -53,7 +60,7 @@ function InternalAiSessionDetailRoute() {
 		);
 	}
 
-	const { session } = detailQuery.data;
+	const { session } = data;
 
 	return (
 		<InternalDetailCard title={session.shopName}>
@@ -164,13 +171,7 @@ function InternalAiSessionDetailRoute() {
 					</div>
 				</div>
 
-				{transcriptQuery.isPending ? (
-					<Text className="mt-3">Loading transcript…</Text>
-				) : transcriptQuery.isError || !transcriptQuery.data ? (
-					<Text className="mt-3 text-red-600 dark:text-red-400">
-						Failed to load transcript messages.
-					</Text>
-				) : transcriptQuery.data.messages.length === 0 ? (
+				{transcriptQuery.data.messages.length === 0 ? (
 					<Text className="mt-3">No transcript messages were found for this session.</Text>
 				) : (
 					<div className="mt-3 space-y-3">

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
@@ -17,18 +17,17 @@ import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWorkflowDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/workflows/$jobId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalWorkflowDetailQuery(params.jobId));
+	},
 	component: InternalWorkflowDetailRoute,
 });
 
 function InternalWorkflowDetailRoute() {
 	const { jobId } = Route.useParams();
-	const detailQuery = useQuery(getInternalWorkflowDetailQuery(jobId));
+	const { data } = useSuspenseQuery(getInternalWorkflowDetailQuery(jobId));
 
-	if (detailQuery.isPending) {
-		return <Text>Loading workflow detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="Workflow detail unavailable">
 				<EmptyState body="The selected workflow could not be loaded." title="Unavailable" />
@@ -36,7 +35,7 @@ function InternalWorkflowDetailRoute() {
 		);
 	}
 
-	const { logs, record } = detailQuery.data;
+	const { logs, record } = data;
 
 	return (
 		<InternalDetailCard title={record.type}>

@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
@@ -17,18 +17,17 @@ import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWebhookDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/webhooks/$deliveryId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalWebhookDetailQuery(params.deliveryId));
+	},
 	component: InternalWebhookDetailRoute,
 });
 
 function InternalWebhookDetailRoute() {
 	const { deliveryId } = Route.useParams();
-	const detailQuery = useQuery(getInternalWebhookDetailQuery(deliveryId));
+	const { data } = useSuspenseQuery(getInternalWebhookDetailQuery(deliveryId));
 
-	if (detailQuery.isPending) {
-		return <Text>Loading webhook detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="Webhook detail unavailable">
 				<EmptyState body="The selected webhook delivery could not be loaded." title="Unavailable" />
@@ -36,7 +35,7 @@ function InternalWebhookDetailRoute() {
 		);
 	}
 
-	const { payloads, record } = detailQuery.data;
+	const { payloads, record } = data;
 
 	return (
 		<InternalDetailCard title={record.topic}>

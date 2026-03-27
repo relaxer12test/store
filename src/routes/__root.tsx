@@ -22,6 +22,7 @@ import type { AppViewerContext } from "@/shared/contracts/auth";
 import appCss from "@/styles.css?url";
 
 const ROUTER_LOG_PREFIX = "[router]";
+const authBootstrapTokenQueryKey = ["rootAuthBootstrapToken"] as const;
 
 interface ShopifyAppBridgeDocumentConfig {
 	apiKey: string | null;
@@ -83,27 +84,46 @@ function resolveShopifyAppBridgeDocumentConfig({
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context, location }) => {
-		const auth = await getAuthBootstrap();
-
 		if (typeof window === "undefined") {
+			const auth = await getAuthBootstrap();
+
 			await applyEmbeddedAppContentSecurityPolicyHeader();
+
+			context.queryClient.setQueryData(currentViewerQuery.queryKey, auth.viewer);
+			context.queryClient.setQueryData(authBootstrapTokenQueryKey, auth.token ?? null);
+
+			if (auth.token) {
+				context.convexQueryClient.serverHttpClient?.setAuth(auth.token);
+			} else {
+				context.convexQueryClient.serverHttpClient?.clearAuth();
+			}
+
+			return {
+				shopifyAppBridge: resolveShopifyAppBridgeDocumentConfig({
+					searchStr: location.searchStr,
+					viewer: auth.viewer,
+				}),
+				token: auth.token ?? null,
+				viewer: auth.viewer,
+			};
 		}
 
-		context.queryClient.setQueryData(currentViewerQuery.queryKey, auth.viewer);
-
-		if (auth.token) {
-			context.convexQueryClient.serverHttpClient?.setAuth(auth.token);
-		} else {
-			context.convexQueryClient.serverHttpClient?.clearAuth();
-		}
+		const viewer =
+			(context.queryClient.getQueryData(currentViewerQuery.queryKey) as
+				| AppViewerContext
+				| null
+				| undefined) ?? null;
+		const token =
+			(context.queryClient.getQueryData(authBootstrapTokenQueryKey) as string | null | undefined) ??
+			null;
 
 		return {
 			shopifyAppBridge: resolveShopifyAppBridgeDocumentConfig({
 				searchStr: location.searchStr,
-				viewer: auth.viewer,
+				viewer,
 			}),
-			token: auth.token,
-			viewer: auth.viewer,
+			token,
+			viewer,
 		};
 	},
 	head: () => ({

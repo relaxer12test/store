@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
 import {
@@ -15,19 +15,25 @@ import {
 	formatInternalTimestamp,
 } from "@/components/ui/resource";
 import { InternalDetailCard } from "@/components/ui/resource";
-import { getInternalUserDetailQuery } from "@/features/internal/internal-admin-queries";
+import {
+	getInternalUserDetailQuery,
+	invalidateInternalUserQueries,
+} from "@/features/internal/internal-admin-queries";
 import { authClient } from "@/lib/auth-client";
 import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
 import { invalidateAuthQueries } from "@/lib/auth-queries";
 
 export const Route = createFileRoute("/_app/internal/users/$userId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalUserDetailQuery(params.userId));
+	},
 	component: InternalUserDetailRoute,
 });
 
 function InternalUserDetailRoute() {
 	const { userId } = Route.useParams();
 	const queryClient = useQueryClient();
-	const detailQuery = useQuery(getInternalUserDetailQuery(userId));
+	const { data } = useSuspenseQuery(getInternalUserDetailQuery(userId));
 	const setRoleMutation = useMutation({
 		mutationFn: async (role: "admin" | "user") => {
 			const result = await authClient.admin.setRole({
@@ -40,16 +46,14 @@ function InternalUserDetailRoute() {
 			}
 		},
 		onSuccess: async () => {
-			await queryClient.invalidateQueries();
-			await invalidateAuthQueries(queryClient);
+			await Promise.all([
+				invalidateAuthQueries(queryClient),
+				invalidateInternalUserQueries(queryClient, userId),
+			]);
 		},
 	});
 
-	if (detailQuery.isPending) {
-		return <Text>Loading user detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="User detail unavailable">
 				<EmptyState body="The selected Better Auth user could not be loaded." title="Unavailable" />
@@ -57,7 +61,7 @@ function InternalUserDetailRoute() {
 		);
 	}
 
-	const { user } = detailQuery.data;
+	const { user } = data;
 	const nextRole = user.role === "admin" ? "user" : "admin";
 
 	return (

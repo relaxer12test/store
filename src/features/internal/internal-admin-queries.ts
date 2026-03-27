@@ -1,5 +1,6 @@
 import { convexQuery } from "@convex-dev/react-query";
 import type { Id } from "@convex/_generated/dataModel";
+import type { QueryClient } from "@tanstack/react-query";
 import type {
 	InternalAiSessionDetailSearch,
 	InternalAiSessionSearch,
@@ -11,6 +12,8 @@ import type {
 	InternalWorkflowSearch,
 } from "@/features/internal/internal-admin-route-state";
 import { api } from "@/lib/convex-api";
+
+const internalUsersQueryKeyPrefix = ["convexQuery", "internalAdmin:listUsers"] as const;
 
 function toPaginationArgs(search: { cursor?: string; limit: number }) {
 	return {
@@ -144,4 +147,15 @@ export function getInternalUserDetailQuery(userId: string) {
 	return convexQuery(api.internalAdmin.getUserDetail, {
 		userId,
 	});
+}
+
+export async function invalidateInternalUserQueries(queryClient: QueryClient, userId: string) {
+	await Promise.all([
+		queryClient.invalidateQueries({
+			queryKey: internalUsersQueryKeyPrefix,
+		}),
+		queryClient.invalidateQueries({
+			queryKey: getInternalUserDetailQuery(userId).queryKey,
+		}),
+	]);
 }

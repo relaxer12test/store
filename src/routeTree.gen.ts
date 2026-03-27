@@ -33,6 +33,13 @@ import { Route as AppAppWorkflowsRouteImport } from './routes/_app.app.workflows
 import { Route as AppAppSettingsRouteImport } from './routes/_app.app.settings'
 import { Route as AppAppExplorerRouteImport } from './routes/_app.app.explorer'
 import { Route as AppAppCopilotRouteImport } from './routes/_app.app.copilot'
+import { Route as AppInternalWorkflowsIndexRouteImport } from './routes/_app.internal.workflows.index'
+import { Route as AppInternalWebhooksIndexRouteImport } from './routes/_app.internal.webhooks.index'
+import { Route as AppInternalUsersIndexRouteImport } from './routes/_app.internal.users.index'
+import { Route as AppInternalShopsIndexRouteImport } from './routes/_app.internal.shops.index'
+import { Route as AppInternalCacheIndexRouteImport } from './routes/_app.internal.cache.index'
+import { Route as AppInternalAuditsIndexRouteImport } from './routes/_app.internal.audits.index'
+import { Route as AppInternalAiSessionsIndexRouteImport } from './routes/_app.internal.ai-sessions.index'
 import { Route as AppInternalWorkflowsJobIdRouteImport } from './routes/_app.internal.workflows.$jobId'
 import { Route as AppInternalWebhooksDeliveryIdRouteImport } from './routes/_app.internal.webhooks.$deliveryId'
 import { Route as AppInternalUsersUserIdRouteImport } from './routes/_app.internal.users.$userId'
@@ -160,6 +167,44 @@ const AppAppCopilotRoute = AppAppCopilotRouteImport.update({
   path: '/copilot',
   getParentRoute: () => AppAppRoute,
 } as any)
+const AppInternalWorkflowsIndexRoute =
+  AppInternalWorkflowsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppInternalWorkflowsRoute,
+  } as any)
+const AppInternalWebhooksIndexRoute =
+  AppInternalWebhooksIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppInternalWebhooksRoute,
+  } as any)
+const AppInternalUsersIndexRoute = AppInternalUsersIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppInternalUsersRoute,
+} as any)
+const AppInternalShopsIndexRoute = AppInternalShopsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppInternalShopsRoute,
+} as any)
+const AppInternalCacheIndexRoute = AppInternalCacheIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppInternalCacheRoute,
+} as any)
+const AppInternalAuditsIndexRoute = AppInternalAuditsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppInternalAuditsRoute,
+} as any)
+const AppInternalAiSessionsIndexRoute =
+  AppInternalAiSessionsIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AppInternalAiSessionsRoute,
+  } as any)
 const AppInternalWorkflowsJobIdRoute =
   AppInternalWorkflowsJobIdRouteImport.update({
     id: '/$jobId',
@@ -232,6 +277,13 @@ export interface FileRoutesByFullPath {
   '/internal/users/$userId': typeof AppInternalUsersUserIdRoute
   '/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
   '/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
+  '/internal/ai-sessions/': typeof AppInternalAiSessionsIndexRoute
+  '/internal/audits/': typeof AppInternalAuditsIndexRoute
+  '/internal/cache/': typeof AppInternalCacheIndexRoute
+  '/internal/shops/': typeof AppInternalShopsIndexRoute
+  '/internal/users/': typeof AppInternalUsersIndexRoute
+  '/internal/webhooks/': typeof AppInternalWebhooksIndexRoute
+  '/internal/workflows/': typeof AppInternalWorkflowsIndexRoute
 }
 export interface FileRoutesByTo {
   '/install': typeof AppInstallRoute
@@ -245,13 +297,6 @@ export interface FileRoutesByTo {
   '/app/explorer': typeof AppAppExplorerRoute
   '/app/settings': typeof AppAppSettingsRoute
   '/app/workflows': typeof AppAppWorkflowsRoute
-  '/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
-  '/internal/audits': typeof AppInternalAuditsRouteWithChildren
-  '/internal/cache': typeof AppInternalCacheRouteWithChildren
-  '/internal/shops': typeof AppInternalShopsRouteWithChildren
-  '/internal/users': typeof AppInternalUsersRouteWithChildren
-  '/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
-  '/internal/workflows': typeof AppInternalWorkflowsRouteWithChildren
   '/app': typeof AppAppIndexRoute
   '/internal': typeof AppInternalIndexRoute
   '/internal/ai-sessions/$sessionDocumentId': typeof AppInternalAiSessionsSessionDocumentIdRoute
@@ -261,6 +306,13 @@ export interface FileRoutesByTo {
   '/internal/users/$userId': typeof AppInternalUsersUserIdRoute
   '/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
   '/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
+  '/internal/ai-sessions': typeof AppInternalAiSessionsIndexRoute
+  '/internal/audits': typeof AppInternalAuditsIndexRoute
+  '/internal/cache': typeof AppInternalCacheIndexRoute
+  '/internal/shops': typeof AppInternalShopsIndexRoute
+  '/internal/users': typeof AppInternalUsersIndexRoute
+  '/internal/webhooks': typeof AppInternalWebhooksIndexRoute
+  '/internal/workflows': typeof AppInternalWorkflowsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -295,6 +347,13 @@ export interface FileRoutesById {
   '/_app/internal/users/$userId': typeof AppInternalUsersUserIdRoute
   '/_app/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
   '/_app/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
+  '/_app/internal/ai-sessions/': typeof AppInternalAiSessionsIndexRoute
+  '/_app/internal/audits/': typeof AppInternalAuditsIndexRoute
+  '/_app/internal/cache/': typeof AppInternalCacheIndexRoute
+  '/_app/internal/shops/': typeof AppInternalShopsIndexRoute
+  '/_app/internal/users/': typeof AppInternalUsersIndexRoute
+  '/_app/internal/webhooks/': typeof AppInternalWebhooksIndexRoute
+  '/_app/internal/workflows/': typeof AppInternalWorkflowsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -329,6 +388,13 @@ export interface FileRouteTypes {
     | '/internal/users/$userId'
     | '/internal/webhooks/$deliveryId'
     | '/internal/workflows/$jobId'
+    | '/internal/ai-sessions/'
+    | '/internal/audits/'
+    | '/internal/cache/'
+    | '/internal/shops/'
+    | '/internal/users/'
+    | '/internal/webhooks/'
+    | '/internal/workflows/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/install'
@@ -342,13 +408,6 @@ export interface FileRouteTypes {
     | '/app/explorer'
     | '/app/settings'
     | '/app/workflows'
-    | '/internal/ai-sessions'
-    | '/internal/audits'
-    | '/internal/cache'
-    | '/internal/shops'
-    | '/internal/users'
-    | '/internal/webhooks'
-    | '/internal/workflows'
     | '/app'
     | '/internal'
     | '/internal/ai-sessions/$sessionDocumentId'
@@ -358,6 +417,13 @@ export interface FileRouteTypes {
     | '/internal/users/$userId'
     | '/internal/webhooks/$deliveryId'
     | '/internal/workflows/$jobId'
+    | '/internal/ai-sessions'
+    | '/internal/audits'
+    | '/internal/cache'
+    | '/internal/shops'
+    | '/internal/users'
+    | '/internal/webhooks'
+    | '/internal/workflows'
   id:
     | '__root__'
     | '/_app'
@@ -391,6 +457,13 @@ export interface FileRouteTypes {
     | '/_app/internal/users/$userId'
     | '/_app/internal/webhooks/$deliveryId'
     | '/_app/internal/workflows/$jobId'
+    | '/_app/internal/ai-sessions/'
+    | '/_app/internal/audits/'
+    | '/_app/internal/cache/'
+    | '/_app/internal/shops/'
+    | '/_app/internal/users/'
+    | '/_app/internal/webhooks/'
+    | '/_app/internal/workflows/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -568,6 +641,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppAppCopilotRouteImport
       parentRoute: typeof AppAppRoute
     }
+    '/_app/internal/workflows/': {
+      id: '/_app/internal/workflows/'
+      path: '/'
+      fullPath: '/internal/workflows/'
+      preLoaderRoute: typeof AppInternalWorkflowsIndexRouteImport
+      parentRoute: typeof AppInternalWorkflowsRoute
+    }
+    '/_app/internal/webhooks/': {
+      id: '/_app/internal/webhooks/'
+      path: '/'
+      fullPath: '/internal/webhooks/'
+      preLoaderRoute: typeof AppInternalWebhooksIndexRouteImport
+      parentRoute: typeof AppInternalWebhooksRoute
+    }
+    '/_app/internal/users/': {
+      id: '/_app/internal/users/'
+      path: '/'
+      fullPath: '/internal/users/'
+      preLoaderRoute: typeof AppInternalUsersIndexRouteImport
+      parentRoute: typeof AppInternalUsersRoute
+    }
+    '/_app/internal/shops/': {
+      id: '/_app/internal/shops/'
+      path: '/'
+      fullPath: '/internal/shops/'
+      preLoaderRoute: typeof AppInternalShopsIndexRouteImport
+      parentRoute: typeof AppInternalShopsRoute
+    }
+    '/_app/internal/cache/': {
+      id: '/_app/internal/cache/'
+      path: '/'
+      fullPath: '/internal/cache/'
+      preLoaderRoute: typeof AppInternalCacheIndexRouteImport
+      parentRoute: typeof AppInternalCacheRoute
+    }
+    '/_app/internal/audits/': {
+      id: '/_app/internal/audits/'
+      path: '/'
+      fullPath: '/internal/audits/'
+      preLoaderRoute: typeof AppInternalAuditsIndexRouteImport
+      parentRoute: typeof AppInternalAuditsRoute
+    }
+    '/_app/internal/ai-sessions/': {
+      id: '/_app/internal/ai-sessions/'
+      path: '/'
+      fullPath: '/internal/ai-sessions/'
+      preLoaderRoute: typeof AppInternalAiSessionsIndexRouteImport
+      parentRoute: typeof AppInternalAiSessionsRoute
+    }
     '/_app/internal/workflows/$jobId': {
       id: '/_app/internal/workflows/$jobId'
       path: '/$jobId'
@@ -641,11 +763,13 @@ const AppAppRouteWithChildren =
 
 interface AppInternalAiSessionsRouteChildren {
   AppInternalAiSessionsSessionDocumentIdRoute: typeof AppInternalAiSessionsSessionDocumentIdRoute
+  AppInternalAiSessionsIndexRoute: typeof AppInternalAiSessionsIndexRoute
 }
 
 const AppInternalAiSessionsRouteChildren: AppInternalAiSessionsRouteChildren = {
   AppInternalAiSessionsSessionDocumentIdRoute:
     AppInternalAiSessionsSessionDocumentIdRoute,
+  AppInternalAiSessionsIndexRoute: AppInternalAiSessionsIndexRoute,
 }
 
 const AppInternalAiSessionsRouteWithChildren =
@@ -655,10 +779,12 @@ const AppInternalAiSessionsRouteWithChildren =
 
 interface AppInternalAuditsRouteChildren {
   AppInternalAuditsAuditIdRoute: typeof AppInternalAuditsAuditIdRoute
+  AppInternalAuditsIndexRoute: typeof AppInternalAuditsIndexRoute
 }
 
 const AppInternalAuditsRouteChildren: AppInternalAuditsRouteChildren = {
   AppInternalAuditsAuditIdRoute: AppInternalAuditsAuditIdRoute,
+  AppInternalAuditsIndexRoute: AppInternalAuditsIndexRoute,
 }
 
 const AppInternalAuditsRouteWithChildren =
@@ -666,10 +792,12 @@ const AppInternalAuditsRouteWithChildren =
 
 interface AppInternalCacheRouteChildren {
   AppInternalCacheCacheStateIdRoute: typeof AppInternalCacheCacheStateIdRoute
+  AppInternalCacheIndexRoute: typeof AppInternalCacheIndexRoute
 }
 
 const AppInternalCacheRouteChildren: AppInternalCacheRouteChildren = {
   AppInternalCacheCacheStateIdRoute: AppInternalCacheCacheStateIdRoute,
+  AppInternalCacheIndexRoute: AppInternalCacheIndexRoute,
 }
 
 const AppInternalCacheRouteWithChildren =
@@ -677,10 +805,12 @@ const AppInternalCacheRouteWithChildren =
 
 interface AppInternalShopsRouteChildren {
   AppInternalShopsShopIdRoute: typeof AppInternalShopsShopIdRoute
+  AppInternalShopsIndexRoute: typeof AppInternalShopsIndexRoute
 }
 
 const AppInternalShopsRouteChildren: AppInternalShopsRouteChildren = {
   AppInternalShopsShopIdRoute: AppInternalShopsShopIdRoute,
+  AppInternalShopsIndexRoute: AppInternalShopsIndexRoute,
 }
 
 const AppInternalShopsRouteWithChildren =
@@ -688,10 +818,12 @@ const AppInternalShopsRouteWithChildren =
 
 interface AppInternalUsersRouteChildren {
   AppInternalUsersUserIdRoute: typeof AppInternalUsersUserIdRoute
+  AppInternalUsersIndexRoute: typeof AppInternalUsersIndexRoute
 }
 
 const AppInternalUsersRouteChildren: AppInternalUsersRouteChildren = {
   AppInternalUsersUserIdRoute: AppInternalUsersUserIdRoute,
+  AppInternalUsersIndexRoute: AppInternalUsersIndexRoute,
 }
 
 const AppInternalUsersRouteWithChildren =
@@ -699,10 +831,12 @@ const AppInternalUsersRouteWithChildren =
 
 interface AppInternalWebhooksRouteChildren {
   AppInternalWebhooksDeliveryIdRoute: typeof AppInternalWebhooksDeliveryIdRoute
+  AppInternalWebhooksIndexRoute: typeof AppInternalWebhooksIndexRoute
 }
 
 const AppInternalWebhooksRouteChildren: AppInternalWebhooksRouteChildren = {
   AppInternalWebhooksDeliveryIdRoute: AppInternalWebhooksDeliveryIdRoute,
+  AppInternalWebhooksIndexRoute: AppInternalWebhooksIndexRoute,
 }
 
 const AppInternalWebhooksRouteWithChildren =
@@ -710,10 +844,12 @@ const AppInternalWebhooksRouteWithChildren =
 
 interface AppInternalWorkflowsRouteChildren {
   AppInternalWorkflowsJobIdRoute: typeof AppInternalWorkflowsJobIdRoute
+  AppInternalWorkflowsIndexRoute: typeof AppInternalWorkflowsIndexRoute
 }
 
 const AppInternalWorkflowsRouteChildren: AppInternalWorkflowsRouteChildren = {
   AppInternalWorkflowsJobIdRoute: AppInternalWorkflowsJobIdRoute,
+  AppInternalWorkflowsIndexRoute: AppInternalWorkflowsIndexRoute,
 }
 
 const AppInternalWorkflowsRouteWithChildren =

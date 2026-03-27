@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
@@ -17,18 +17,17 @@ import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalCacheStateDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/cache/$cacheStateId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalCacheStateDetailQuery(params.cacheStateId));
+	},
 	component: InternalCacheDetailRoute,
 });
 
 function InternalCacheDetailRoute() {
 	const { cacheStateId } = Route.useParams();
-	const detailQuery = useQuery(getInternalCacheStateDetailQuery(cacheStateId));
+	const { data } = useSuspenseQuery(getInternalCacheStateDetailQuery(cacheStateId));
 
-	if (detailQuery.isPending) {
-		return <Text>Loading cache detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<InternalDetailCard title="Cache detail unavailable">
 				<EmptyState body="The selected cache state could not be loaded." title="Unavailable" />
@@ -36,7 +35,7 @@ function InternalCacheDetailRoute() {
 		);
 	}
 
-	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = detailQuery.data;
+	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = data;
 
 	return (
 		<InternalDetailCard title={record.cacheKey}>

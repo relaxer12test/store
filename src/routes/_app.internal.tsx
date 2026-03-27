@@ -1,7 +1,7 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import { StatusPill } from "@/components/ui/feedback";
 import { SidebarConsoleLayout } from "@/components/ui/resource";
-import { getCurrentViewerServer } from "@/lib/auth-functions";
+import { currentViewerQuery } from "@/lib/auth-queries";
 import { hasAdminViewer } from "@/shared/contracts/auth";
 
 const internalNavItems = [
@@ -48,8 +48,10 @@ const internalNavItems = [
 ];
 
 export const Route = createFileRoute("/_app/internal")({
-	beforeLoad: async () => {
-		if (!hasAdminViewer(await getCurrentViewerServer())) {
+	beforeLoad: async ({ context }) => {
+		const viewer = await context.preload.ensureQueryData(currentViewerQuery);
+
+		if (!hasAdminViewer(viewer)) {
 			throw redirect({
 				to: "/auth/sign-in",
 			});

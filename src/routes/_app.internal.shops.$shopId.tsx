@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
 import {
@@ -18,18 +18,17 @@ import {
 import { getInternalShopDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/shops/$shopId")({
+	loader: async ({ context, params }) => {
+		await context.preload.ensureQueryData(getInternalShopDetailQuery(params.shopId));
+	},
 	component: InternalShopDetailRoute,
 });
 
 function InternalShopDetailRoute() {
 	const { shopId } = Route.useParams();
-	const detailQuery = useQuery(getInternalShopDetailQuery(shopId));
+	const { data } = useSuspenseQuery(getInternalShopDetailQuery(shopId));
 
-	if (detailQuery.isPending) {
-		return <Text>Loading shop detail…</Text>;
-	}
-
-	if (detailQuery.isError || !detailQuery.data) {
+	if (!data) {
 		return (
 			<ResourceDetailCard title="Shop unavailable">
 				<EmptyState body="The selected shop could not be loaded." title="Detail unavailable" />
@@ -46,7 +45,7 @@ function InternalShopDetailRoute() {
 		recentWebhookDeliveries,
 		recentWorkflows,
 		shop,
-	} = detailQuery.data;
+	} = data;
 
 	return (
 		<ResourceDetailCard title={shop.name}>
