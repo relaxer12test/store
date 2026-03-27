@@ -4946,6 +4946,7 @@ export declare const components: {
                   email: string;
                   emailVerified: boolean;
                   image?: null | string;
+                  isAnonymous?: null | boolean;
                   name: string;
                   role?: null | string;
                   updatedAt: number;
@@ -5061,6 +5062,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "role"
@@ -5359,6 +5361,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "role"
@@ -5743,6 +5746,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: null | boolean;
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
@@ -5755,6 +5759,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "role"
@@ -6122,6 +6127,7 @@ export declare const components: {
                   email?: string;
                   emailVerified?: boolean;
                   image?: null | string;
+                  isAnonymous?: null | boolean;
                   name?: string;
                   role?: null | string;
                   updatedAt?: number;
@@ -6134,6 +6140,7 @@ export declare const components: {
                     | "email"
                     | "emailVerified"
                     | "image"
+                    | "isAnonymous"
                     | "createdAt"
                     | "updatedAt"
                     | "role"
