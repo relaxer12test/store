@@ -1,0 +1,38 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "071da31bc3d06adfc33381e5c99fc20d"
+name = "ldevstore"
+application_url = "https://storeai.ldev.cloud"
+embedded = true
+
+[webhooks]
+api_version = "2026-01"
+
+[[webhooks.subscriptions]]
+topics = [
+	"app/scopes_update",
+	"app/uninstalled",
+	"products/create",
+	"products/update",
+	"products/delete",
+	"collections/create",
+	"collections/update",
+	"collections/delete",
+	"orders/create",
+	"orders/updated",
+	"orders/cancelled",
+	"inventory_levels/update",
+]
+uri = "https://robust-bulldog-269.convex.site/shopify/webhooks"
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_products,write_products,read_orders,read_inventory,write_inventory,read_locations,read_themes,read_files,write_files,read_metaobjects,write_metaobjects,read_online_store_pages,write_online_store_pages,write_online_store_navigation,read_publications,write_publications"
+optional_scopes = []
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = []
+
+[build]
+automatically_update_urls_on_dev = false

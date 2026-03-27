@@ -206,7 +206,7 @@ export async function requestEmbeddedBootstrapSession(args: {
 		headers.set("user-agent", args.userAgent);
 	}
 
-	const response = await (args.fetchImpl ?? fetch)(
+	return await (args.fetchImpl ?? fetch)(
 		new URL(`/shopify/bootstrap${new URL(args.requestUrl).search}`, getRequiredConvexHttpUrl()),
 		{
 			headers,
@@ -215,15 +215,4 @@ export async function requestEmbeddedBootstrapSession(args: {
 			credentials: "omit",
 		},
 	);
-
-	if (!response.ok) {
-		return response;
-	}
-
-	const payload = (await response.clone().json()) as unknown;
-	return new Response(JSON.stringify(payload), {
-		headers: new Headers(response.headers),
-		status: response.status,
-		statusText: response.statusText,
-	});
 }

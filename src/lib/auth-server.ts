@@ -1,32 +1,4 @@
-import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
-import { betterAuthServer } from "@/lib/better-auth-server";
-import {
-	buildAppConvexTokenCookie,
-	readAppConvexTokenFromCookieHeader,
-} from "@/lib/convex-session-bridge";
-import {
-	requestEmbeddedBootstrapSession,
-	resolveSessionFromConvexToken,
-} from "@/lib/direct-convex-auth";
-import { guestSession } from "@/lib/session-envelope";
-import type { SessionEnvelope } from "@/shared/contracts/session";
-const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
-
-function serializeSessionEnvelopeError(error: unknown) {
-	if (error instanceof Error) {
-		return {
-			message: error.message,
-			name: error.name,
-			stack: error.stack ?? null,
-		};
-	}
-
-	return {
-		message: String(error),
-		name: "UnknownError",
-		stack: null,
-	};
-}
+import { createServerFn } from "@tanstack/react-start";
 
 function normalizeMyshopifyDomain(value: string | null) {
 	const trimmed = value?.trim().toLowerCase();
@@ -182,50 +154,8 @@ export function buildEmbeddedAppContentSecurityPolicy(
 	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl, options).join(" ")};`;
 }
 
-async function getSessionEnvelopeFromRequestToken(cookieHeader: string) {
-	const token = readAppConvexTokenFromCookieHeader(cookieHeader);
-
-	if (!token) {
-		return null;
-	}
-
-	return await resolveSessionFromConvexToken(token).catch(() => null);
-}
-
-export async function resolveRequestSessionEnvelope() {
-	const requestUrl = getRequestUrl({
-		xForwardedHost: true,
-		xForwardedProto: true,
-	});
-	const cookieHeader = getRequestHeader("cookie") ?? "";
-
-	setResponseHeader(
-		"Content-Security-Policy",
-		buildEmbeddedAppContentSecurityPolicy(requestUrl, {
-			referer: getRequestHeader("referer") ?? null,
-		}),
+export const resolveRequestSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
+	return await import("@/lib/auth-request.server").then((module) =>
+		module.resolveRequestSessionEnvelope(),
 	);
-
-	try {
-		const session =
-			(await getSessionEnvelopeFromRequestToken(cookieHeader)) ??
-			(await getBetterAuthSessionEnvelope()) ??
-			(await getEmbeddedBootstrapSessionEnvelope(requestUrl)) ??
-			guestSession;
-
-		setResponseHeader("Set-Cookie", buildAppConvexTokenCookie(session));
-
-		return session;
-	} catch (error) {
-		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} session_envelope_resolution_failed`, {
-			embedded: requestUrl.searchParams.get("embedded") ?? null,
-			error: serializeSessionEnvelopeError(error),
-			hasBetterAuthSessionCookie: cookieHeader.includes("session_token="),
-			hasConvexJwtCookie: cookieHeader.includes("convex_jwt="),
-			pathname: requestUrl.pathname,
-			shop: requestUrl.searchParams.get("shop") ?? null,
-		});
-
-		return guestSession;
-	}
-}
+});

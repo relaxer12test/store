@@ -50,34 +50,18 @@ function getRequiredEnv(name) {
 	return value;
 }
 
-function getWebhookUri() {
-	const explicitWebhookUri = getEnv("SHOPIFY_WEBHOOK_URI");
+function toConvexSiteUrl(convexUrl) {
+	const parsedUrl = new URL(convexUrl);
 
-	if (explicitWebhookUri) {
-		return explicitWebhookUri;
+	if (parsedUrl.hostname.endsWith(".convex.cloud")) {
+		parsedUrl.hostname = parsedUrl.hostname.replace(/\.convex\.cloud$/, ".convex.site");
 	}
 
-	const convexSiteUrl = getEnv("CONVEX_SITE_URL") || getEnv("VITE_CONVEX_SITE_URL");
+	parsedUrl.pathname = "";
+	parsedUrl.search = "";
+	parsedUrl.hash = "";
 
-	if (!convexSiteUrl) {
-		throw new Error(
-			"Missing SHOPIFY_WEBHOOK_URI. Set SHOPIFY_WEBHOOK_URI explicitly or provide CONVEX_SITE_URL / VITE_CONVEX_SITE_URL.",
-		);
-	}
-
-	return `${convexSiteUrl.replace(/\/$/, "")}/shopify/webhooks`;
-}
-
-function getConvexSiteUrl() {
-	const convexSiteUrl = getEnv("CONVEX_SITE_URL") || getEnv("VITE_CONVEX_SITE_URL");
-
-	if (!convexSiteUrl) {
-		throw new Error(
-			"Missing CONVEX_SITE_URL. Set CONVEX_SITE_URL or VITE_CONVEX_SITE_URL so storefront settings can point at Convex.",
-		);
-	}
-
-	return convexSiteUrl.replace(/\/$/, "");
+	return parsedUrl.toString().replace(/\/$/, "");
 }
 
 function renderThemeSettingsData({ applicationUrl, convexSiteUrl, cwd }) {
@@ -119,8 +103,8 @@ const cwd = process.cwd();
 const sourcePath = resolve(cwd, "shopify.app.toml");
 const targetPath = resolve(cwd, "shopify.app.deploy.toml");
 const applicationUrl = getRequiredEnv("SHOPIFY_APP_URL");
-const convexSiteUrl = getConvexSiteUrl();
-const webhookUri = getWebhookUri();
+const convexSiteUrl = toConvexSiteUrl(getRequiredEnv("VITE_CONVEX_URL"));
+const webhookUri = `${convexSiteUrl}/shopify/webhooks`;
 
 const template = readFileSync(sourcePath, "utf8");
 const rendered = template

@@ -86,13 +86,11 @@ npm run convex:dev
 ### Client / TanStack Start
 
 - `VITE_CONVEX_URL`: Convex deployment URL used by the app shell, Convex query client, and embedded merchant token flow.
-- `VITE_CONVEX_SITE_URL`: optional Convex HTTP/site URL override used by server-side proxy routes for Convex HTTP actions. If omitted, the app derives it from `VITE_CONVEX_URL`.
 - `VITE_SHOPIFY_API_KEY`: Shopify app key exposed to embedded HTML for App Bridge boot.
 
 ### Convex / server-only
 
 - `SHOPIFY_APP_URL`
-- `SHOPIFY_WEBHOOK_URI` (optional explicit webhook target; otherwise derived from `CONVEX_SITE_URL` or `VITE_CONVEX_SITE_URL`)
 - `SHOPIFY_API_KEY`
 - `SHOPIFY_API_SECRET`
 - `BETTER_AUTH_SECRET`

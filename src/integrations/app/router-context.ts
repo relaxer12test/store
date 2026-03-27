@@ -152,7 +152,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 	convexQueryClient.connect(queryClient);
 
 	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
-	const canBootstrapEmbeddedSession = true;
 	let sessionFingerprint: string | null = isServer ? null : getSessionFingerprint(initialSession);
 	const sessionManager = createSessionManager(initialSession);
 
@@ -195,10 +194,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	const ensureEmbeddedSession = async (options?: { forceRefresh?: boolean }) => {
 		if (isServer) {
-			return sessionManager.getState();
-		}
-
-		if (!canBootstrapEmbeddedSession) {
 			return sessionManager.getState();
 		}
 
