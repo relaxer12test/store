@@ -139,10 +139,6 @@ function toCookieHeader(setCookieHeaders: string[]) {
 	return setCookieHeaders.map((cookie) => cookie.split(";", 1)[0]).join("; ");
 }
 
-function mergeCookieHeaders(...cookieHeaders: Array<string | null | undefined>) {
-	return cookieHeaders.filter((value): value is string => Boolean(value && value.trim())).join("; ");
-}
-
 function appendSetCookieHeaders(targetHeaders: Headers, sourceHeaders: Headers) {
 	for (const value of getSetCookieHeaders(sourceHeaders)) {
 		targetHeaders.append("set-cookie", value);
@@ -164,6 +160,18 @@ function buildAuthPassthroughHeaders(request: Request, headers?: HeadersInit) {
 
 	if (userAgent) {
 		forwardedHeaders.set("user-agent", userAgent);
+	}
+
+	const origin = request.headers.get("origin");
+
+	if (origin) {
+		forwardedHeaders.set("origin", origin);
+	}
+
+	const referer = request.headers.get("referer");
+
+	if (referer) {
+		forwardedHeaders.set("referer", referer);
 	}
 
 	return forwardedHeaders;
@@ -239,7 +247,6 @@ http.route({
 					body: "{}",
 					headers: buildAuthPassthroughHeaders(request, {
 						"content-type": "application/json",
-						...(incomingCookieHeader ? { cookie: incomingCookieHeader } : {}),
 					}),
 					method: "POST",
 				}),
@@ -273,7 +280,7 @@ http.route({
 		const tokenResponse = await auth.handler(
 			new Request(tokenUrl.toString(), {
 				headers: buildAuthPassthroughHeaders(request, {
-					cookie: mergeCookieHeaders(incomingCookieHeader, authCookieHeader),
+					cookie: authCookieHeader || incomingCookieHeader,
 				}),
 				method: "GET",
 			}),
@@ -315,10 +322,7 @@ http.route({
 				token: typeof tokenPayload?.token === "string" ? tokenPayload.token : null,
 				user: sessionPayload?.user
 					? {
-							id:
-								typeof sessionPayload.user.id === "string"
-									? sessionPayload.user.id
-									: null,
+							id: typeof sessionPayload.user.id === "string" ? sessionPayload.user.id : null,
 							isAnonymous: Boolean(sessionPayload.user.isAnonymous),
 						}
 					: null,
@@ -591,12 +595,12 @@ http.route({
 				JSON.stringify({
 					error: "Widget chat requests require `shopDomain` and `message` string fields.",
 				}),
-					{
-						status: 400,
-						headers: withStorefrontCorsHeaders(request, {
-							"Cache-Control": "no-store",
-							"Content-Type": "application/json",
-						}),
+				{
+					status: 400,
+					headers: withStorefrontCorsHeaders(request, {
+						"Cache-Control": "no-store",
+						"Content-Type": "application/json",
+					}),
 				},
 			);
 		}
