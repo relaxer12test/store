@@ -2,9 +2,9 @@ import { api } from "@convex/_generated/api";
 import { httpAction } from "@convex/_generated/server";
 import { authComponent, createAuth, getAuthSecret } from "@convex/auth";
 import { resend } from "@convex/mail";
-import { decodeJwt } from "jose";
 import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 import { httpRouter } from "convex/server";
+import { decodeJwt } from "jose";
 import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const http = httpRouter();

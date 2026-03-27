@@ -83,9 +83,7 @@ function InternalAuthRoute() {
 									window.location.assign("/internal");
 								} catch (authError) {
 									setError(
-										authError instanceof Error
-											? authError.message
-											: "Admin authentication failed.",
+										authError instanceof Error ? authError.message : "Admin authentication failed.",
 									);
 									setIsPending(false);
 								}
@@ -173,9 +171,7 @@ function InternalAuthRoute() {
 									setView("reset-email-sent");
 								} catch (resetError) {
 									setError(
-										resetError instanceof Error
-											? resetError.message
-											: "Failed to send reset link.",
+										resetError instanceof Error ? resetError.message : "Failed to send reset link.",
 									);
 								} finally {
 									setIsPending(false);

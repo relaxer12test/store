@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
+import { MerchantSessionGate } from "@/features/app-shell/components/merchant-session-gate";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { useSessionEnvelope } from "@/lib/auth-client";
-import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 const appNav: SurfaceNavItem[] = [
 	{
@@ -45,7 +45,6 @@ export const Route = createFileRoute("/app")({
 function MerchantLayoutRoute() {
 	const session = useSessionEnvelope();
 	const embeddedApp = useEmbeddedAppBootstrap();
-	const hasMerchantSession = hasEmbeddedMerchantSession(session);
 
 	return (
 		<SurfaceLayout
@@ -60,7 +59,9 @@ function MerchantLayoutRoute() {
 			}
 			title="Store operating cockpit"
 		>
-			{hasMerchantSession ? undefined : <MerchantAccessState />}
+			<MerchantSessionGate fallback={<MerchantAccessState />}>
+				<Outlet />
+			</MerchantSessionGate>
 		</SurfaceLayout>
 	);
 }

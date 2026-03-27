@@ -73,9 +73,7 @@ function InternalResetPasswordRoute() {
 									setView("success");
 								} catch (resetError) {
 									setError(
-										resetError instanceof Error
-											? resetError.message
-											: "Failed to reset password.",
+										resetError instanceof Error ? resetError.message : "Failed to reset password.",
 									);
 								} finally {
 									setIsPending(false);
