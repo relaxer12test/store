@@ -456,9 +456,9 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 		}),
 		buildCartPlan: createTool<
 			{
-				explanation?: string;
+				explanation: string | null;
 				handles: string[];
-				note?: string;
+				note: string | null;
 			},
 			CartPlan | null,
 			StorefrontAgentCtx
@@ -468,16 +468,16 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts.",
 			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
-					explanation: input.explanation,
+					explanation: input.explanation ?? undefined,
 					handles: input.handles,
-					note: input.note,
+					note: input.note ?? undefined,
 					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
-				explanation: z.string().min(1).max(320).optional(),
+				explanation: z.string().min(1).max(320).nullable(),
 				handles: z.array(z.string().min(1).max(120)).min(1).max(4),
-				note: z.string().min(1).max(200).optional(),
+				note: z.string().min(1).max(200).nullable(),
 			}),
 			strict: true,
 		}),
@@ -553,7 +553,7 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 		}),
 		recommendBundle: createTool<
 			{
-				query?: string;
+				query: string | null;
 			},
 			StorefrontProductCard[],
 			StorefrontAgentCtx
@@ -573,14 +573,14 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 					.string()
 					.min(2)
 					.max(200)
-					.optional()
+					.nullable()
 					.describe("Optional search phrase when bundling around a category or use case."),
 			}),
 			strict: true,
 		}),
 		searchCatalog: createTool<
 			{
-				limit?: number;
+				limit: number | null;
 				query: string;
 			},
 			StorefrontProductCard[],
@@ -591,17 +591,17 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 				"Search the shop's public product catalog with a real shopper query. Do not use this for greetings or empty browsing.",
 			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.searchCatalog, {
-					limit: input.limit,
+					limit: input.limit ?? undefined,
 					query: input.query,
 					shopId: ctx.shopId,
 				});
 			},
 			inputExamples: [
-				{ input: { query: "gift set" } },
+				{ input: { limit: null, query: "gift set" } },
 				{ input: { limit: 3, query: "running shoe" } },
 			],
 			inputSchema: z.object({
-				limit: z.number().int().min(1).max(6).optional(),
+				limit: z.number().int().min(1).max(6).nullable(),
 				query: z
 					.string()
 					.min(2)
@@ -612,7 +612,7 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 		}),
 		searchCollections: createTool<
 			{
-				limit?: number;
+				limit: number | null;
 				query: string;
 			},
 			StorefrontCollectionCard[],
@@ -622,13 +622,13 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 			description: "Search the shop's public collections with a real shopper query.",
 			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
-					limit: input.limit,
+					limit: input.limit ?? undefined,
 					query: input.query,
 					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
-				limit: z.number().int().min(1).max(6).optional(),
+				limit: z.number().int().min(1).max(6).nullable(),
 				query: z
 					.string()
 					.min(2)
