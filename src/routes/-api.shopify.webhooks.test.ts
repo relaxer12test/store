@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildForwardedHeaders, forwardShopifyWebhookRequest } from "./api.shopify.webhooks";
+import { buildForwardedHeaders, forwardShopifyWebhookRequest } from "@/lib/api-proxy";
 
 describe("shopify webhook route", () => {
 	it("forwards only Shopify verification headers and content type", () => {

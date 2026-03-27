@@ -1,19 +1,14 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import {
-	createRootRouteWithContext,
-	HeadContent,
-	ScriptOnce,
-	Scripts,
-} from "@tanstack/react-router";
+import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
-import { resolveRequestSessionEnvelope } from "@/lib/auth-server";
-import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
-import type { SessionEnvelope } from "@/shared/contracts/session";
+import { currentViewerQuery } from "@/lib/auth-queries";
+import { getAuthBootstrap } from "@/lib/auth-functions";
+import { applyEmbeddedAppContentSecurityPolicyHeader } from "@/lib/auth-server";
+import { getOptionalShopifyApiKey } from "@/lib/env";
+import type { AppViewerContext } from "@/shared/contracts/auth";
 import appCss from "@/styles.css?url";
-
-const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
 
 interface ShopifyAppBridgeDocumentConfig {
 	apiKey: string | null;
@@ -34,19 +29,19 @@ function normalizeMyshopifyDomain(value: string | null) {
 
 function resolveShopifyAppBridgeDocumentConfig({
 	searchStr,
-	session,
+	viewer,
 }: {
 	searchStr: string;
-	session: SessionEnvelope;
+	viewer: AppViewerContext | null;
 }): ShopifyAppBridgeDocumentConfig {
 	const apiKey = getOptionalShopifyApiKey() ?? null;
 	const searchParams = new URLSearchParams(searchStr);
 	const host = searchParams.get("host");
 	const shop =
 		normalizeMyshopifyDomain(searchParams.get("shop")) ??
-		normalizeMyshopifyDomain(session.activeShop?.domain ?? null);
+		normalizeMyshopifyDomain(viewer?.activeShop?.domain ?? null);
 	const isEmbeddedRequest =
-		session.authMode === "embedded" ||
+		viewer?.authMode === "embedded" ||
 		searchParams.get("embedded") === "1" ||
 		Boolean(host) ||
 		Boolean(shop);
@@ -59,28 +54,29 @@ function resolveShopifyAppBridgeDocumentConfig({
 	};
 }
 
-function serializeInlineScript(value: unknown) {
-	return JSON.stringify(value)
-		.replace(/</g, "\\u003c")
-		.replace(/\u2028/g, "\\u2028")
-		.replace(/\u2029/g, "\\u2029");
-}
-
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context, location }) => {
-		const currentSession = context.sessionManager.getState();
-		const session = isServer ? await resolveRequestSessionEnvelope() : currentSession;
-		context.setSession(session);
+		const auth = await getAuthBootstrap();
+
+		if (typeof window === "undefined") {
+			await applyEmbeddedAppContentSecurityPolicyHeader();
+		}
+
+		context.queryClient.setQueryData(currentViewerQuery.queryKey, auth.viewer);
+
+		if (auth.token) {
+			context.convexQueryClient.serverHttpClient?.setAuth(auth.token);
+		} else {
+			context.convexQueryClient.serverHttpClient?.clearAuth();
+		}
 
 		return {
-			activeShop: session.activeShop,
-			roles: session.roles,
-			session,
 			shopifyAppBridge: resolveShopifyAppBridgeDocumentConfig({
 				searchStr: location.searchStr,
-				session,
+				viewer: auth.viewer,
 			}),
-			viewer: session.viewer,
+			token: auth.token,
+			viewer: auth.viewer,
 		};
 	},
 	head: () => ({
@@ -126,16 +122,13 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				{shopifyAppBridge.shouldLoad ? (
 					<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
 				) : null}
-				<ScriptOnce
-					children={`window.${INITIAL_SESSION_WINDOW_KEY} = ${serializeInlineScript(context.session)};`}
-				/>
 			</head>
 			<body className="antialiased">
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
+					initialToken={context.token}
 					queryClient={context.queryClient}
-					sessionManager={context.sessionManager}
 				>
 					{children}
 					<TanStackDevtools

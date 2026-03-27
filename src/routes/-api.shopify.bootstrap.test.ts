@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { bootstrapShopifyMerchantSession } from "./api.shopify.bootstrap";
+import { bootstrapShopifyMerchantSession } from "@/lib/api-proxy";
 
 describe("shopify bootstrap route", () => {
 	afterEach(() => {
@@ -19,35 +19,13 @@ describe("shopify bootstrap route", () => {
 
 	it("proxies the Convex bootstrap response and forwards auth cookies", async () => {
 		const fetchImpl = vi.fn(async () => {
-			return new Response(
-				JSON.stringify({
-					activeShop: {
-						domain: "acme.myshopify.com",
-						id: "shop_123",
-						installStatus: "connected",
-						name: "Acme",
-					},
-					authMode: "embedded",
-					convexToken: "convex-token",
-					convexTokenExpiresAt: 1_800_000_000_000,
-					roles: ["shop_admin"],
-					state: "ready",
-					viewer: {
-						email: "merchant@example.com",
-						id: "member_123",
-						initials: "JD",
-						name: "Jane Doe",
-						roles: ["shop_admin"],
-					},
-				}),
-				{
-					headers: {
-						"set-cookie":
-							"session_token=ba-session; Path=/; HttpOnly; Max-Age=3600, better-auth.convex_jwt=convex-token; Path=/; HttpOnly; Max-Age=3600",
-					},
-					status: 200,
+			return new Response(null, {
+				headers: {
+					"set-cookie":
+						"session_token=ba-session; Path=/; HttpOnly; Max-Age=3600, better-auth.convex_jwt=convex-token; Path=/; HttpOnly; Max-Age=3600",
 				},
-			);
+				status: 204,
+			});
 		});
 
 		const response = await bootstrapShopifyMerchantSession(
@@ -62,28 +40,9 @@ describe("shopify bootstrap route", () => {
 		);
 
 		expect(fetchImpl).toHaveBeenCalledTimes(1);
-		expect(response.status).toBe(200);
+		expect(response.status).toBe(204);
 		expect(response.headers.get("set-cookie")).toContain("convex_jwt=convex-token");
-		await expect(response.json()).resolves.toEqual({
-			activeShop: {
-				domain: "acme.myshopify.com",
-				id: "shop_123",
-				installStatus: "connected",
-				name: "Acme",
-			},
-			authMode: "embedded",
-			convexToken: "convex-token",
-			convexTokenExpiresAt: 1_800_000_000_000,
-			roles: ["shop_admin"],
-			state: "ready",
-			viewer: {
-				email: "merchant@example.com",
-				id: "member_123",
-				initials: "JD",
-				name: "Jane Doe",
-				roles: ["shop_admin"],
-			},
-		});
+		expect(await response.text()).toBe("");
 	});
 
 	it("passes through Convex bootstrap failures", async () => {

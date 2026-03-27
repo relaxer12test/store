@@ -1,143 +1,44 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
-import { hasFreshConvexToken } from "@/lib/convex-auth";
-import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
-import {
-	refreshInternalSessionEnvelope,
-	requestEmbeddedBootstrapSession,
-} from "@/lib/direct-convex-auth";
-import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
-import { guestSession } from "@/lib/session-envelope";
-import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
+import { currentViewerQuery } from "@/lib/auth-queries";
+import { getCurrentViewerServer } from "@/lib/auth-functions";
+import { authClient } from "@/lib/auth-client";
+import { getRequiredConvexDeploymentUrl } from "@/lib/env";
+import { hasMerchantViewer, type AppViewerContext } from "@/shared/contracts/auth";
 
-type Listener = () => void;
-const CONVEX_TOKEN_REFRESH_BUFFER_MS = 1000 * 60;
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
-const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
-
-export interface SessionManager {
-	getState: () => SessionEnvelope;
-	subscribe: (listener: Listener) => () => void;
-}
 
 export interface AppRouterContext {
-	embeddedApp: EmbeddedAppManager;
-	queryClient: QueryClient;
+	auth: {
+		ensureEmbeddedViewer: () => Promise<AppViewerContext | null>;
+	};
 	convexQueryClient: ConvexQueryClient;
+	embeddedApp: EmbeddedAppManager;
 	preload: {
 		ensureQueryData: QueryClient["ensureQueryData"];
 	};
-	request: {
-		fetch: typeof fetch;
-		getEmbeddedHeaders: () => Promise<Headers>;
-	};
-	sessionApi: {
-		ensureEmbeddedSession: (options?: { forceRefresh?: boolean }) => Promise<SessionEnvelope>;
-	};
-	sessionManager: SessionManager;
-	setSession: (session: SessionEnvelope) => void;
+	queryClient: QueryClient;
 }
 
-interface ManagedAppRouterContext extends AppRouterContext {
-	sessionFingerprint: string | null;
-}
+async function readBootstrapError(response: Response) {
+	const payload = await response
+		.clone()
+		.json()
+		.catch(() => null);
 
-function createSessionManager(initialSession: SessionEnvelope) {
-	let state = initialSession;
-	const listeners = new Set<Listener>();
-
-	return {
-		getState: () => state,
-		setState: (nextState: SessionEnvelope) => {
-			state = nextState;
-
-			for (const listener of listeners) {
-				listener();
-			}
-		},
-		subscribe: (listener: Listener) => {
-			listeners.add(listener);
-
-			return () => {
-				listeners.delete(listener);
-			};
-		},
-	};
-}
-
-function getSessionFingerprint(session: SessionEnvelope) {
-	return JSON.stringify({
-		activeShopId: session.activeShop?.id ?? null,
-		authMode: session.authMode,
-		viewerId: session.viewer?.id ?? null,
-		roles: session.roles,
-	});
-}
-
-function hasFreshMerchantToken(session: SessionEnvelope) {
-	return (
-		hasEmbeddedMerchantSession(session) &&
-		hasFreshConvexToken(session, {
-			refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
-		})
-	);
-}
-
-function mergeHeaders(...headerSets: Array<HeadersInit | undefined>) {
-	const headers = new Headers();
-
-	for (const headerSet of headerSets) {
-		if (!headerSet) {
-			continue;
-		}
-
-		const nextHeaders = new Headers(headerSet);
-
-		for (const [key, value] of nextHeaders.entries()) {
-			headers.set(key, value);
-		}
+	if (payload && typeof payload.error === "string") {
+		return payload.error;
 	}
 
-	return headers;
+	return `Bootstrap failed with status ${response.status}.`;
 }
 
-function serializeEmbeddedSessionError(error: unknown) {
-	if (error instanceof Error) {
-		return {
-			message: error.message,
-			name: error.name,
-			stack: error.stack ?? null,
-		};
-	}
-
-	return {
-		message: String(error),
-		name: "UnknownError",
-		stack: null,
-	};
-}
-
-function getInitialBrowserSession() {
-	if (isServer) {
-		return guestSession;
-	}
-
-	const initialSession = (
-		window as typeof window & {
-			[INITIAL_SESSION_WINDOW_KEY]?: SessionEnvelope;
-		}
-	)[INITIAL_SESSION_WINDOW_KEY];
-
-	return initialSession ?? guestSession;
-}
-
-function createManagedAppRouterContext(): ManagedAppRouterContext {
+function createManagedAppRouterContext(): AppRouterContext {
 	const convexQueryClient = new ConvexQueryClient(getRequiredConvexDeploymentUrl(), {
 		expectAuth: true,
 	});
 	const embeddedApp = createEmbeddedAppManager();
-	const initialSession = getInitialBrowserSession();
 	const queryClient = new QueryClient({
 		defaultOptions: {
 			queries: {
@@ -151,204 +52,74 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 
 	convexQueryClient.connect(queryClient);
 
-	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
-	let sessionFingerprint: string | null = isServer ? null : getSessionFingerprint(initialSession);
-	const sessionManager = createSessionManager(initialSession);
+	const syncCurrentViewer = async () => {
+		const viewer = await getCurrentViewerServer();
+		queryClient.setQueryData(currentViewerQuery.queryKey, viewer);
 
-	const setSession = (session: SessionEnvelope) => {
-		const nextFingerprint = getSessionFingerprint(session);
-		sessionManager.setState(session);
-
-		if (!isServer && sessionFingerprint && sessionFingerprint !== nextFingerprint) {
-			queryClient.clear();
-		}
-
-		sessionFingerprint = nextFingerprint;
-		persistAppConvexTokenCookie(session);
-
-		if (isServer) {
-			if (!convexQueryClient.serverHttpClient) {
-				return;
-			}
-
-			if (session.convexToken) {
-				convexQueryClient.serverHttpClient.setAuth(session.convexToken);
-			} else {
-				convexQueryClient.serverHttpClient.clearAuth();
-			}
-
-			return;
-		}
+		return viewer;
 	};
 
-	const getEmbeddedHeaders = async () => {
-		const sessionToken = await embeddedApp.getSessionToken();
-		const headers = new Headers();
+	const ensureEmbeddedViewer = async () => {
+		const cachedViewer =
+			(queryClient.getQueryData(currentViewerQuery.queryKey) as AppViewerContext | null | undefined) ??
+			null;
 
-		if (sessionToken) {
-			headers.set("Authorization", `Bearer ${sessionToken}`);
+		if (hasMerchantViewer(cachedViewer) || typeof window === "undefined") {
+			return cachedViewer;
 		}
 
-		return headers;
-	};
+		const embeddedState = await embeddedApp.ensureReady();
 
-	const ensureEmbeddedSession = async (options?: { forceRefresh?: boolean }) => {
-		if (isServer) {
-			return sessionManager.getState();
+		if (!embeddedState.isEmbedded) {
+			return cachedViewer;
 		}
 
-		const currentSession = sessionManager.getState();
+		const sessionToken = embeddedState.sessionToken ?? (await embeddedApp.getSessionToken());
 
-		if (!options?.forceRefresh && hasFreshMerchantToken(currentSession)) {
-			return currentSession;
+		if (!sessionToken) {
+			return cachedViewer;
 		}
 
-		if (bootstrapPromise) {
-			return bootstrapPromise;
-		}
-
-		const nextPromise = (async () => {
-			const embeddedState = await embeddedApp.ensureReady();
-
-			if (!embeddedState.isEmbedded) {
-				return sessionManager.getState();
-			}
-
-			const sessionToken = embeddedState.sessionToken ?? (await embeddedApp.getSessionToken());
-
-			if (!sessionToken) {
-				return sessionManager.getState();
-			}
-
-			try {
-				const response = await requestEmbeddedBootstrapSession({
-					requestUrl: window.location.href,
-					sessionToken,
-				});
-
-				if (!response.ok) {
-					const errorPayload = await response
-						.clone()
-						.json()
-						.catch(() => null);
-
-					console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} embedded_bootstrap_failed`, {
-						embeddedSource: embeddedState.source,
-						errorPayload,
-						forceRefresh: options?.forceRefresh ?? false,
-						shop: embeddedState.shop,
-						status: response.status,
-					});
-
-					throw new Error(`Embedded bootstrap failed with status ${response.status}.`);
-				}
-
-				const session = (await response.json()) as SessionEnvelope;
-				setSession(session);
-
-				return session;
-			} catch (error) {
-				console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} ensure_embedded_session_failed`, {
-					embeddedSource: embeddedState.source,
-					error: serializeEmbeddedSessionError(error),
-					forceRefresh: options?.forceRefresh ?? false,
-					shop: embeddedState.shop,
-				});
-
-				const offlineSession: SessionEnvelope = {
-					authMode: "embedded",
-					state: "offline",
-					viewer: null,
-					activeShop: null,
-					roles: [],
-					convexToken: null,
-					convexTokenExpiresAt: null,
-				};
-				setSession(offlineSession);
-
-				return offlineSession;
-			}
-		})();
-
-		bootstrapPromise = nextPromise.finally(() => {
-			if (bootstrapPromise === nextPromise) {
-				bootstrapPromise = null;
-			}
+		const response = await fetch(`/api/shopify/bootstrap${window.location.search}`, {
+			credentials: "same-origin",
+			headers: {
+				Authorization: `Bearer ${sessionToken}`,
+			},
+			method: "POST",
 		});
 
-		return bootstrapPromise;
-	};
-
-	if (!isServer) {
-		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
-			const currentSession = sessionManager.getState();
-
-			if (
-				!forceRefreshToken &&
-				hasFreshConvexToken(currentSession, {
-					refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
-				})
-			) {
-				return currentSession.convexToken;
-			}
-
-			const refreshedSession = sessionManager.getState();
-
-			if (
-				!forceRefreshToken &&
-				hasFreshConvexToken(refreshedSession, {
-					refreshBufferMs: CONVEX_TOKEN_REFRESH_BUFFER_MS,
-				})
-			) {
-				return refreshedSession.convexToken;
-			}
-
-			const session = await ensureEmbeddedSession({
-				forceRefresh: forceRefreshToken,
+		if (!response.ok) {
+			console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} bootstrap_failed`, {
+				error: await readBootstrapError(response),
+				shop: embeddedState.shop,
+				status: response.status,
 			});
 
-			if (session.authMode === "internal") {
-				const refreshedSession = await refreshInternalSessionEnvelope();
-				setSession(refreshedSession);
+			return cachedViewer;
+		}
 
-				return refreshedSession.convexToken;
-			}
+		await authClient.getSession();
 
-			return session.convexToken;
-		});
-	}
+		return await syncCurrentViewer();
+	};
 
 	return {
-		embeddedApp,
-		queryClient,
+		auth: {
+			ensureEmbeddedViewer,
+		},
 		convexQueryClient,
+		embeddedApp,
 		preload: {
 			ensureQueryData: queryClient.ensureQueryData.bind(queryClient),
 		},
-		request: {
-			fetch: async (input, init) => {
-				const embeddedHeaders = await getEmbeddedHeaders();
-
-				return fetch(input, {
-					...init,
-					headers: mergeHeaders(init?.headers, embeddedHeaders),
-				});
-			},
-			getEmbeddedHeaders,
-		},
-		sessionApi: {
-			ensureEmbeddedSession,
-		},
-		sessionManager,
-		setSession,
-		sessionFingerprint,
+		queryClient,
 	};
 }
 
-let browserContext: ManagedAppRouterContext | undefined;
+let browserContext: AppRouterContext | undefined;
 
 export function getAppRouterContext(): AppRouterContext {
-	if (isServer) {
+	if (typeof window === "undefined") {
 		return createManagedAppRouterContext();
 	}
 

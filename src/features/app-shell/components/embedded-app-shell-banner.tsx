@@ -7,9 +7,9 @@ export function EmbeddedAppShellBanner() {
 
 	const description = embeddedApp.isEmbedded
 		? embeddedApp.sessionToken
-			? "The shell has a fresh Shopify session token from App Bridge. Protected backend calls can now ride the shared bearer-token request helper instead of forcing auth redirects or URL token parsing."
-			: "The shell is inside Shopify admin and is waiting for a fresh App Bridge session token before protected backend requests begin."
-		: "This route renders as a local development shell outside Shopify admin. Inside Shopify admin, the same shell bootstraps bearer-authenticated requests without resetting the SPA shell.";
+			? "The shell has a fresh Shopify session token from App Bridge. Merchant bootstrap can now establish the browser session on the app host without direct browser auth traffic to Convex."
+			: "The shell is inside Shopify admin and is waiting for a fresh App Bridge session token before merchant bootstrap begins."
+		: "This route renders as a local development shell outside Shopify admin. Inside Shopify admin, the same shell bootstraps merchant auth without route rewrites or cross-domain client cookie shims.";
 
 	return (
 		<Panel

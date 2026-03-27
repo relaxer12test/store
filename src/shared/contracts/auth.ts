@@ -17,14 +17,11 @@ export interface ShopSummary {
 	installStatus: "pending" | "connected" | "inactive";
 }
 
-export interface SessionEnvelope {
-	authMode: "none" | "embedded" | "internal";
-	state: "ready" | "offline";
-	viewer: ViewerSummary | null;
+export interface AppViewerContext {
+	authMode: "embedded" | "internal";
+	viewer: ViewerSummary;
 	activeShop: ShopSummary | null;
 	roles: ViewerRole[];
-	convexToken: string | null;
-	convexTokenExpiresAt: number | null;
 }
 
 export function deriveViewerRoles(input: {
@@ -35,14 +32,13 @@ export function deriveViewerRoles(input: {
 
 	if (
 		input.merchantRole === "shop_admin" ||
-		input.merchantRole === "shop_staff" ||
 		input.merchantRole === "owner" ||
 		input.merchantRole === "admin"
 	) {
 		roles.add("shop_admin");
 	}
 
-	if (input.merchantRole === "member") {
+	if (input.merchantRole === "member" || input.merchantRole === "shop_staff") {
 		roles.add("shop_staff");
 	}
 
@@ -53,18 +49,10 @@ export function deriveViewerRoles(input: {
 	return Array.from(roles);
 }
 
-export function hasEmbeddedMerchantSession(session: SessionEnvelope) {
-	return (
-		session.authMode === "embedded" &&
-		session.state === "ready" &&
-		Boolean(session.viewer && session.activeShop && session.convexToken)
-	);
+export function hasAdminViewer(viewer: AppViewerContext | null | undefined) {
+	return Boolean(viewer?.roles.includes("admin"));
 }
 
-export function hasAdminSession(session: SessionEnvelope) {
-	return (
-		session.state === "ready" &&
-		session.roles.includes("admin") &&
-		Boolean(session.viewer && session.convexToken)
-	);
+export function hasMerchantViewer(viewer: AppViewerContext | null | undefined) {
+	return Boolean(viewer?.authMode === "embedded" && viewer.activeShop);
 }

@@ -1,4 +1,39 @@
-import { createServerFn } from "@tanstack/react-start";
+import { createServerOnlyFn } from "@tanstack/react-start";
+import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start";
+import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
+
+export const {
+	fetchAuthAction,
+	fetchAuthMutation,
+	fetchAuthQuery,
+	getToken: getAuthToken,
+} = convexBetterAuthReactStart({
+	convexSiteUrl: getRequiredConvexHttpUrl(),
+	convexUrl: getRequiredConvexDeploymentUrl(),
+});
+
+export async function authHandler(request: Request) {
+	const requestUrl = new URL(request.url);
+	const nextUrl = new URL(requestUrl.pathname + requestUrl.search, getRequiredConvexHttpUrl());
+	const headers = new Headers(request.headers);
+
+	headers.delete("host");
+	headers.set("accept-encoding", "identity");
+
+	const init: RequestInit & {
+		duplex?: "half";
+	} = {
+		body: request.body,
+		duplex: "half",
+		headers,
+		method: request.method,
+		redirect: "manual",
+	};
+
+	return await fetch(nextUrl, {
+		...init,
+	});
+}
 
 function normalizeMyshopifyDomain(value: string | null) {
 	const trimmed = value?.trim().toLowerCase();
@@ -62,52 +97,6 @@ function isEmbeddedEntryPath(pathname: string) {
 	return pathname === "/" || pathname === "/app" || pathname.startsWith("/app/");
 }
 
-async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
-	const token = await betterAuthServer.getToken();
-
-	if (!token) {
-		return null;
-	}
-
-	return await resolveSessionFromConvexToken(token);
-}
-
-async function getEmbeddedBootstrapSessionEnvelope(
-	requestUrl: URL,
-): Promise<SessionEnvelope | null> {
-	const sessionToken = requestUrl.searchParams.get("id_token");
-
-	if (!sessionToken) {
-		return null;
-	}
-
-	const response = await requestEmbeddedBootstrapSession({
-		requestUrl: requestUrl.toString(),
-		referer: getRequestHeader("referer") ?? null,
-		sessionToken,
-		userAgent: getRequestHeader("user-agent") ?? null,
-	});
-
-	if (!response.ok) {
-		const errorPayload = await response
-			.clone()
-			.json()
-			.catch(() => null);
-
-		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} embedded_session_bootstrap_failed`, {
-			embedded: requestUrl.searchParams.get("embedded") ?? null,
-			errorPayload,
-			pathname: requestUrl.pathname,
-			shop: requestUrl.searchParams.get("shop") ?? null,
-			status: response.status,
-		});
-
-		return null;
-	}
-
-	return (await response.json()) as SessionEnvelope;
-}
-
 export function getEmbeddedFrameAncestors(
 	requestUrl: URL,
 	options?: {
@@ -154,8 +143,19 @@ export function buildEmbeddedAppContentSecurityPolicy(
 	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl, options).join(" ")};`;
 }
 
-export const resolveRequestSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
-	return await import("@/lib/auth-request.server").then((module) =>
-		module.resolveRequestSessionEnvelope(),
+export const applyEmbeddedAppContentSecurityPolicyHeader = createServerOnlyFn(async () => {
+	const { getRequestHeader, getRequestUrl, setResponseHeader } = await import(
+		"@tanstack/react-start/server"
+	);
+	const requestUrl = getRequestUrl({
+		xForwardedHost: true,
+		xForwardedProto: true,
+	});
+
+	setResponseHeader(
+		"Content-Security-Policy",
+		buildEmbeddedAppContentSecurityPolicy(requestUrl, {
+			referer: getRequestHeader("referer") ?? null,
+		}),
 	);
 });

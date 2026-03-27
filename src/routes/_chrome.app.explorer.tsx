@@ -4,16 +4,16 @@ import {
 	merchantExplorerQuery,
 	useMerchantExplorer,
 } from "@/features/app-shell/merchant-workspace";
-import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
+import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_chrome/app/explorer")({
 	validateSearch: (search: Record<string, unknown>) => ({
 		dataset: typeof search.dataset === "string" ? search.dataset : undefined,
 	}),
 	loader: async ({ context }) => {
-		const session = await context.sessionApi.ensureEmbeddedSession();
+		const viewer = await context.auth.ensureEmbeddedViewer();
 
-		if (hasEmbeddedMerchantSession(session)) {
+		if (hasMerchantViewer(viewer)) {
 			await context.preload.ensureQueryData(merchantExplorerQuery);
 		}
 	},

@@ -1,4 +1,4 @@
-import type { ViewerRole } from "@/shared/contracts/session";
+import type { ViewerRole } from "@/shared/contracts/auth";
 
 export const merchantOrganizationSchema = {
 	organization: {

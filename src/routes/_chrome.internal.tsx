@@ -1,11 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
-import { useSessionEnvelope } from "@/lib/auth-client";
-import { resolveRequestSessionEnvelope } from "@/lib/auth-server";
-import { refreshInternalSessionEnvelope } from "@/lib/direct-convex-auth";
-import { isServer } from "@/lib/env";
-import { hasAdminSession } from "@/shared/contracts/session";
+import { getCurrentViewerServer } from "@/lib/auth-functions";
+import { useAppAuth } from "@/lib/auth-client";
+import { hasAdminViewer } from "@/shared/contracts/auth";
 
 const internalNav: SurfaceNavItem[] = [
 	{
@@ -47,18 +45,8 @@ const internalNav: SurfaceNavItem[] = [
 ];
 
 export const Route = createFileRoute("/_chrome/internal")({
-	beforeLoad: async ({ context }) => {
-		const currentSession = context.sessionManager.getState();
-		const session =
-			currentSession.authMode !== "none"
-				? currentSession
-				: isServer
-					? await resolveRequestSessionEnvelope()
-					: await refreshInternalSessionEnvelope();
-
-		context.setSession(session);
-
-		if (!hasAdminSession(session)) {
+	beforeLoad: async () => {
+		if (!hasAdminViewer(await getCurrentViewerServer())) {
 			throw redirect({
 				to: "/auth/sign-in",
 			});
@@ -68,14 +56,14 @@ export const Route = createFileRoute("/_chrome/internal")({
 });
 
 function InternalLayoutRoute() {
-	const session = useSessionEnvelope();
+	const { viewer } = useAppAuth();
 
 	return (
 		<SurfaceLayout
 			description="Dev-only diagnostics shell for install state, webhook deliveries, projection cache, and action audits. It is intentionally separate from merchant navigation."
 			eyebrow="Internal tools"
 			navItems={internalNav}
-			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
+			statusLabel={viewer?.viewer.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
 			title="Internal diagnostics"
 		/>
 	);

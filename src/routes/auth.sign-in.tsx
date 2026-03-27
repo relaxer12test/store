@@ -1,15 +1,16 @@
 import { useForm } from "@tanstack/react-form";
-import { useMutation } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
 import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
 import { Input } from "@/components/ui/cata/input";
 import { Text } from "@/components/ui/cata/text";
+import { currentViewerQuery } from "@/lib/auth-queries";
+import { getCurrentViewerServer } from "@/lib/auth-functions";
 import { authClient } from "@/lib/auth-client";
 import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
-import { refreshInternalSessionEnvelope } from "@/lib/direct-convex-auth";
-import { hasAdminSession } from "@/shared/contracts/session";
+import { hasAdminViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/auth/sign-in")({
 	component: SignInRoute,
@@ -17,7 +18,8 @@ export const Route = createFileRoute("/auth/sign-in")({
 
 function SignInRoute() {
 	const navigate = useNavigate();
-	const routeContext = Route.useRouteContext();
+	const queryClient = useQueryClient();
+	const router = useRouter();
 	const signInMutation = useMutation({
 		mutationFn: async (values: { email: string; password: string }) => {
 			const result = await authClient.signIn.email(values);
@@ -26,14 +28,18 @@ function SignInRoute() {
 				throw new Error(getAuthClientErrorMessage(result.error, "Admin authentication failed."));
 			}
 
-			const session = await refreshInternalSessionEnvelope();
+			await authClient.getSession();
 
-			if (!hasAdminSession(session)) {
+			const viewer = await getCurrentViewerServer();
+			queryClient.setQueryData(currentViewerQuery.queryKey, viewer);
+
+			if (!hasAdminViewer(viewer)) {
 				await authClient.signOut();
+				queryClient.setQueryData(currentViewerQuery.queryKey, null);
 				throw new Error("This Better Auth account is not an admin.");
 			}
 
-			return session;
+			return viewer;
 		},
 	});
 	const form = useForm({
@@ -42,19 +48,21 @@ function SignInRoute() {
 			password: "",
 		},
 		onSubmit: async ({ value }) => {
-			const session = await signInMutation
+			const viewer = await signInMutation
 				.mutateAsync({
 					email: value.email.trim(),
 					password: value.password,
 				})
 				.catch(() => null);
 
-			if (!session) {
+			if (!viewer) {
 				return;
 			}
 
-			routeContext.setSession(session);
-			window.location.assign("/internal");
+			await router.invalidate();
+			await navigate({
+				to: "/internal",
+			});
 		},
 	});
 
@@ -63,13 +71,7 @@ function SignInRoute() {
 			<Heading>Sign in</Heading>
 			<Text>Internal diagnostics require an admin session.</Text>
 
-			<form
-				className="mt-8"
-				onSubmit={async (event) => {
-					event.preventDefault();
-					await form.handleSubmit();
-				}}
-			>
+			<div className="mt-8">
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="email">
@@ -109,7 +111,12 @@ function SignInRoute() {
 				</Fieldset>
 
 				<div className="mt-6 flex items-center justify-between">
-					<Button color="dark/zinc" disabled={signInMutation.isPending} type="submit">
+					<Button
+						color="dark/zinc"
+						disabled={signInMutation.isPending}
+						onClick={() => void form.handleSubmit()}
+						type="button"
+					>
 						{signInMutation.isPending ? "Signing in\u2026" : "Sign in"}
 					</Button>
 					<Button
@@ -128,7 +135,7 @@ function SignInRoute() {
 						</Text>
 					</div>
 				) : null}
-			</form>
+			</div>
 		</div>
 	);
 }

@@ -4,13 +4,13 @@ import {
 	merchantCopilotStateQuery,
 	useMerchantCopilotState,
 } from "@/features/app-shell/merchant-workspace";
-import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
+import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_chrome/app/copilot")({
 	loader: async ({ context }) => {
-		const session = await context.sessionApi.ensureEmbeddedSession();
+		const viewer = await context.auth.ensureEmbeddedViewer();
 
-		if (hasEmbeddedMerchantSession(session)) {
+		if (hasMerchantViewer(viewer)) {
 			await context.preload.ensureQueryData(merchantCopilotStateQuery);
 		}
 	},

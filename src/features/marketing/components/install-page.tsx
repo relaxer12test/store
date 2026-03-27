@@ -2,7 +2,7 @@ import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
-import { useSessionEnvelope } from "@/lib/auth-client";
+import { useAppAuth } from "@/lib/auth-client";
 import {
 	getOptionalConvexDeploymentUrl,
 	getOptionalConvexHttpUrl,
@@ -19,8 +19,8 @@ const checklistItems = [
 ];
 
 export function InstallPage() {
+	const auth = useAppAuth();
 	const embeddedApp = useEmbeddedAppBootstrap();
-	const session = useSessionEnvelope();
 	const hasConvexDeploymentUrl = Boolean(getOptionalConvexDeploymentUrl());
 	const hasConvexHttpUrl = Boolean(getOptionalConvexHttpUrl());
 	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
@@ -85,24 +85,16 @@ export function InstallPage() {
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">
 							<div className="flex items-center gap-3">
-								<StatusPill
-									tone={
-										session.authMode === "embedded" && session.state === "ready"
-											? "success"
-											: "watch"
-									}
-								>
-									{session.authMode === "embedded" && session.state === "ready"
-										? "Convex bootstrap complete"
-										: "Convex bootstrap pending"}
+								<StatusPill tone={auth.isMerchant ? "success" : "watch"}>
+									{auth.isMerchant ? "Merchant auth ready" : "Merchant auth pending"}
 								</StatusPill>
-								{session.activeShop ? (
-									<StatusPill tone="neutral">{session.activeShop.domain}</StatusPill>
+								{auth.viewer?.activeShop ? (
+									<StatusPill tone="neutral">{auth.viewer.activeShop.domain}</StatusPill>
 								) : null}
 							</div>
 							<Text className="mt-3">
-								{session.activeShop
-									? `The current embedded session resolved the active shop as ${session.activeShop.name}.`
+								{auth.viewer?.activeShop
+									? `The current embedded session resolved the active shop as ${auth.viewer.activeShop.name}.`
 									: "The app shell has not resolved an embedded shop context yet."}
 							</Text>
 						</div>

@@ -3,26 +3,24 @@ import { Heading } from "@/components/ui/cata/heading";
 import { Strong, Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
-import { useSessionEnvelope } from "@/lib/auth-client";
-import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
+import { useAppAuth } from "@/lib/auth-client";
 
 export function LandingPage() {
+	const auth = useAppAuth();
 	const embeddedApp = useEmbeddedAppBootstrap();
-	const session = useSessionEnvelope();
-	const hasMerchantSession = hasEmbeddedMerchantSession(session);
 
-	if (embeddedApp.isEmbedded && hasMerchantSession) {
+	if (embeddedApp.isEmbedded && auth.isMerchant) {
 		return <Navigate replace to="/app" />;
 	}
 
 	return (
 		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">
 			<div className="flex flex-wrap items-center gap-3">
-				<StatusPill tone={session.state === "ready" ? "success" : "watch"}>
-					{session.state === "ready" ? "Convex live" : "Convex offline"}
+				<StatusPill tone={auth.hasSession ? "success" : "watch"}>
+					{auth.hasSession ? "Better Auth session ready" : "No browser session"}
 				</StatusPill>
-				{session.activeShop ? (
-					<StatusPill tone="success">{session.activeShop.domain}</StatusPill>
+				{auth.viewer?.activeShop ? (
+					<StatusPill tone="success">{auth.viewer.activeShop.domain}</StatusPill>
 				) : (
 					<StatusPill tone="neutral">No shop connected</StatusPill>
 				)}

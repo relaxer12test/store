@@ -8,15 +8,13 @@ import {
 	NavbarSection,
 	NavbarSpacer,
 } from "@/components/ui/cata/navbar";
-import { authClient, useSessionEnvelope } from "@/lib/auth-client";
-import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
-import { guestSession } from "@/lib/session-envelope";
-import { hasAdminSession } from "@/shared/contracts/session";
+import { authClient, useAppAuth } from "@/lib/auth-client";
 
 export function AppNavbar() {
-	const session = useSessionEnvelope();
+	const auth = useAppAuth();
 	const [isPending, startTransition] = useTransition();
-	const showInternalNav = hasAdminSession(session);
+	const showInternalNav = auth.isAdmin;
+	const displayName = auth.viewer?.viewer.name ?? auth.session.data?.user?.name ?? null;
 
 	return (
 		<Navbar>
@@ -38,8 +36,8 @@ export function AppNavbar() {
 			<NavbarDivider />
 
 			<NavbarSection>
-				<Badge color={session.state === "ready" ? "green" : "amber"}>
-					{session.state === "ready" ? "Convex live" : "Convex offline"}
+				<Badge color={auth.hasSession ? "green" : "amber"}>
+					{auth.hasSession ? "Signed in" : "Signed out"}
 				</Badge>
 
 				{showInternalNav ? (
@@ -49,8 +47,7 @@ export function AppNavbar() {
 							startTransition(() => {
 								void (async () => {
 									await authClient.signOut();
-									persistAppConvexTokenCookie(guestSession);
-									window.location.assign("/");
+									window.location.reload();
 								})();
 							});
 						}}
@@ -59,9 +56,9 @@ export function AppNavbar() {
 					</NavbarItem>
 				) : null}
 
-				{session.viewer ? (
-					<Badge color={session.roles.includes("admin") ? "blue" : "zinc"}>
-						{session.viewer.name}
+				{displayName ? (
+					<Badge color={auth.isAdmin ? "blue" : "zinc"}>
+						{displayName}
 					</Badge>
 				) : (
 					<Badge color="zinc">Unauthenticated</Badge>

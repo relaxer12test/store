@@ -1,14 +1,13 @@
 import type { PropsWithChildren, ReactNode } from "react";
-import { useSessionEnvelope } from "@/lib/auth-client";
-import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
+import { useAppAuth } from "@/lib/auth-client";
 
 export function MerchantSessionGate({
 	children,
 	fallback = null,
 }: PropsWithChildren<{ fallback?: ReactNode }>) {
-	const session = useSessionEnvelope();
+	const auth = useAppAuth();
 
-	if (!hasEmbeddedMerchantSession(session)) {
+	if (!auth.isMerchant) {
 		return fallback;
 	}
 

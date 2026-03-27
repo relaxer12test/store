@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { forwardStorefrontWidgetChatRequest } from "./api.shopify.widget.chat";
+import { forwardStorefrontWidgetChatRequest } from "@/lib/api-proxy";
 
 describe("shopify storefront widget chat route", () => {
 	it("forwards chat requests to the Convex HTTP actions host", async () => {

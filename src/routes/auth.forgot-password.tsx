@@ -54,13 +54,7 @@ function ForgotPasswordRoute() {
 			<Heading>Reset password</Heading>
 			<Text>Enter your admin email and we'll send a reset link.</Text>
 
-			<form
-				className="mt-8"
-				onSubmit={async (event) => {
-					event.preventDefault();
-					await form.handleSubmit();
-				}}
-			>
+			<div className="mt-8">
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="email">
@@ -84,7 +78,12 @@ function ForgotPasswordRoute() {
 				</Fieldset>
 
 				<div className="mt-6 flex items-center gap-3">
-					<Button color="dark/zinc" disabled={resetMutation.isPending} type="submit">
+					<Button
+						color="dark/zinc"
+						disabled={resetMutation.isPending}
+						onClick={() => void form.handleSubmit()}
+						type="button"
+					>
 						{resetMutation.isPending ? "Sending\u2026" : "Send reset link"}
 					</Button>
 					<Button plain onClick={() => void navigate({ to: "/auth/sign-in" })} type="button">
@@ -99,7 +98,7 @@ function ForgotPasswordRoute() {
 						</Text>
 					</div>
 				) : null}
-			</form>
+			</div>
 		</div>
 	);
 }

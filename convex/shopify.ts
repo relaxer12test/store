@@ -1,6 +1,6 @@
 import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
-import type { ShopSummary } from "@/shared/contracts/session";
+import type { ShopSummary } from "@/shared/contracts/auth";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,

@@ -1,7 +1,6 @@
 import { createClient } from "@convex-dev/better-auth";
 import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
 import { convex as betterAuthConvexPlugin } from "@convex-dev/better-auth/plugins";
-import { crossDomain } from "@convex-dev/better-auth/plugins";
 import { components, internal } from "@convex/_generated/api";
 import type { DataModel, Doc, Id } from "@convex/_generated/dataModel";
 import {
@@ -19,6 +18,7 @@ import { admin } from "better-auth/plugins/admin";
 import { getOrgAdapter, organization } from "better-auth/plugins/organization";
 import type { UserIdentity } from "convex/server";
 import { z } from "zod";
+import { deriveViewerRoles, type AppViewerContext } from "@/shared/contracts/auth";
 import {
 	getShopOrganizationSlug,
 	mapMerchantMemberRoleToViewerRole,
@@ -145,7 +145,7 @@ interface ShopifyMerchantBridgeBody {
 
 const DEFAULT_AUTH_BASE_URL = "https://example.invalid";
 const DEFAULT_AUTH_SECRET = "development-only-better-auth-secret-32";
-const LOCAL_AUTH_ORIGINS = ["http://localhost:3000"] as const;
+const LOCAL_AUTH_ORIGINS = ["http://localhost:3000", "http://localhost:3001"] as const;
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID = "shopify-merchant";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
@@ -917,9 +917,6 @@ export function createAuthOptions(ctx: AuthCtx) {
 		plugins: [
 			admin(),
 			organization(merchantOrganizationOptions),
-			crossDomain({
-				siteUrl: getAuthBaseUrl(),
-			}),
 			shopifyMerchantBridgePlugin(),
 			betterAuthConvexPlugin({
 				authConfig: {
@@ -1028,7 +1025,7 @@ export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<Merchant
 
 export const getCurrentViewer = query({
 	args: {},
-	handler: async (ctx) => {
+	handler: async (ctx): Promise<AppViewerContext | null> => {
 		const identity = await ctx.auth.getUserIdentity();
 		const user = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
 		const betterAuthRole = user?.role ?? null;
@@ -1036,20 +1033,27 @@ export const getCurrentViewer = query({
 		if (identity && user) {
 			try {
 				const merchant = await readMerchantContextFromDb(ctx, identity);
+				const roles = deriveViewerRoles({
+					betterAuthRole: betterAuthRole ?? (hasAdminIdentity(identity) ? "admin" : null),
+					merchantRole: merchant.member.role,
+				});
 
 				return {
-					authKind: "merchant" as const,
-					betterAuthRole: betterAuthRole ?? (hasAdminIdentity(identity) ? "admin" : null),
-					contactEmail: merchant.user.email,
-					email: merchant.user.email,
-					merchantRole: merchant.member.role,
-					name: merchant.user.name,
-					organizationId: merchant.actor.organizationId,
-					shopDomain: merchant.shop.domain,
-					shopId: merchant.shop._id,
-					shopName: merchant.shop.name,
-					shopifyUserId: merchant.actor.shopifyUserId,
-					userId: merchant.actor.id,
+					activeShop: {
+						domain: merchant.shop.domain,
+						id: merchant.shop._id,
+						installStatus: merchant.shop.installStatus,
+						name: merchant.shop.name,
+					},
+					authMode: "embedded",
+					roles,
+					viewer: {
+						email: merchant.user.email,
+						id: merchant.user.id,
+						initials: merchant.actor.initials,
+						name: merchant.user.name,
+						roles,
+					},
 				};
 			} catch {
 				// No active merchant organization on this session, fall through to admin handling.
@@ -1061,19 +1065,21 @@ export const getCurrentViewer = query({
 		}
 
 		if (betterAuthRole === "admin") {
-			return {
-				authKind: "admin" as const,
+			const roles = deriveViewerRoles({
 				betterAuthRole,
-				contactEmail: user.email,
-				email: user.email,
-				merchantRole: null,
-				name: user.name,
-				organizationId: null,
-				shopDomain: null,
-				shopId: null,
-				shopName: null,
-				shopifyUserId: null,
-				userId: user.id,
+			});
+
+			return {
+				activeShop: null,
+				authMode: "internal",
+				roles,
+				viewer: {
+					email: user.email,
+					id: user.id,
+					initials: getInitials(user.name),
+					name: user.name,
+					roles,
+				},
 			};
 		}
 

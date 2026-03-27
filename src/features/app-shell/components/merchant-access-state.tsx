@@ -1,22 +1,22 @@
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
-import { useSessionEnvelope } from "@/lib/auth-client";
+import { useAppAuth } from "@/lib/auth-client";
 
 export function MerchantAccessState() {
+	const auth = useAppAuth();
 	const embeddedApp = useEmbeddedAppBootstrap();
-	const session = useSessionEnvelope();
 	const statusLabel =
-		session.state === "offline"
-			? "Bootstrap offline"
+		auth.isPending
+			? "Resolving auth"
 			: embeddedApp.isEmbedded
-				? "Awaiting Shopify session"
+				? "Awaiting merchant bootstrap"
 				: "Local development shell";
 	const body =
-		session.state === "offline"
-			? "Shopify session verification or Convex bootstrap failed for this embedded session. Refresh from Shopify admin to mint a new protected merchant token."
+		auth.isPending
+			? "The app is checking the current Better Auth session and merchant viewer context."
 			: embeddedApp.isEmbedded
-				? "Protected merchant data loads after App Bridge supplies a fresh session token and the backend resolves the current shop and merchant actor."
+				? "Protected merchant data loads after App Bridge supplies a fresh session token and the backend establishes a merchant browser session on the app host."
 				: "This route is running outside Shopify admin. The shell stays visible, but protected merchant data stays unavailable until the app is opened as an embedded Shopify app.";
 
 	return (
@@ -25,9 +25,7 @@ export function MerchantAccessState() {
 			title="Embedded access required"
 		>
 			<div className="space-y-4">
-				<StatusPill tone={session.state === "offline" ? "blocked" : "watch"}>
-					{statusLabel}
-				</StatusPill>
+				<StatusPill tone={auth.isPending ? "accent" : "watch"}>{statusLabel}</StatusPill>
 				<EmptyState body={body} title="Protected merchant data is not ready yet" />
 			</div>
 		</Panel>

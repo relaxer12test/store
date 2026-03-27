@@ -87,13 +87,7 @@ function ResetPasswordRoute() {
 			<Heading>Set your new password</Heading>
 			<Text>Enter a new password for your admin account.</Text>
 
-			<form
-				className="mt-8"
-				onSubmit={async (event) => {
-					event.preventDefault();
-					await form.handleSubmit();
-				}}
-			>
+			<div className="mt-8">
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="newPassword">
@@ -132,7 +126,12 @@ function ResetPasswordRoute() {
 				</Fieldset>
 
 				<div className="mt-6">
-					<Button color="dark/zinc" disabled={resetMutation.isPending} type="submit">
+					<Button
+						color="dark/zinc"
+						disabled={resetMutation.isPending}
+						onClick={() => void form.handleSubmit()}
+						type="button"
+					>
 						{resetMutation.isPending ? "Resetting\u2026" : "Reset password"}
 					</Button>
 				</div>
@@ -144,7 +143,7 @@ function ResetPasswordRoute() {
 						</Text>
 					</div>
 				) : null}
-			</form>
+			</div>
 		</div>
 	);
 }

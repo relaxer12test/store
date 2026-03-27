@@ -8,15 +8,12 @@ import {
 	SidebarLabel,
 	SidebarSection,
 } from "@/components/ui/cata/sidebar";
-import { authClient, useSessionEnvelope } from "@/lib/auth-client";
-import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
-import { guestSession } from "@/lib/session-envelope";
-import { hasAdminSession } from "@/shared/contracts/session";
+import { authClient, useAppAuth } from "@/lib/auth-client";
 
 export function AppSidebar() {
-	const session = useSessionEnvelope();
+	const auth = useAppAuth();
 	const [isPending, startTransition] = useTransition();
-	const showInternalNav = hasAdminSession(session);
+	const showInternalNav = auth.isAdmin;
 
 	return (
 		<Sidebar>
@@ -56,8 +53,7 @@ export function AppSidebar() {
 									startTransition(() => {
 										void (async () => {
 											await authClient.signOut();
-											persistAppConvexTokenCookie(guestSession);
-											window.location.assign("/");
+											window.location.reload();
 										})();
 									});
 								}}

@@ -4,8 +4,6 @@ import { authComponent, createAuth, getAuthSecret, getTrustedAuthOrigins } from 
 import { resend } from "@convex/mail";
 import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 import { httpRouter } from "convex/server";
-import { decodeJwt } from "jose";
-import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
 
 const http = httpRouter();
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
@@ -20,7 +18,6 @@ const PRIVATE_CORS_HEADERS = {
 	"Access-Control-Allow-Headers": "Authorization, Content-Type",
 	"Access-Control-Allow-Methods": "POST, OPTIONS",
 };
-const SECONDS_TO_MS = 1000;
 
 function getWebhookHeaders(request: Request) {
 	return {
@@ -115,20 +112,6 @@ async function readResponseError(response: Response, fallbackMessage: string) {
 	}
 
 	return fallbackMessage;
-}
-
-function getConvexTokenExpiresAt(token: string | null | undefined) {
-	if (!token) {
-		return null;
-	}
-
-	try {
-		const claims = decodeJwt(token);
-
-		return typeof claims.exp === "number" ? claims.exp * SECONDS_TO_MS : null;
-	} catch {
-		return null;
-	}
 }
 
 authComponent.registerRoutes(http, createAuth, {
@@ -251,9 +234,8 @@ http.route({
 		const tokenPayload = (await tokenResponse.json()) as {
 			token?: string;
 		};
-		const convexToken = tokenPayload.token ?? null;
 
-		if (!convexToken) {
+		if (!tokenPayload.token) {
 			return Response.json(
 				{
 					error: "Merchant bootstrap completed without issuing a Convex JWT.",
@@ -267,48 +249,17 @@ http.route({
 			);
 		}
 
-		const bridgePayload = (await bridgeResponse.json()) as {
-			activeShop: NonNullable<SessionEnvelope["activeShop"]>;
-			betterAuthRole?: string | null;
-			merchantRole?: string | null;
-			viewer: {
-				email: string;
-				id: string;
-				initials: string;
-				name: string;
-			};
-		};
-		const roles = deriveViewerRoles({
-			betterAuthRole: bridgePayload.betterAuthRole,
-			merchantRole: bridgePayload.merchantRole,
-		});
-		const session: SessionEnvelope = {
-			activeShop: bridgePayload.activeShop,
-			authMode: "embedded",
-			convexToken,
-			convexTokenExpiresAt: getConvexTokenExpiresAt(convexToken),
-			roles,
-			state: "ready",
-			viewer: {
-				email: bridgePayload.viewer.email,
-				id: bridgePayload.viewer.id,
-				initials: bridgePayload.viewer.initials,
-				name: bridgePayload.viewer.name,
-				roles,
-			},
-		};
 		const headers = withPrivateCorsHeaders(request, {
 			"Cache-Control": "no-store",
-			"Content-Type": "application/json",
 		});
 
 		for (const cookie of [...bridgeCookies, ...getSetCookieHeaders(tokenResponse.headers)]) {
 			headers.append("Set-Cookie", cookie);
 		}
 
-		return new Response(JSON.stringify(session), {
+		return new Response(null, {
 			headers,
-			status: 200,
+			status: 204,
 		});
 	}),
 });

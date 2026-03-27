@@ -35,6 +35,7 @@ const config = defineConfig({
 		viteReact(),
 	],
 	test: {
+		include: ["src/**/*.test.ts", "src/**/*.test.tsx", "convex/**/*.test.ts"],
 		passWithNoTests: true,
 	},
 	lint: {

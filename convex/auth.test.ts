@@ -80,6 +80,7 @@ describe("auth", () => {
 		expect(getTrustedAuthOrigins()).toEqual([
 			"https://storeai.ldev.cloud",
 			"http://localhost:3000",
+			"http://localhost:3001",
 		]);
 	});
 

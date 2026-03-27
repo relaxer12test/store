@@ -1,56 +1,31 @@
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
-import { crossDomainClient } from "@convex-dev/better-auth/client/plugins";
-import {
-	adminClient,
-	inferOrgAdditionalFields,
-	organizationClient,
-} from "better-auth/client/plugins";
+import { useQuery } from "@tanstack/react-query";
 import { createAuthClient } from "better-auth/react";
-import { createContext, useContext, useSyncExternalStore } from "react";
-import { getRequiredConvexHttpUrl } from "@/lib/env";
-import { merchantOrganizationSchema } from "@/shared/contracts/better-auth-tenancy";
-import type { SessionEnvelope } from "@/shared/contracts/session";
-
-type Listener = () => void;
-
-export interface SessionManager {
-	getState: () => SessionEnvelope;
-	subscribe: (listener: Listener) => () => void;
-}
-
-const SessionContext = createContext<SessionManager | null>(null);
+import { adminClient } from "better-auth/client/plugins";
+import { currentViewerQuery } from "@/lib/auth-queries";
+import { hasAdminViewer, hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const authClient = createAuthClient({
-	baseURL: getRequiredConvexHttpUrl(),
 	basePath: "/api/auth",
-	plugins: [
-		adminClient(),
-		organizationClient({
-			schema: inferOrgAdditionalFields(merchantOrganizationSchema),
-		}),
-		crossDomainClient({
-			storagePrefix: "gc-auth",
-		}),
-		convexClient(),
-	],
+	plugins: [adminClient(), convexClient()],
 });
 
-export function SessionProvider({
-	children,
-	manager,
-}: {
-	children: React.ReactNode;
-	manager: SessionManager;
-}) {
-	return <SessionContext.Provider value={manager}>{children}</SessionContext.Provider>;
+export function useCurrentViewer() {
+	return useQuery(currentViewerQuery);
 }
 
-export function useSessionEnvelope() {
-	const manager = useContext(SessionContext);
+export function useAppAuth() {
+	const session = authClient.useSession();
+	const viewerQuery = useCurrentViewer();
+	const viewer = viewerQuery.data ?? null;
 
-	if (!manager) {
-		throw new Error("Session state must be consumed inside <SessionProvider />.");
-	}
-
-	return useSyncExternalStore(manager.subscribe, manager.getState, manager.getState);
+	return {
+		hasSession: Boolean(session.data?.session),
+		isAdmin: hasAdminViewer(viewer),
+		isMerchant: hasMerchantViewer(viewer),
+		isPending: session.isPending || viewerQuery.isPending,
+		session,
+		viewer,
+		viewerQuery,
+	};
 }

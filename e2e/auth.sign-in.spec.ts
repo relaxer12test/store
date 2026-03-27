@@ -4,26 +4,13 @@ const adminEmail = process.env.TEST_ADMIN_EMAIL;
 const adminPassword = process.env.TEST_ADMIN_PASSWORD;
 
 async function signInAsAdmin(page: Page, context: BrowserContext) {
-	await page.goto("/auth/sign-in");
 	await context.clearCookies();
-	await page.evaluate(() => {
-		window.localStorage.clear();
-		window.sessionStorage.clear();
-	});
-	await page.reload();
-	await Promise.race([
-		page
-			.waitForResponse((response) => response.url().includes("/api/auth/convex/token"), {
-				timeout: 3_000,
-			})
-			.catch(() => null),
-		page.waitForTimeout(1_000),
-	]);
+	await page.goto("/auth/sign-in");
+	await page.waitForTimeout(250);
 
-	const signInForm = page.locator("form").first();
-	const emailInput = signInForm.locator('input[name="email"]');
-	const passwordInput = signInForm.locator('input[name="password"]');
-	const submitButton = signInForm.locator('button[type="submit"]');
+	const emailInput = page.locator('input[name="email"]');
+	const passwordInput = page.locator('input[name="password"]');
+	const submitButton = page.getByRole("button", { name: "Sign in" });
 
 	await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 	await emailInput.fill(adminEmail!);
@@ -44,8 +31,21 @@ test.describe("internal admin sign-in", () => {
 	);
 
 	test("signs in and reaches internal diagnostics", async ({ context, page }) => {
+		const authRequests: string[] = [];
+		const directConvexAuthRequests: string[] = [];
 		const runtimeErrors: string[] = [];
 
+		page.on("request", (request) => {
+			const url = request.url();
+
+			if (url.includes("/api/auth/")) {
+				authRequests.push(url);
+			}
+
+			if (url.includes(".convex.site") && url.includes("/api/auth/")) {
+				directConvexAuthRequests.push(url);
+			}
+		});
 		page.on("console", (message) => {
 			if (message.type() === "error") {
 				runtimeErrors.push(message.text());
@@ -57,6 +57,8 @@ test.describe("internal admin sign-in", () => {
 
 		await signInAsAdmin(page, context);
 		await expect(page.getByRole("heading", { name: "Internal diagnostics" })).toBeVisible();
+		expect(authRequests.some((url) => url.includes("/api/auth/"))).toBe(true);
+		expect(directConvexAuthRequests).toEqual([]);
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
 	});
 

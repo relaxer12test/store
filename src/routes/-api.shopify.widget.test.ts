@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { forwardStorefrontWidgetConfigRequest } from "./api.shopify.widget";
+import { forwardStorefrontWidgetConfigRequest } from "@/lib/api-proxy";
 
 describe("shopify storefront widget config route", () => {
 	it("forwards config requests to the Convex HTTP actions host", async () => {

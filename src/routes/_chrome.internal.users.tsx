@@ -10,7 +10,8 @@ import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { invalidateAuthQueries } from "@/lib/auth-queries";
+import { authClient, useAppAuth } from "@/lib/auth-client";
 import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
 
 interface ManagedUser {
@@ -36,7 +37,7 @@ export const Route = createFileRoute("/_chrome/internal/users")({
 });
 
 function InternalUsersRoute() {
-	const session = useSessionEnvelope();
+	const auth = useAppAuth();
 	const queryClient = useQueryClient();
 	const usersQuery = useQuery({
 		queryKey: ["better-auth", "users"],
@@ -72,6 +73,7 @@ function InternalUsersRoute() {
 			await queryClient.invalidateQueries({
 				queryKey: ["better-auth", "users"],
 			});
+			await invalidateAuthQueries(queryClient);
 		},
 	});
 	const users = usersQuery.data ?? [];
@@ -117,7 +119,9 @@ function InternalUsersRoute() {
 				) : (
 					<div className="space-y-4">
 						{users.map((user) => {
-							const isCurrentUser = session.viewer?.email === user.email;
+							const isCurrentUser =
+								auth.viewer?.viewer.email === user.email ||
+								auth.session.data?.user?.email === user.email;
 							const isLastAdmin = user.role === "admin" && adminCount === 1;
 							const nextRole = user.role === "admin" ? "user" : "admin";
 
