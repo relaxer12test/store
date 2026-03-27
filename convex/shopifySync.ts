@@ -56,6 +56,7 @@ const PUBLIC_CATALOG_QUERY = `
 				status
 				updatedAt
 				onlineStoreUrl
+				description(truncateAt: 220)
 				featuredImage {
 					url
 				}
@@ -199,6 +200,7 @@ type ShopifyCount = {
 type CatalogPageResponse = {
 	products?: {
 		nodes?: Array<{
+			description?: string | null;
 			featuredImage?: {
 				url?: string | null;
 			} | null;
@@ -368,6 +370,12 @@ function parseAmount(value: string | null | undefined) {
 	return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function normalizeCatalogDescription(value: string | null | undefined) {
+	const normalized = value?.replace(/\s+/g, " ").trim();
+
+	return normalized ? normalized.slice(0, 220) : undefined;
+}
+
 function formatPriceLabel(minPrice?: number, maxPrice?: number, currencyCode?: string) {
 	if (minPrice === undefined && maxPrice === undefined) {
 		return "Price unavailable";
@@ -385,11 +393,15 @@ function formatPriceLabel(minPrice?: number, maxPrice?: number, currencyCode?: s
 	return formatter.format(minPrice ?? maxPrice ?? 0);
 }
 
-function buildCatalogSearchText(product: Omit<SanitizedCatalogProduct, "searchText" | "summary">) {
+function buildCatalogSearchText(
+	product: Omit<SanitizedCatalogProduct, "searchText" | "summary">,
+	description?: string,
+) {
 	return [
 		product.title,
 		product.vendor,
 		product.productType,
+		description,
 		...product.tags,
 		...product.variantTitles,
 	]
@@ -403,7 +415,14 @@ function buildCollectionSearchText(
 	return [collection.title, collection.description].filter(Boolean).join(" ");
 }
 
-function buildCatalogSummary(product: Omit<SanitizedCatalogProduct, "searchText" | "summary">) {
+function buildCatalogSummary(
+	product: Omit<SanitizedCatalogProduct, "searchText" | "summary">,
+	description?: string,
+) {
+	if (description) {
+		return description;
+	}
+
 	const parts = [
 		product.title,
 		product.vendor,
@@ -590,6 +609,7 @@ function sanitizeCatalogProduct(
 	const availableForSale = (product.variants?.nodes ?? []).some(
 		(variant) => variant.availableForSale,
 	);
+	const description = normalizeCatalogDescription(product.description);
 	const minPrice = parseAmount(product.priceRangeV2?.minVariantPrice?.amount);
 	const maxPrice = parseAmount(product.priceRangeV2?.maxVariantPrice?.amount);
 	const sanitized: Omit<SanitizedCatalogProduct, "searchText" | "summary"> = {
@@ -618,8 +638,8 @@ function sanitizeCatalogProduct(
 
 	return {
 		...sanitized,
-		searchText: buildCatalogSearchText(sanitized),
-		summary: buildCatalogSummary(sanitized),
+		searchText: buildCatalogSearchText(sanitized, description),
+		summary: buildCatalogSummary(sanitized, description),
 	};
 }
 

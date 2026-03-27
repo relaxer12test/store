@@ -24,7 +24,14 @@ import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
 
-type PromptCategory = "bundle" | "cart" | "collections" | "compare" | "discovery" | "policy";
+type PromptCategory =
+	| "bundle"
+	| "cart"
+	| "checkout"
+	| "collections"
+	| "compare"
+	| "discovery"
+	| "policy";
 type StreamEvent =
 	| { event: "chunk"; data: { delta: string } }
 	| { event: "done"; data: StorefrontWidgetReply }
@@ -163,6 +170,14 @@ function derivePromptCategory(message: string): PromptCategory {
 	const normalized = message.toLowerCase();
 
 	if (
+		normalized.includes("checkout") ||
+		normalized.includes("place order") ||
+		normalized.includes("complete purchase")
+	) {
+		return "checkout";
+	}
+
+	if (
 		normalized.includes("shipping") ||
 		normalized.includes("delivery") ||
 		normalized.includes("return") ||
@@ -239,7 +254,7 @@ export function reviewPromptSafety(message: string) {
 	}
 
 	if (
-		/\b(checkout|place order|complete purchase|payment|refund an order|cancel an order|log me in|change my address|account action)\b/i.test(
+		/\b(payment|refund an order|cancel an order|log me in|change my address|account action)\b/i.test(
 			normalized,
 		)
 	) {
@@ -267,7 +282,7 @@ export function reviewAssistantSafety(message: string) {
 		return false;
 	}
 
-	if (/\bi can (refund|cancel|checkout|change your address|log you in)\b/i.test(normalized)) {
+	if (/\bi can (refund|cancel|change your address|log you in)\b/i.test(normalized)) {
 		return false;
 	}
 
@@ -370,7 +385,7 @@ function buildRateLimitedReply(): StorefrontWidgetReply {
 function buildUnavailableReply(config: StorefrontWidgetConfig): StorefrontWidgetReply {
 	return storefrontWidgetReplySchema.parse({
 		answer:
-			"I couldn't finish that storefront answer right now. Please try again in a moment and I can keep helping with published products or policies.",
+			"I couldn't finish that right now. Please try again in a moment and I can keep helping with products, collections, or store policies.",
 		cards: [],
 		cartPlan: null,
 		references: toConfigReferences(config),
@@ -386,13 +401,13 @@ export function buildSafetyRefusalReply(
 ): StorefrontWidgetReply {
 	const answerByReason = {
 		discount_request:
-			"I can't make items free, generate secret discounts, or promise price changes. I can still compare published products or build a normal cart plan for you.",
+			"I can't create discounts or change prices, but I can still help you compare products or build a cart.",
 		policy_bypass:
-			"I can't bypass the storefront safety rules. I can still help with public product discovery, collection browsing, or a safe cart plan.",
+			"I can't help with that, but I can still help you browse products, compare options, or build a bundle.",
 		private_data_request:
-			"I can only use public storefront information. I can't expose unpublished products, hidden inventory counts, or merchant-private data.",
+			"I can't share hidden stock details or other non-public store information.",
 		restricted_action:
-			"I can't perform checkout, payment, refund, or account actions. I can help you choose items before checkout instead.",
+			"I can't handle payment details, refunds, or account actions. I can still help with your cart and send you to checkout.",
 	} as const;
 
 	return storefrontWidgetReplySchema.parse({
@@ -418,6 +433,23 @@ function buildPolicyReply(policyOutput: PolicyToolOutput): StorefrontWidgetReply
 	});
 }
 
+function buildCheckoutReply(config: StorefrontWidgetConfig): StorefrontWidgetReply {
+	return storefrontWidgetReplySchema.parse({
+		answer: "Your cart is ready when you are. Use the checkout link to continue.",
+		cards: [],
+		cartPlan: null,
+		references: [
+			{
+				label: "Go to checkout",
+				url: `https://${config.shopDomain}/checkout`,
+			},
+		],
+		refusalReason: null,
+		suggestedPrompts: ["Review my cart", "Add one more item", "What is the return policy?"],
+		tone: "answer",
+	});
+}
+
 function buildDiscoveryReply(
 	config: StorefrontWidgetConfig,
 	cards: StorefrontProductCard[],
@@ -426,7 +458,7 @@ function buildDiscoveryReply(
 	if (cards.length === 0) {
 		return storefrontWidgetReplySchema.parse({
 			answer:
-				"I couldn't find a strong public match yet. Try naming a product type, collection, or what you want to compare and I’ll narrow it down.",
+				"I couldn't find a close match yet. Try a product type, collection, or who you're shopping for and I'll narrow it down.",
 			cards: [],
 			cartPlan: null,
 			references: [],
@@ -436,13 +468,16 @@ function buildDiscoveryReply(
 		});
 	}
 
-	const pageContext = pageTitle ? ` while you're viewing ${pageTitle}` : "";
+	const pageContext = pageTitle ? ` for ${pageTitle}` : "";
 
 	return storefrontWidgetReplySchema.parse({
-		answer: `I found ${cards.length} public option${cards.length === 1 ? "" : "s"}${pageContext}. Start with ${cards
-			.slice(0, 2)
-			.map((card) => `${card.title} (${card.priceLabel})`)
-			.join(" and ")}, then I can compare details or build a cart plan from there.`,
+		answer:
+			cards.length === 1
+				? `${cards[0].title} looks like the closest match${pageContext}. Want more like it or a quick comparison?`
+				: `Here are a few good matches${pageContext}. ${cards
+						.slice(0, 2)
+						.map((card) => `${card.title} (${card.priceLabel})`)
+						.join(" and ")} stand out first.`,
 		cards,
 		cartPlan: null,
 		references: cards.slice(0, 3).map((card) => ({
@@ -468,7 +503,7 @@ function buildCompareReply(
 	}
 
 	return storefrontWidgetReplySchema.parse({
-		answer: `Here are the cleanest public comparison points: ${cards
+		answer: `These are the easiest ones to compare: ${cards
 			.slice(0, 3)
 			.map((card) => `${card.title} (${card.priceLabel}, ${card.availabilityLabel.toLowerCase()})`)
 			.join("; ")}.`,
@@ -495,7 +530,7 @@ function buildCollectionsReply(
 	if (cards.length === 0) {
 		return storefrontWidgetReplySchema.parse({
 			answer:
-				"I couldn't find a public collection match yet. Try a broader category or tell me what kind of product you want to browse.",
+				"I couldn't find a close collection match yet. Try a broader category or tell me what kind of product you want to browse.",
 			cards: [],
 			cartPlan: null,
 			references: [],
@@ -506,7 +541,7 @@ function buildCollectionsReply(
 	}
 
 	return storefrontWidgetReplySchema.parse({
-		answer: `These public collections are the best match right now: ${cards
+		answer: `These collections are the best place to start: ${cards
 			.slice(0, 3)
 			.map((card) => card.title)
 			.join(", ")}.`,
@@ -537,8 +572,8 @@ function buildBundleReply(
 
 	return storefrontWidgetReplySchema.parse({
 		answer: cartPlan
-			? "I built a safe starter cart plan from public storefront data. Review the bundle cards first, then use the cart action if it looks right."
-			: "I found a bundle direction, but I couldn't build a cart-ready variant plan yet. Start with these product recommendations.",
+			? "I pulled together a starter set for you. Take a look below, and I can swap anything out if you want."
+			: "These work well together. If you want, I can narrow this into a bundle.",
 		cards,
 		cartPlan,
 		references: cards.slice(0, 3).map((card) => ({
@@ -590,6 +625,10 @@ function dedupeReferences(references: StorefrontReference[]) {
 }
 
 function overrideReplyAnswer(reply: StorefrontWidgetReply, answer: string | undefined) {
+	if (reply.cards.length > 0 || reply.cartPlan) {
+		return reply;
+	}
+
 	const sanitizedAnswer = sanitizeAssistantAnswer(answer);
 
 	if (!sanitizedAnswer) {
@@ -608,8 +647,9 @@ function buildAgentInstructions() {
 		"Help shoppers with published products, collections, availability, shipping, returns, contact guidance, safe bundles, and cart plans only.",
 		"Always use the provided tools before making claims about products, collections, availability, variants, or policies.",
 		"Never offer discounts, coupons, price overrides, hidden deals, unpublished products, merchant-private data, exact inventory counts, or operational/admin actions.",
-		"Never claim you can complete checkout, payment, refunds, cancellations, login, or account changes.",
+		"You may guide shoppers to checkout or send them to checkout, but do not claim you process payment details, refunds, cancellations, login, or account changes.",
 		"Keep answers concise because the UI renders cards, references, and cart plans separately.",
+		"When showing products or collections, keep the copy warm and shopper-facing. Do not mention public data, storefront data, cards, tools, or internal safety rules.",
 		"If a request crosses the policy boundary, refuse briefly and redirect to safe storefront help.",
 	].join(" ");
 }
@@ -1083,6 +1123,7 @@ async function addFallbackToolOutputs(
 
 	if (
 		prepared.promptCategory !== "policy" &&
+		prepared.promptCategory !== "checkout" &&
 		prepared.promptCategory !== "collections" &&
 		outputs.productCards.length === 0
 	) {
@@ -1100,7 +1141,7 @@ async function addFallbackToolOutputs(
 		outputs.productCards.length > 0
 	) {
 		outputs.cartPlan = await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
-			explanation: "A safe starter cart plan based on public storefront data.",
+			explanation: "A simple starter set based on the closest matches.",
 			handles: outputs.productCards.map((card) => card.handle).slice(0, 4),
 			note: undefined,
 			shopId: prepared.shopId,
@@ -1120,6 +1161,10 @@ function buildFallbackReply(prepared: PreparedRequest, outputs: ToolOutputSnapsh
 
 	if (prepared.promptCategory === "collections") {
 		return buildCollectionsReply(prepared.config, outputs.collectionCards);
+	}
+
+	if (prepared.promptCategory === "checkout") {
+		return buildCheckoutReply(prepared.config);
 	}
 
 	if (prepared.promptCategory === "compare") {

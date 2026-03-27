@@ -163,7 +163,7 @@
 			var media;
 			var image = createElement("img", "storefront-ai-widget-card-image");
 
-			image.alt = card.title;
+			image.alt = card.title || "Product image";
 			image.decoding = "async";
 			image.loading = "lazy";
 			image.src = card.imageUrl;
@@ -176,6 +176,13 @@
 			} else {
 				media = createElement("div", "storefront-ai-widget-card-media");
 			}
+
+			image.addEventListener("error", function () {
+				item.classList.remove("storefront-ai-widget-card--product-with-image");
+				if (media && media.parentNode) {
+					media.parentNode.removeChild(media);
+				}
+			});
 
 			media.appendChild(image);
 			item.appendChild(media);
@@ -226,10 +233,11 @@
 		return item;
 	}
 
-	function createCartPlanCard(plan, onApply) {
+	function createCartPlanCard(plan, onApply, onCheckout) {
 		var card = createElement("section", "storefront-ai-widget-cart-plan");
 		var title = createElement("h4", "storefront-ai-widget-card-title", "Cart plan");
 		var list = createElement("ul", "storefront-ai-widget-cart-plan-list");
+		var actions = createElement("div", "storefront-ai-widget-cart-plan-actions");
 		var explanation =
 			plan && plan.explanation
 				? createElement("p", "storefront-ai-widget-card-summary", plan.explanation)
@@ -266,7 +274,19 @@
 		button.addEventListener("click", function () {
 			onApply(plan, button);
 		});
-		card.appendChild(button);
+		actions.appendChild(button);
+
+		var checkoutButton = createElement(
+			"button",
+			"storefront-ai-widget-apply-cart storefront-ai-widget-apply-cart--secondary",
+			"Checkout",
+		);
+		checkoutButton.type = "button";
+		checkoutButton.addEventListener("click", function () {
+			onCheckout();
+		});
+		actions.appendChild(checkoutButton);
+		card.appendChild(actions);
 
 		return card;
 	}
@@ -276,14 +296,20 @@
 			"div",
 			"storefront-ai-widget-message storefront-ai-widget-message--" + role,
 		);
-		var body = createElement("p", "storefront-ai-widget-message-text", payload.text);
-		item.appendChild(body);
+		var body = null;
+
+		if (typeof payload.text === "string" && payload.text.trim()) {
+			body = createElement("p", "storefront-ai-widget-message-text", payload.text);
+			item.appendChild(body);
+		}
 
 		if (Array.isArray(payload.cards) && payload.cards.length > 0) {
 			var cards = createElement("div", "storefront-ai-widget-cards");
+			var hasProductCards = false;
 
 			payload.cards.forEach(function (card) {
 				if (card && card.kind === "product") {
+					hasProductCards = true;
 					cards.appendChild(createProductCard(card));
 					return;
 				}
@@ -294,6 +320,14 @@
 			});
 
 			if (cards.childNodes.length > 0) {
+				if (hasProductCards) {
+					item.classList.add("storefront-ai-widget-message--has-product-grid");
+					cards.classList.add("storefront-ai-widget-cards--products");
+					if (body) {
+						body.classList.add("storefront-ai-widget-message-text--supporting");
+					}
+				}
+
 				item.appendChild(cards);
 			}
 		}
@@ -303,7 +337,13 @@
 			Array.isArray(payload.cartPlan.items) &&
 			payload.cartPlan.items.length > 0
 		) {
-			item.appendChild(createCartPlanCard(payload.cartPlan, payload.onApplyCartPlan));
+			item.appendChild(
+				createCartPlanCard(
+					payload.cartPlan,
+					payload.onApplyCartPlan,
+					payload.onCheckoutCart,
+				),
+			);
 		}
 
 		if (Array.isArray(payload.references) && payload.references.length > 0) {
@@ -330,6 +370,7 @@
 			cards: [],
 			cartPlan: null,
 			onApplyCartPlan: onApplyCartPlan,
+			onCheckoutCart: checkoutCart,
 			references: [],
 			text: "Working on it...",
 		});
@@ -349,6 +390,7 @@
 				cards: reply.cards || [],
 				cartPlan: reply.cartPlan || null,
 				onApplyCartPlan: onApplyCartPlan,
+				onCheckoutCart: checkoutCart,
 				references: reply.references || [],
 				text: reply.answer || "",
 			});
@@ -378,17 +420,17 @@
 		switch (toolName) {
 			case "searchCatalog":
 			case "getProductDetail":
-				return "Checking published products...";
+				return "Looking for a few good matches...";
 			case "compareProducts":
-				return "Comparing public product options...";
+				return "Comparing a few options...";
 			case "searchCollections":
 				return "Looking through collections...";
 			case "answerPolicyQuestion":
-				return "Checking the store policy details...";
+				return "Checking the store details...";
 			case "recommendBundle":
-				return "Building a bundle idea...";
+				return "Putting together a bundle...";
 			case "buildCartPlan":
-				return "Preparing a safe cart plan...";
+				return "Getting the cart ready...";
 			default:
 				return "Working on it...";
 		}
@@ -560,6 +602,7 @@
 					cards: reply.cards || [],
 					cartPlan: reply.cartPlan || null,
 					onApplyCartPlan: applyCartPlan,
+					onCheckoutCart: checkoutCart,
 					references: reply.references || [],
 					text: reply.answer || "",
 				}),
@@ -592,6 +635,98 @@
 			scrollFeedToBottom();
 		}
 
+		function getCartUiTarget() {
+			return document.querySelector("cart-drawer") || document.querySelector("cart-notification");
+		}
+
+		function getSectionInnerHTML(html, selector) {
+			var documentFragment = new DOMParser().parseFromString(html, "text/html");
+			var node = documentFragment.querySelector(selector || ".shopify-section");
+
+			return node ? node.innerHTML : "";
+		}
+
+		function publishCartUpdate(productVariantId) {
+			if (
+				window.PUB_SUB_EVENTS &&
+				window.PUB_SUB_EVENTS.cartUpdate &&
+				typeof window.publish === "function"
+			) {
+				window.publish(window.PUB_SUB_EVENTS.cartUpdate, {
+					productVariantId: productVariantId || null,
+					source: "storefront-ai-widget",
+				});
+			}
+		}
+
+		function renderCartNotificationSummary(cart, response, addedCount) {
+			var sections =
+				typeof cart.getSectionsToRender === "function" ? cart.getSectionsToRender() : [];
+
+			sections.forEach(function (section) {
+				if (section.id === "cart-notification-product") {
+					return;
+				}
+
+				var target = document.getElementById(section.id);
+				var html = response.sections && response.sections[section.id];
+
+				if (!target || typeof html !== "string") {
+					return;
+				}
+
+				target.innerHTML = getSectionInnerHTML(html, section.selector);
+			});
+
+			var productContainer = document.getElementById("cart-notification-product");
+
+			if (productContainer) {
+				productContainer.innerHTML =
+					'<div><h3 class="cart-notification-product__name h4">Added ' +
+					String(addedCount) +
+					' items to your cart</h3><p>Open your cart to review everything.</p></div>';
+			}
+
+			if (typeof cart.open === "function") {
+				cart.open();
+			}
+		}
+
+		function updateCartUiAfterAdd(response, addedItems, activeElement) {
+			var cart = getCartUiTarget();
+			var firstVariantId =
+				addedItems && addedItems[0] && addedItems[0].variantId ? addedItems[0].variantId : null;
+
+			if (!cart) {
+				publishCartUpdate(firstVariantId);
+				return;
+			}
+
+			if (typeof cart.setActiveElement === "function") {
+				cart.setActiveElement(activeElement || document.activeElement);
+			}
+
+			if (
+				cart.tagName &&
+				cart.tagName.toLowerCase() === "cart-notification" &&
+				addedItems.length > 1
+			) {
+				renderCartNotificationSummary(cart, response, addedItems.length);
+				publishCartUpdate(firstVariantId);
+				return;
+			}
+
+			if (typeof cart.renderContents === "function" && response && response.sections) {
+				cart.renderContents(response);
+			}
+
+			publishCartUpdate(firstVariantId);
+		}
+
+		function checkoutCart() {
+			window.location.assign("/checkout");
+		}
+
 		function applyCartPlan(plan, button) {
 			if (state.applyingCart || !plan || !Array.isArray(plan.items) || plan.items.length === 0) {
 				return Promise.resolve();
@@ -600,25 +735,36 @@
 			state.applyingCart = true;
 			setCartButtonPending(button, true);
 
-			return fetchJson("/cart/add.js", {
-				body: JSON.stringify({
-					items: plan.items.map(function (item) {
-						return {
-							id: item.variantId,
-							quantity: item.quantity,
-						};
-					}),
-					note: plan.note || undefined,
+			var cart = getCartUiTarget();
+			var payload = {
+				items: plan.items.map(function (item) {
+					return {
+						id: item.variantId,
+						quantity: item.quantity,
+					};
 				}),
+				note: plan.note || undefined,
+			};
+
+			if (cart && typeof cart.getSectionsToRender === "function") {
+				payload.sections = cart.getSectionsToRender().map(function (section) {
+					return section.id;
+				});
+				payload.sections_url = window.location.pathname;
+			}
+
+			return fetchJson((window.routes && window.routes.cart_add_url) || "/cart/add.js", {
+				body: JSON.stringify(payload),
 				headers: {
 					Accept: "application/json",
 					"Content-Type": "application/json",
 				},
 				method: "POST",
 			})
-				.then(function () {
+				.then(function (response) {
+					updateCartUiAfterAdd(response || {}, payload.items, button);
 					addSystemMessage(
-						"Added the plan to your cart. Shopify will calculate final pricing, taxes, and eligibility in the live cart.",
+						"Added the plan to your cart. Your cart has been updated.",
 					);
 				})
 				.catch(function (error) {
@@ -756,6 +902,19 @@
 		});
 
 		close.addEventListener("click", closePanel);
+
+		input.addEventListener("keydown", function (event) {
+			if (event.key !== "Enter" || event.isComposing) {
+				return;
+			}
+
+			if (event.shiftKey || event.metaKey) {
+				return;
+			}
+
+			event.preventDefault();
+			void sendMessage();
+		});
 
 		form.addEventListener("submit", function (event) {
 			event.preventDefault();
