@@ -12,29 +12,6 @@ export const {
 	convexUrl: getRequiredConvexDeploymentUrl(),
 });
 
-export async function authHandler(request: Request) {
-	const requestUrl = new URL(request.url);
-	const nextUrl = new URL(requestUrl.pathname + requestUrl.search, getRequiredConvexHttpUrl());
-	const headers = new Headers(request.headers);
-
-	headers.delete("host");
-	headers.set("accept-encoding", "identity");
-
-	const init: RequestInit & {
-		duplex?: "half";
-	} = {
-		body: request.body,
-		duplex: "half",
-		headers,
-		method: request.method,
-		redirect: "manual",
-	};
-
-	return await fetch(nextUrl, {
-		...init,
-	});
-}
-
 function normalizeMyshopifyDomain(value: string | null) {
 	const trimmed = value?.trim().toLowerCase();
 

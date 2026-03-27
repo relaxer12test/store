@@ -23,7 +23,7 @@ topics = [
 	"orders/cancelled",
 	"inventory_levels/update",
 ]
-uri = "https://robust-bulldog-269.convex.site/shopify/webhooks"
+uri = "https://storeai.ldev.cloud/api/shopify/webhooks"
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes

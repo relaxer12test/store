@@ -119,7 +119,7 @@ authComponent.registerRoutes(http, createAuth, {
 });
 
 http.route({
-	path: "/shopify/bootstrap",
+	path: "/api/shopify/bootstrap",
 	method: "OPTIONS",
 	handler: httpAction(async (_ctx, request) => {
 		return new Response(null, {
@@ -130,7 +130,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/bootstrap",
+	path: "/api/shopify/bootstrap",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
 		const sessionToken = getBearerToken(request);
@@ -273,7 +273,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/webhooks",
+	path: "/api/shopify/webhooks",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
 		const rawBody = await request.text();
@@ -300,7 +300,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/widget",
+	path: "/api/shopify/widget",
 	method: "OPTIONS",
 	handler: httpAction(
 		async () => new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
@@ -308,7 +308,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/widget",
+	path: "/api/shopify/widget",
 	method: "GET",
 	handler: httpAction(async (ctx, request) => {
 		const shopDomain = new URL(request.url).searchParams.get("shop");
@@ -340,7 +340,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/widget/chat",
+	path: "/api/shopify/widget/chat",
 	method: "OPTIONS",
 	handler: httpAction(
 		async () => new Response(null, { status: 204, headers: withPublicCorsHeaders() }),
@@ -348,7 +348,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/widget/chat",
+	path: "/api/shopify/widget/chat",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
 		let payload: {
@@ -408,7 +408,7 @@ http.route({
 });
 
 http.route({
-	path: "/shopify/health",
+	path: "/api/shopify/health",
 	method: "GET",
 	handler: httpAction(async () =>
 		Response.json({
