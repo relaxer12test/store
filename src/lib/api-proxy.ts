@@ -1,5 +1,21 @@
 import { getRequiredConvexHttpUrl } from "@/lib/env";
 
+function isLocalhostHost(hostname: string) {
+	return hostname === "localhost" || hostname === "127.0.0.1";
+}
+
+function readHostname(value: string | null) {
+	if (!value) {
+		return null;
+	}
+
+	try {
+		return new URL(value).hostname;
+	} catch {
+		return null;
+	}
+}
+
 function getForwardedIp(request: Request) {
 	const xForwardedFor = request.headers.get("x-forwarded-for");
 
@@ -7,11 +23,28 @@ function getForwardedIp(request: Request) {
 		return xForwardedFor;
 	}
 
-	return (
+	const forwardedIp =
 		request.headers.get("cf-connecting-ip") ??
 		request.headers.get("x-real-ip") ??
-		request.headers.get("fly-client-ip")
-	);
+		request.headers.get("fly-client-ip");
+
+	if (forwardedIp) {
+		return forwardedIp;
+	}
+
+	const requestUrl = new URL(request.url);
+	const originHostname = readHostname(request.headers.get("origin"));
+	const refererHostname = readHostname(request.headers.get("referer"));
+
+	if (
+		isLocalhostHost(requestUrl.hostname) ||
+		(originHostname && isLocalhostHost(originHostname)) ||
+		(refererHostname && isLocalhostHost(refererHostname))
+	) {
+		return "127.0.0.1";
+	}
+
+	return null;
 }
 
 export function buildConvexApiProxyUrl(
