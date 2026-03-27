@@ -18,7 +18,7 @@ const toolIgnorePatterns = [
 	"src/**/*.gen.ts",
 	"src/**/*.gen.tsx",
 	"src/**/routeTree.gen.ts",
-	"convex/_generated/**",
+	"convex/**/_generated/**",
 ];
 
 const isVitest = process.env.VITEST === "true" || process.env.NODE_ENV === "test";
