@@ -133,10 +133,15 @@
 	}
 
 	function createProductCard(card) {
-		var item = createElement(
-			"article",
-			"storefront-ai-widget-card storefront-ai-widget-card--product",
-		);
+		var className = "storefront-ai-widget-card storefront-ai-widget-card--product";
+		var item;
+		var body = createElement("div", "storefront-ai-widget-card-body");
+
+		if (card.imageUrl) {
+			className += " storefront-ai-widget-card--product-with-image";
+		}
+
+		item = createElement("article", className);
 		var title = createElement("h4", "storefront-ai-widget-card-title", card.title);
 		var summary = createElement("p", "storefront-ai-widget-card-summary", card.summary);
 		var meta = createElement("div", "storefront-ai-widget-card-meta");
@@ -154,17 +159,41 @@
 			meta.appendChild(createElement("span", "storefront-ai-widget-card-pill", card.vendor));
 		}
 
-		item.appendChild(title);
-		item.appendChild(summary);
-		item.appendChild(meta);
+		if (card.imageUrl) {
+			var media;
+			var image = createElement("img", "storefront-ai-widget-card-image");
+
+			image.alt = card.title;
+			image.decoding = "async";
+			image.loading = "lazy";
+			image.src = card.imageUrl;
+
+			if (card.href) {
+				media = createElement("a", "storefront-ai-widget-card-media");
+				media.href = card.href;
+				media.rel = "noopener noreferrer";
+				media.target = "_blank";
+			} else {
+				media = createElement("div", "storefront-ai-widget-card-media");
+			}
+
+			media.appendChild(image);
+			item.appendChild(media);
+		}
+
+		body.appendChild(title);
+		body.appendChild(summary);
+		body.appendChild(meta);
 
 		if (card.href) {
 			var cta = createElement("a", "storefront-ai-widget-card-link", "View product");
 			cta.href = card.href;
 			cta.rel = "noopener noreferrer";
 			cta.target = "_blank";
-			item.appendChild(cta);
+			body.appendChild(cta);
 		}
+
+		item.appendChild(body);
 
 		return item;
 	}

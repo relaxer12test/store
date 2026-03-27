@@ -56,6 +56,9 @@ const PUBLIC_CATALOG_QUERY = `
 				status
 				updatedAt
 				onlineStoreUrl
+				featuredImage {
+					url
+				}
 				priceRangeV2 {
 					minVariantPrice {
 						amount
@@ -151,6 +154,7 @@ const MERCHANT_METRICS_QUERY = `
 const sanitizedCatalogProductValidator = v.object({
 	availableForSale: v.boolean(),
 	currencyCode: v.optional(v.string()),
+	featuredImageUrl: v.optional(v.string()),
 	handle: v.string(),
 	maxPrice: v.optional(v.number()),
 	minPrice: v.optional(v.number()),
@@ -195,6 +199,9 @@ type ShopifyCount = {
 type CatalogPageResponse = {
 	products?: {
 		nodes?: Array<{
+			featuredImage?: {
+				url?: string | null;
+			} | null;
 			handle?: string | null;
 			id?: string | null;
 			legacyResourceId?: string | number | null;
@@ -274,6 +281,7 @@ type MetricsOverviewResponse = {
 type SanitizedCatalogProduct = {
 	availableForSale: boolean;
 	currencyCode?: string;
+	featuredImageUrl?: string;
 	handle: string;
 	maxPrice?: number;
 	minPrice?: number;
@@ -587,6 +595,7 @@ function sanitizeCatalogProduct(
 	const sanitized: Omit<SanitizedCatalogProduct, "searchText" | "summary"> = {
 		availableForSale,
 		currencyCode: product.priceRangeV2?.minVariantPrice?.currencyCode ?? undefined,
+		featuredImageUrl: product.featuredImage?.url?.trim() || undefined,
 		handle,
 		maxPrice,
 		minPrice,
@@ -1250,7 +1259,7 @@ export const upsertCatalogBatch = internalMutation({
 				availableForSale: product.availableForSale,
 				currencyCode: product.currencyCode,
 				domain: args.domain,
-				featuredImageUrl: undefined,
+				featuredImageUrl: product.featuredImageUrl,
 				handle: product.handle,
 				lastRefreshedAt: args.refreshedAt,
 				maxPrice: product.maxPrice,

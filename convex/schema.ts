@@ -16,6 +16,7 @@ const storefrontProductCardValidator = v.object({
 	availabilityLabel: v.string(),
 	handle: v.string(),
 	href: v.string(),
+	imageUrl: v.optional(v.string()),
 	kind: v.literal("product"),
 	priceLabel: v.string(),
 	summary: v.string(),

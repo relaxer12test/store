@@ -18,6 +18,7 @@ export interface StorefrontProductCard {
 	availabilityLabel: string;
 	handle: string;
 	href: string;
+	imageUrl?: string;
 	kind: "product";
 	priceLabel: string;
 	summary: string;
@@ -115,6 +116,7 @@ export const storefrontProductCardSchema = z.object({
 	availabilityLabel: z.string().min(1).max(120),
 	handle: z.string().min(1).max(120),
 	href: z.string().url(),
+	imageUrl: z.string().url().optional(),
 	kind: z.literal("product"),
 	priceLabel: z.string().min(1).max(80),
 	summary: z.string().min(1).max(320),
