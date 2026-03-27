@@ -1,9 +1,9 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
-import { currentViewerQuery } from "@/lib/auth-queries";
-import { getCurrentViewerServer } from "@/lib/auth-functions";
 import { authClient } from "@/lib/auth-client";
+import { getCurrentViewerServer } from "@/lib/auth-functions";
+import { currentViewerQuery } from "@/lib/auth-queries";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
 import { hasMerchantViewer, type AppViewerContext } from "@/shared/contracts/auth";
 
@@ -61,8 +61,10 @@ function createManagedAppRouterContext(): AppRouterContext {
 
 	const ensureEmbeddedViewer = async () => {
 		const cachedViewer =
-			(queryClient.getQueryData(currentViewerQuery.queryKey) as AppViewerContext | null | undefined) ??
-			null;
+			(queryClient.getQueryData(currentViewerQuery.queryKey) as
+				| AppViewerContext
+				| null
+				| undefined) ?? null;
 
 		if (hasMerchantViewer(cachedViewer) || typeof window === "undefined") {
 			return cachedViewer;

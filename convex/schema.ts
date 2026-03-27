@@ -66,7 +66,10 @@ export default defineSchema({
 		payload: v.optional(v.any()),
 		shopId: v.optional(v.id("shops")),
 		status: v.optional(v.string()),
-	}).index("by_shop_created_at", ["shopId", "createdAt"]),
+	})
+		.index("by_shop_created_at", ["shopId", "createdAt"])
+		.index("by_created_at", ["createdAt"])
+		.index("by_action_and_created_at", ["action", "createdAt"]),
 
 	shops: defineTable({
 		createdAt: v.number(),
@@ -78,7 +81,9 @@ export default defineSchema({
 		shopifyShopId: v.optional(v.string()),
 	})
 		.index("by_domain", ["domain"])
-		.index("by_install_status", ["installStatus"]),
+		.index("by_install_status", ["installStatus"])
+		.index("by_created_at", ["createdAt"])
+		.index("by_install_status_and_created_at", ["installStatus", "createdAt"]),
 
 	shopifyInstallations: defineTable({
 		accessToken: v.optional(v.string()),
@@ -125,6 +130,8 @@ export default defineSchema({
 	})
 		.index("by_shop_and_cache_key", ["shopId", "cacheKey"])
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
+		.index("by_cache_key", ["cacheKey"])
+		.index("by_updated_at", ["updatedAt"])
 		.index("by_status_and_updated_at", ["status", "updatedAt"]),
 
 	shopifyCatalogProducts: defineTable({
@@ -233,7 +240,10 @@ export default defineSchema({
 		.index("by_shop_status", ["shopId", "status"])
 		.index("by_shop_and_last_updated_at", ["shopId", "lastUpdatedAt"])
 		.index("by_shop_and_type_and_status", ["shopId", "type", "status"])
-		.index("by_job_key", ["jobKey"]),
+		.index("by_job_key", ["jobKey"])
+		.index("by_last_updated_at", ["lastUpdatedAt"])
+		.index("by_status_and_last_updated_at", ["status", "lastUpdatedAt"])
+		.index("by_type_and_last_updated_at", ["type", "lastUpdatedAt"]),
 
 	workflowLogs: defineTable({
 		createdAt: v.number(),
@@ -266,6 +276,8 @@ export default defineSchema({
 		.index("by_shop_and_received_at", ["shopId", "receivedAt"])
 		.index("by_status_received_at", ["status", "receivedAt"])
 		.index("by_domain_received_at", ["domain", "receivedAt"])
+		.index("by_received_at", ["receivedAt"])
+		.index("by_topic_and_received_at", ["topic", "receivedAt"])
 		.index("by_event_id", ["eventId"])
 		.index("by_webhook_id", ["webhookId"]),
 
@@ -327,7 +339,10 @@ export default defineSchema({
 	})
 		.index("by_shop_and_session_id", ["shopId", "sessionId"])
 		.index("by_shop_and_thread_id", ["shopId", "threadId"])
-		.index("by_updated_at", ["updatedAt"]),
+		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
+		.index("by_updated_at", ["updatedAt"])
+		.index("by_session_id", ["sessionId"])
+		.index("by_thread_id", ["threadId"]),
 
 	storefrontAiRateLimits: defineTable({
 		clientFingerprint: v.optional(v.string()),

@@ -7,9 +7,16 @@ export function buildConvexApiProxyUrl(
 	},
 ) {
 	const requestUrl =
-		typeof request === "string" ? new URL(request) : request instanceof URL ? request : new URL(request.url);
+		typeof request === "string"
+			? new URL(request)
+			: request instanceof URL
+				? request
+				: new URL(request.url);
 
-	return new URL(requestUrl.pathname + requestUrl.search, options?.baseUrl ?? getRequiredConvexHttpUrl()).toString();
+	return new URL(
+		requestUrl.pathname + requestUrl.search,
+		options?.baseUrl ?? getRequiredConvexHttpUrl(),
+	).toString();
 }
 
 export async function proxyApiRequestToConvex(

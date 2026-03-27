@@ -59,7 +59,11 @@ export function decodeInternalCursorHistory(value: unknown) {
 
 		return Array.isArray(parsed)
 			? parsed.map((entry) =>
-					typeof entry === "string" ? (entry === ROOT_CURSOR_SENTINEL ? undefined : entry) : undefined,
+					typeof entry === "string"
+						? entry === ROOT_CURSOR_SENTINEL
+							? undefined
+							: entry
+						: undefined,
 				)
 			: [];
 	} catch {
@@ -93,9 +97,7 @@ export function buildPreviousInternalCursorState<TSort extends string>(
 	};
 }
 
-export function serializeInternalSearch(
-	search: Record<string, number | string | undefined>,
-) {
+export function serializeInternalSearch(search: Record<string, number | string | undefined>) {
 	const params = new URLSearchParams();
 
 	for (const [key, value] of Object.entries(search)) {

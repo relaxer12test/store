@@ -1,6 +1,6 @@
+import { defineConfig, devices } from "@playwright/test";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { defineConfig, devices } from "@playwright/test";
 
 function loadEnvFile(filePath: string) {
 	if (!existsSync(filePath)) {
@@ -26,7 +26,7 @@ function loadEnvFile(filePath: string) {
 		let value = trimmedLine.slice(equalsIndex + 1).trim();
 
 		if (
-			(value.startsWith("\"") && value.endsWith("\"")) ||
+			(value.startsWith('"') && value.endsWith('"')) ||
 			(value.startsWith("'") && value.endsWith("'"))
 		) {
 			value = value.slice(1, -1);

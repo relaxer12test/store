@@ -1,46 +1,49 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import type { SurfaceNavItem } from "@/components/ui/layout";
-import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
+import { StatusPill } from "@/components/ui/feedback";
+import { SidebarConsoleLayout } from "@/components/ui/resource";
 import { getCurrentViewerServer } from "@/lib/auth-functions";
-import { useAppAuth } from "@/lib/auth-client";
 import { hasAdminViewer } from "@/shared/contracts/auth";
 
-const internalNav: SurfaceNavItem[] = [
+const internalNavItems = [
 	{
-		description: "Disposable summary of install, cache, webhook, and audit posture.",
-		title: "Overview",
-		to: "/internal",
+		description: "Live install posture, blockers, and the admin watchlist.",
+		href: "/internal",
+		label: "Overview",
 	},
 	{
-		description: "Install metadata, bootstrap state, and auth/debug checkpoints.",
-		title: "Install state",
-		to: "/internal/install-state",
+		description: "Connected shops and install/auth state.",
+		href: "/internal/shops",
+		label: "Shops",
 	},
 	{
-		description: "Cached projections, sync freshness, and debug mirrors.",
-		title: "Cache",
-		to: "/internal/cache",
+		description: "Projection freshness, refresh lag, and cache failures.",
+		href: "/internal/cache",
+		label: "Cache",
 	},
 	{
-		description: "Inbound Shopify webhook posture and delivery logs.",
-		title: "Webhooks",
-		to: "/internal/webhooks",
+		description: "Queued jobs, retries, and workflow logs.",
+		href: "/internal/workflows",
+		label: "Workflows",
 	},
 	{
-		description: "Approval traces, tool proposals, and executed actions.",
-		title: "Action audits",
-		to: "/internal/action-audits",
+		description: "Inbound webhook deliveries and stored payload previews.",
+		href: "/internal/webhooks",
+		label: "Webhooks",
 	},
 	{
-		description:
-			"Full storefront AI session transcripts backed by the persisted agent thread data.",
-		title: "AI chats",
-		to: "/internal/ai-chats",
+		description: "Audit entries and approval-side effects.",
+		href: "/internal/audits",
+		label: "Audits",
 	},
 	{
-		description: "Better Auth users, native admin roles, and merchant-to-admin access handoff.",
-		title: "Users",
-		to: "/internal/users",
+		description: "Storefront shopper sessions with live transcript drill-in.",
+		href: "/internal/ai-sessions",
+		label: "AI sessions",
+	},
+	{
+		description: "Better Auth users, org membership, and admin roles.",
+		href: "/internal/users",
+		label: "Users",
 	},
 ];
 
@@ -56,15 +59,18 @@ export const Route = createFileRoute("/_chrome/internal")({
 });
 
 function InternalLayoutRoute() {
-	const { viewer } = useAppAuth();
-
 	return (
-		<SurfaceLayout
-			description="Dev-only diagnostics shell for install state, webhook deliveries, projection cache, and action audits. It is intentionally separate from merchant navigation."
-			eyebrow="Internal tools"
-			navItems={internalNav}
-			statusLabel={viewer?.viewer.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
-			title="Internal diagnostics"
-		/>
+		<SidebarConsoleLayout
+			description="Dedicated operator routes for high-volume internal data. Every module is URL-backed, paginated, and detail-first so the admin shell can scale with real Convex rows."
+			eyebrow="Admin only"
+			items={internalNavItems}
+			navDescription="Route-backed admin surfaces for stores, jobs, events, and live shopper sessions."
+			navEyebrow="Internal console"
+			navTitle="Operator routes"
+			status={<StatusPill tone="accent">URL-backed navigation</StatusPill>}
+			title="Internal console"
+		>
+			<Outlet />
+		</SidebarConsoleLayout>
 	);
 }

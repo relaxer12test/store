@@ -1,7 +1,7 @@
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
 import { useQuery } from "@tanstack/react-query";
-import { createAuthClient } from "better-auth/react";
 import { adminClient } from "better-auth/client/plugins";
+import { createAuthClient } from "better-auth/react";
 import { currentViewerQuery } from "@/lib/auth-queries";
 import { hasAdminViewer, hasMerchantViewer } from "@/shared/contracts/auth";
 

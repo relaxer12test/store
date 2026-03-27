@@ -14,10 +14,7 @@ function normalizeEnum<TValue extends string>(
 	return options.includes(value as TValue) ? (value as TValue) : fallback;
 }
 
-function normalizeOptionalEnum<TValue extends string>(
-	value: unknown,
-	options: readonly TValue[],
-) {
+function normalizeOptionalEnum<TValue extends string>(value: unknown, options: readonly TValue[]) {
 	return options.includes(value as TValue) ? (value as TValue) : undefined;
 }
 
@@ -98,7 +95,9 @@ export interface InternalWebhookSearch extends InternalListSearchState<InternalW
 	status?: string;
 }
 
-export function validateInternalWebhookSearch(search: Record<string, unknown>): InternalWebhookSearch {
+export function validateInternalWebhookSearch(
+	search: Record<string, unknown>,
+): InternalWebhookSearch {
 	return {
 		...createSearchState(search, {
 			defaultDirection: "desc",

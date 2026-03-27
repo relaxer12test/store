@@ -48,11 +48,9 @@ describe("auth", () => {
 				getUserIdentity: async () => null,
 			},
 		} as any;
-		const safeGetAuthUserSpy = vi
-			.spyOn(authComponent, "safeGetAuthUser")
-			.mockResolvedValue({
-				role: "admin",
-			} as any);
+		const safeGetAuthUserSpy = vi.spyOn(authComponent, "safeGetAuthUser").mockResolvedValue({
+			role: "admin",
+		} as any);
 
 		await expect(requireAdmin(ctx)).resolves.toBeNull();
 		safeGetAuthUserSpy.mockRestore();

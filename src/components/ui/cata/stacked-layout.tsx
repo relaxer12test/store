@@ -1,6 +1,7 @@
 "use client";
 
 import * as Headless from "@headlessui/react";
+import clsx from "clsx";
 import type React from "react";
 import { useState } from "react";
 import { NavbarItem } from "./navbar";
@@ -52,8 +53,12 @@ function MobileSidebar({
 export function StackedLayout({
 	navbar,
 	sidebar,
+	contentSurface = "card",
+	contentWidth = "constrained",
 	children,
 }: React.PropsWithChildren<{
+	contentSurface?: "card" | "plain";
+	contentWidth?: "constrained" | "full";
 	navbar: React.ReactNode;
 	sidebar: React.ReactNode;
 }>) {
@@ -77,9 +82,23 @@ export function StackedLayout({
 			</header>
 
 			{/* Content */}
-			<main className="flex flex-1 flex-col pb-2 lg:px-2">
-				<div className="grow p-6 lg:rounded-lg lg:bg-white lg:p-10 lg:shadow-xs lg:ring-1 lg:ring-zinc-950/5 dark:lg:bg-zinc-900 dark:lg:ring-white/10">
-					<div className="mx-auto max-w-6xl">{children}</div>
+			<main
+				className={clsx(
+					"flex flex-1 flex-col pb-2",
+					contentSurface === "card" ? "lg:px-2" : undefined,
+				)}
+			>
+				<div
+					className={clsx(
+						"grow",
+						contentSurface === "card"
+							? "p-6 lg:rounded-lg lg:bg-white lg:p-10 lg:shadow-xs lg:ring-1 lg:ring-zinc-950/5 dark:lg:bg-zinc-900 dark:lg:ring-white/10"
+							: "px-0 py-0",
+					)}
+				>
+					<div className={clsx(contentWidth === "constrained" ? "mx-auto max-w-6xl" : "w-full")}>
+						{children}
+					</div>
 				</div>
 			</main>
 		</div>

@@ -1,5 +1,5 @@
-import { useEffect } from "react";
 import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
+import { useEffect } from "react";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";

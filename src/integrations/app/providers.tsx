@@ -2,7 +2,6 @@ import { ConvexBetterAuthProvider } from "@convex-dev/better-auth/react";
 import type { ConvexQueryClient } from "@convex-dev/react-query";
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
-import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { EmbeddedAppProvider, type EmbeddedAppManager } from "@/integrations/app/embedded";
 import { authClient } from "@/lib/auth-client";
 
@@ -30,7 +29,6 @@ export function AppProviders({
 			>
 				<EmbeddedAppProvider manager={embeddedApp}>{children}</EmbeddedAppProvider>
 			</ConvexBetterAuthProvider>
-			{import.meta.env.DEV ? <ReactQueryDevtools buttonPosition="bottom-left" /> : null}
 		</QueryClientProvider>
 	);
 }

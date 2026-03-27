@@ -25,16 +25,14 @@ export interface InternalShopSummary {
 }
 
 export interface InternalShopDetailData {
-	installation:
-		| {
-				accessTokenExpiresAt: string | null;
-				apiVersion: string;
-				lastTokenExchangeAt: string | null;
-				refreshTokenExpiresAt: string | null;
-				scopeCount: number;
-				status: string;
-			}
-		| null;
+	installation: {
+		accessTokenExpiresAt: string | null;
+		apiVersion: string;
+		lastTokenExchangeAt: string | null;
+		refreshTokenExpiresAt: string | null;
+		scopeCount: number;
+		status: string;
+	} | null;
 	memberCount: number;
 	organizationCount: number;
 	recentAiSessions: InternalAiSessionSummary[];

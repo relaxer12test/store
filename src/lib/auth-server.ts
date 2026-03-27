@@ -1,5 +1,5 @@
-import { createServerOnlyFn } from "@tanstack/react-start";
 import { convexBetterAuthReactStart } from "@convex-dev/better-auth/react-start";
+import { createServerOnlyFn } from "@tanstack/react-start";
 import { getRequiredConvexDeploymentUrl, getRequiredConvexHttpUrl } from "@/lib/env";
 
 export const {
@@ -121,9 +121,8 @@ export function buildEmbeddedAppContentSecurityPolicy(
 }
 
 export const applyEmbeddedAppContentSecurityPolicyHeader = createServerOnlyFn(async () => {
-	const { getRequestHeader, getRequestUrl, setResponseHeader } = await import(
-		"@tanstack/react-start/server"
-	);
+	const { getRequestHeader, getRequestUrl, setResponseHeader } =
+		await import("@tanstack/react-start/server");
 	const requestUrl = getRequestUrl({
 		xForwardedHost: true,
 		xForwardedProto: true,

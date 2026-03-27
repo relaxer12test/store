@@ -218,9 +218,7 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 							<TableHead>
 								<TableRow>
 									{card.columns.map((column) => (
-										<TableHeader key={`${card.id}-${column}`}>
-											{formatLabel(column)}
-										</TableHeader>
+										<TableHeader key={`${card.id}-${column}`}>{formatLabel(column)}</TableHeader>
 									))}
 								</TableRow>
 							</TableHead>
@@ -228,9 +226,7 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 								{card.rows.slice(0, 8).map((row, rowIndex) => (
 									<TableRow key={`${card.id}-${rowIndex}`}>
 										{card.columns.map((column) => (
-											<TableCell key={column}>
-												{renderCellValue(row[column] ?? null)}
-											</TableCell>
+											<TableCell key={column}>{renderCellValue(row[column] ?? null)}</TableCell>
 										))}
 									</TableRow>
 								))}
@@ -342,10 +338,7 @@ export function MerchantApprovalCards({
 				const isBusy = activeApprovalId === approval.id;
 
 				return (
-					<article
-						className={cardFrameClass}
-						key={approval.id}
-					>
+					<article className={cardFrameClass} key={approval.id}>
 						<div className="flex flex-wrap items-start justify-between gap-3">
 							<div className="max-w-2xl">
 								<Text>
@@ -360,11 +353,11 @@ export function MerchantApprovalCards({
 						<div className="mt-4 grid gap-3 md:grid-cols-2">
 							<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 								<Text>Target</Text>
-								<p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{approval.targetLabel}</p>
+								<p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+									{approval.targetLabel}
+								</p>
 								<Text className="mt-1">Tool: {approval.tool}</Text>
-								<Text>
-									Requested: {formatMaybeDate(approval.requestedAt)}
-								</Text>
+								<Text>Requested: {formatMaybeDate(approval.requestedAt)}</Text>
 							</div>
 							<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 								<Text>Planned changes</Text>
@@ -438,10 +431,7 @@ export function MerchantWorkflowCards({
 	return (
 		<div className="space-y-4">
 			{records.map((record) => (
-				<article
-					className={cardFrameClass}
-					key={record.id}
-				>
+				<article className={cardFrameClass} key={record.id}>
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
 							<Text>{record.type.replaceAll("_", " ")}</Text>
@@ -458,33 +448,23 @@ export function MerchantWorkflowCards({
 					<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
 						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 							<Text>Requested</Text>
-							<Text className="mt-2">
-								{formatMaybeDate(record.requestedAt)}
-							</Text>
+							<Text className="mt-2">{formatMaybeDate(record.requestedAt)}</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 							<Text>Started</Text>
-							<Text className="mt-2">
-								{formatMaybeDate(record.startedAt)}
-							</Text>
+							<Text className="mt-2">{formatMaybeDate(record.startedAt)}</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 							<Text>Completed</Text>
-							<Text className="mt-2">
-								{formatMaybeDate(record.completedAt)}
-							</Text>
+							<Text className="mt-2">{formatMaybeDate(record.completedAt)}</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 							<Text>Retry at</Text>
-							<Text className="mt-2">
-								{formatMaybeDate(record.retryAt)}
-							</Text>
+							<Text className="mt-2">{formatMaybeDate(record.retryAt)}</Text>
 						</div>
 					</div>
 
-					{record.payloadPreview ? (
-						<Text className="mt-4">{record.payloadPreview}</Text>
-					) : null}
+					{record.payloadPreview ? <Text className="mt-4">{record.payloadPreview}</Text> : null}
 					{record.resultSummary ? (
 						<p className="mt-2 text-sm leading-6 text-emerald-800">{record.resultSummary}</p>
 					) : null}
@@ -500,9 +480,7 @@ export function MerchantWorkflowCards({
 							>
 								<div>
 									<Strong>{log.message}</Strong>
-									{log.detail ? (
-										<Text className="mt-1">{log.detail}</Text>
-									) : null}
+									{log.detail ? <Text className="mt-1">{log.detail}</Text> : null}
 								</div>
 								<div className="flex flex-wrap items-center gap-2">
 									<StatusPill tone={workflowLogTone(log.level)}>{log.level}</StatusPill>

@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
-import { api } from "@/lib/convex-api";
 import { fetchAuthQuery, getAuthToken } from "@/lib/auth-server";
+import { api } from "@/lib/convex-api";
 
 export const getCurrentViewerServer = createServerFn({ method: "GET" }).handler(async () => {
 	return await fetchAuthQuery(api.auth.getCurrentViewer, {});

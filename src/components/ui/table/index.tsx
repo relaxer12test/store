@@ -174,9 +174,7 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 			<div className="mb-5 flex flex-col gap-4">
 				<div>
 					<Subheading className="font-serif text-2xl">{title}</Subheading>
-					{description ? (
-						<Text className="mt-2 max-w-2xl">{description}</Text>
-					) : null}
+					{description ? <Text className="mt-2 max-w-2xl">{description}</Text> : null}
 				</div>
 
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -265,9 +263,7 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 								{rows.map((row) => (
 									<TableRow
 										className={`cursor-pointer transition ${
-											selectedRow?.id === row.id
-												? "bg-zinc-100 dark:bg-zinc-800"
-												: ""
+											selectedRow?.id === row.id ? "bg-zinc-100 dark:bg-zinc-800" : ""
 										}`}
 										key={row.id}
 										onClick={() => setSelectedRowId(row.id)}
@@ -282,10 +278,7 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 											}
 
 											return (
-												<TableCell
-													className="align-top text-sm leading-6"
-													key={cell.id}
-												>
+												<TableCell className="align-top text-sm leading-6" key={cell.id}>
 													{flexRender(cell.column.columnDef.cell, cell.getContext())}
 												</TableCell>
 											);

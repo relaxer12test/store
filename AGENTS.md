@@ -16,3 +16,4 @@ for any fix you always alwaays step back and re-evalaute fundamentals of given t
 agent should never ever run dev server it will be already run or ask me to run it
 
 if we write any tests it must be e2e tests i don't care about any other tests and if thats not possibel skip writing them all to gather
+e2e must only be used on dev server 3000 and dev server must always be run by developer not LLM

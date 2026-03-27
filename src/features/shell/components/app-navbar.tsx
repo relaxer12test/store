@@ -57,9 +57,7 @@ export function AppNavbar() {
 				) : null}
 
 				{displayName ? (
-					<Badge color={auth.isAdmin ? "blue" : "zinc"}>
-						{displayName}
-					</Badge>
+					<Badge color={auth.isAdmin ? "blue" : "zinc"}>{displayName}</Badge>
 				) : (
 					<Badge color="zinc">Unauthenticated</Badge>
 				)}

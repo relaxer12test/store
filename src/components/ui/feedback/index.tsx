@@ -5,7 +5,8 @@ import { cn } from "@/lib/cn";
 const toneClasses = {
 	accent: "border-blue-200 bg-blue-50 text-blue-900",
 	blocked: "border-red-200 bg-red-50 text-red-900",
-	neutral: "border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300",
+	neutral:
+		"border-zinc-200 bg-zinc-100 text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300",
 	success: "border-emerald-200 bg-emerald-50 text-emerald-900",
 	watch: "border-amber-200 bg-amber-50 text-amber-900",
 } as const;

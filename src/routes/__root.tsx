@@ -1,4 +1,3 @@
-import { TanStackDevtools } from "@tanstack/react-devtools";
 import {
 	createRootRouteWithContext,
 	HeadContent,
@@ -8,7 +7,6 @@ import {
 	type ErrorComponentProps,
 	type NotFoundRouteProps,
 } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { Heading } from "@/components/ui/cata/heading";
@@ -162,17 +160,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					queryClient={context.queryClient}
 				>
 					{children}
-					<TanStackDevtools
-						config={{
-							position: "bottom-right",
-						}}
-						plugins={[
-							{
-								name: "TanStack Router",
-								render: <TanStackRouterDevtoolsPanel />,
-							},
-						]}
-					/>
 				</AppProviders>
 				<Scripts />
 			</body>

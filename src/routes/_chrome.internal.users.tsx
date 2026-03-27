@@ -1,182 +1,192 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { Button } from "@/components/ui/cata/button";
-import {
-	DescriptionDetails,
-	DescriptionList,
-	DescriptionTerm,
-} from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
+import { useQuery } from "@tanstack/react-query";
+import { Outlet, createFileRoute, useNavigate, useRouterState } from "@tanstack/react-router";
+import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { Panel } from "@/components/ui/layout";
-import { invalidateAuthQueries } from "@/lib/auth-queries";
-import { authClient, useAppAuth } from "@/lib/auth-client";
-import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
+import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
+import { InternalResourceLayout } from "@/components/ui/resource";
+import {
+	InternalResourceTable,
+	InternalResourceToolbar,
+	type InternalTableColumn,
+} from "@/components/ui/resource";
+import { getInternalUsersQuery } from "@/features/internal/internal-admin-queries";
+import {
+	type InternalUsersSort,
+	validateInternalUsersSearch,
+} from "@/features/internal/internal-admin-route-state";
+import {
+	advanceInternalPage,
+	buildInternalHref,
+	formatInternalSortValue,
+	parseInternalSortValue,
+	resetInternalPagination,
+	rewindInternalPage,
+} from "@/features/internal/internal-admin-routing";
+import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-search";
+import type { InternalUserSummary } from "@/shared/contracts/internal-admin";
 
-interface ManagedUser {
-	banned?: boolean | null;
-	createdAt?: Date | string | null;
-	email: string;
-	id: string;
-	name: string;
-	role?: string | null;
-	updatedAt?: Date | string | null;
-}
+const userColumns: InternalTableColumn<InternalUserSummary>[] = [
+	{
+		cell: (row) => (
+			<div>
+				<Text className="font-semibold text-zinc-950 dark:text-white">{row.name}</Text>
+				<Text className="text-xs text-zinc-500 dark:text-zinc-400">{row.email}</Text>
+			</div>
+		),
+		header: "User",
+	},
+	{
+		cell: (row) => <InternalStatusValue value={row.role ?? "user"} />,
+		header: "Role",
+	},
+	{
+		cell: (row) => <InternalStatusValue value={row.banned ? "banned" : "active"} />,
+		header: "State",
+	},
+	{
+		cell: (row) => <Text>{formatInternalTimestamp(row.createdAt)}</Text>,
+		header: "Created",
+	},
+];
 
-function formatTimestamp(value: Date | string | null | undefined) {
-	if (!value) {
-		return "n/a";
-	}
-
-	return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
-}
+const userSortOptions = [
+	{
+		label: "Name A-Z",
+		value: formatInternalSortValue("name", "asc"),
+	},
+	{
+		label: "Name Z-A",
+		value: formatInternalSortValue("name", "desc"),
+	},
+	{
+		label: "Newest created",
+		value: formatInternalSortValue("createdAt", "desc"),
+	},
+];
 
 export const Route = createFileRoute("/_chrome/internal/users")({
+	validateSearch: validateInternalUsersSearch,
 	component: InternalUsersRoute,
 });
 
 function InternalUsersRoute() {
-	const auth = useAppAuth();
-	const queryClient = useQueryClient();
-	const usersQuery = useQuery({
-		queryKey: ["better-auth", "users"],
-		queryFn: async (): Promise<ManagedUser[]> => {
-			const result = await authClient.admin.listUsers({
-				query: {
-					limit: 100,
-					sortBy: "name",
-					sortDirection: "asc",
-				},
-			});
-
-			if (result.error) {
-				throw new Error(
-					getAuthClientErrorMessage(result.error, "Failed to load Better Auth users."),
-				);
-			}
-
-			return Array.isArray(result.data)
-				? result.data
-				: ((result.data?.users ?? []) as ManagedUser[]);
-		},
+	const navigate = useNavigate({
+		from: Route.fullPath,
 	});
-	const setRoleMutation = useMutation({
-		mutationFn: async (args: { role: "admin" | "user"; userId: string }) => {
-			const result = await authClient.admin.setRole(args);
-
-			if (result.error) {
-				throw new Error(getAuthClientErrorMessage(result.error, "Failed to update the user role."));
-			}
-		},
-		onSuccess: async () => {
-			await queryClient.invalidateQueries({
-				queryKey: ["better-auth", "users"],
-			});
-			await invalidateAuthQueries(queryClient);
-		},
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
 	});
-	const users = usersQuery.data ?? [];
+	const search = Route.useSearch();
+	const usersQuery = useQuery(getInternalUsersQuery(search));
 
-	const adminCount = users.filter((user) => user.role === "admin").length;
+	if (pathname !== "/internal/users") {
+		return <Outlet />;
+	}
 
 	return (
-		<div className="grid gap-5">
-			<Panel
-				description="This surface uses native Better Auth admin APIs. The first merchant-authenticated user is promoted automatically, and role changes from here stay inside Better Auth."
-				title="User management"
+		<InternalResourceLayout
+			badges={
+				<>
+					<StatusPill tone="accent">Better Auth</StatusPill>
+					<StatusPill tone="neutral">{`${usersQuery.data?.records.length ?? 0} rows`}</StatusPill>
+				</>
+			}
+			description="Better Auth users with role, membership, and recent-session drill-in. Search is name/email driven; role filtering stays explicit."
+			title="Users"
+		>
+			<InternalResourceToolbar
+				onPageSizeChange={(limit) => {
+					void navigate({
+						search: (current) => resetInternalPagination(current, { limit }),
+					});
+				}}
+				onSearchChange={(q) => {
+					void navigate({
+						search: (current) =>
+							resetInternalPagination(current, {
+								q: q || undefined,
+								role: q ? undefined : current.role,
+							}),
+					});
+				}}
+				onSortChange={(value) => {
+					const next = parseInternalSortValue<InternalUsersSort>(value, {
+						direction: "asc",
+						sort: "name",
+					});
+
+					void navigate({
+						search: (current) =>
+							resetInternalPagination(current, {
+								dir: next.direction,
+								sort: next.sort,
+							}),
+					});
+				}}
+				pageSize={search.limit}
+				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
+				searchPlaceholder="Search by name or email"
+				searchValue={search.q}
+				sortOptions={userSortOptions}
+				sortValue={formatInternalSortValue(search.sort, search.dir)}
 			>
-				<div className="flex flex-wrap items-center gap-3">
-					<StatusPill tone="accent">{`${adminCount} admin${adminCount === 1 ? "" : "s"}`}</StatusPill>
-					<StatusPill tone="neutral">{`${users.length} total user${users.length === 1 ? "" : "s"}`}</StatusPill>
-					<Button
-						disabled={usersQuery.isFetching || setRoleMutation.isPending}
-						outline
-						onClick={() => {
-							void queryClient.invalidateQueries({
-								queryKey: ["better-auth", "users"],
-							});
-						}}
-					>
-						{usersQuery.isFetching || setRoleMutation.isPending ? "Refreshing" : "Refresh"}
-					</Button>
-				</div>
-				{usersQuery.error ? (
-					<Text className="mt-4 text-red-700">{usersQuery.error.message}</Text>
-				) : setRoleMutation.error ? (
-					<Text className="mt-4 text-red-700">{setRoleMutation.error.message}</Text>
-				) : null}
-			</Panel>
+				<Select
+					onChange={(event) => {
+						void navigate({
+							search: (current) =>
+								resetInternalPagination(current, {
+									q: undefined,
+									role: event.target.value || undefined,
+								}),
+						});
+					}}
+					value={search.role ?? ""}
+				>
+					<option value="">All roles</option>
+					<option value="admin">Admin</option>
+					<option value="user">User</option>
+				</Select>
+			</InternalResourceToolbar>
 
-			<Panel
-				description="Users are resolved directly from Better Auth. Merchant tenancy now lives in Better Auth organizations and members rather than a separate Convex actor table."
-				title="Users"
-			>
-				{usersQuery.isLoading ? (
-					<Text>Loading Better Auth users…</Text>
-				) : users.length === 0 ? (
-					<Text>No Better Auth users exist yet.</Text>
-				) : (
-					<div className="space-y-4">
-						{users.map((user) => {
-							const isCurrentUser =
-								auth.viewer?.viewer.email === user.email ||
-								auth.session.data?.user?.email === user.email;
-							const isLastAdmin = user.role === "admin" && adminCount === 1;
-							const nextRole = user.role === "admin" ? "user" : "admin";
-
-							return (
-								<article
-									className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800"
-									key={user.id}
-								>
-									<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-										<div className="space-y-3">
-											<div>
-												<Subheading>{user.name}</Subheading>
-												<Text>{user.email}</Text>
-											</div>
-											<div className="flex flex-wrap items-center gap-2">
-												<StatusPill tone={user.role === "admin" ? "accent" : "neutral"}>
-													{user.role ?? "user"}
-												</StatusPill>
-												{user.banned ? <StatusPill tone="blocked">Banned</StatusPill> : null}
-												{isCurrentUser ? (
-													<StatusPill tone="accent">Current session</StatusPill>
-												) : null}
-											</div>
-											<DescriptionList>
-												<DescriptionTerm>Better Auth user id</DescriptionTerm>
-												<DescriptionDetails>{user.id}</DescriptionDetails>
-												<DescriptionTerm>Created at</DescriptionTerm>
-												<DescriptionDetails>{formatTimestamp(user.createdAt)}</DescriptionDetails>
-												<DescriptionTerm>Updated at</DescriptionTerm>
-												<DescriptionDetails>{formatTimestamp(user.updatedAt)}</DescriptionDetails>
-											</DescriptionList>
-										</div>
-
-										<div className="flex flex-wrap items-center gap-3">
-											<Button
-												color="dark/zinc"
-												disabled={setRoleMutation.isPending || isLastAdmin}
-												onClick={() => {
-													setRoleMutation.mutate({
-														role: nextRole,
-														userId: user.id,
-													});
-												}}
-											>
-												{user.role === "admin" ? "Revoke admin" : "Make admin"}
-											</Button>
-											{isLastAdmin ? <Text>At least one admin must remain.</Text> : null}
-										</div>
-									</div>
-								</article>
-							);
-						})}
-					</div>
-				)}
-			</Panel>
-		</div>
+			{usersQuery.isPending ? (
+				<Text>Loading users…</Text>
+			) : usersQuery.isError || !usersQuery.data ? (
+				<Text className="text-red-600 dark:text-red-500">Failed to load users.</Text>
+			) : (
+				<InternalResourceTable
+					columns={userColumns}
+					emptyBody="No users matched the current filters."
+					emptyTitle="No users"
+					getRowHref={(row) => buildInternalHref(`/internal/users/${row.id}`, search)}
+					getRowKey={(row) => row.id}
+					getRowLabel={(row) => row.email}
+					onNext={
+						usersQuery.data.pageInfo.continueCursor
+							? () => {
+									void navigate({
+										search: (current) =>
+											advanceInternalPage(
+												current,
+												usersQuery.data?.pageInfo.continueCursor ?? null,
+											),
+									});
+								}
+							: null
+					}
+					onPrevious={
+						search.prev
+							? () => {
+									void navigate({
+										search: (current) => rewindInternalPage(current),
+									});
+								}
+							: null
+					}
+					pageInfo={usersQuery.data.pageInfo}
+					rows={usersQuery.data.records}
+				/>
+			)}
+		</InternalResourceLayout>
 	);
 }
