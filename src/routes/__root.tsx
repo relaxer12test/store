@@ -116,13 +116,30 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "Growth Capital Shopify AI",
+				name: "theme-color",
+				content: "#8B5CF6",
+			},
+			{
+				title: "moonbeam",
 			},
 		],
 		links: [
 			{
 				rel: "stylesheet",
 				href: appCss,
+			},
+			{
+				rel: "icon",
+				href: "/favicon.ico",
+				type: "image/x-icon",
+			},
+			{
+				rel: "apple-touch-icon",
+				href: "/logo192.png",
+			},
+			{
+				rel: "manifest",
+				href: "/manifest.json",
 			},
 		],
 	}),

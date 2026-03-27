@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="hornGrad" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C084FC"/>
+      <stop offset="100%" stop-color="#FBCFE8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background circle -->
+  <circle cx="256" cy="276" r="200" fill="url(#grad)" opacity="0.08"/>
+
+  <!-- Unicorn head - simple rounded shape facing right -->
+  <ellipse cx="270" cy="290" rx="110" ry="95" fill="url(#grad)"/>
+
+  <!-- Snout / muzzle bump -->
+  <ellipse cx="360" cy="310" rx="55" ry="45" fill="url(#grad)"/>
+
+  <!-- Ear - left -->
+  <path d="M 210 200 L 195 145 L 240 190 Z" fill="url(#grad)"/>
+  <path d="M 215 200 L 205 160 L 235 192 Z" fill="#C084FC"/>
+
+  <!-- Ear - right -->
+  <path d="M 270 190 L 275 135 L 305 185 Z" fill="url(#grad)"/>
+  <path d="M 275 190 L 280 150 L 300 187 Z" fill="#C084FC"/>
+
+  <!-- Horn - centered, tall -->
+  <path d="M 235 175 L 256 60 L 277 175 Z" fill="url(#hornGrad)"/>
+  <!-- Horn stripes -->
+  <line x1="245" y1="150" x2="267" y2="150" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="248" y1="130" x2="264" y2="130" stroke="white" stroke-width="2" stroke-linecap="round" opacity="0.35"/>
+  <line x1="251" y1="110" x2="261" y2="110" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Sparkle on horn tip -->
+  <path d="M 256 40 L 259 52 L 271 55 L 259 58 L 256 70 L 253 58 L 241 55 L 253 52 Z"
+        fill="white" opacity="0.9"/>
+  <!-- Mini sparkles -->
+  <path d="M 230 48 L 231 52 L 235 53 L 231 54 L 230 58 L 229 54 L 225 53 L 229 52 Z"
+        fill="white" opacity="0.5"/>
+  <path d="M 280 42 L 281 45 L 284 46 L 281 47 L 280 50 L 279 47 L 276 46 L 279 45 Z"
+        fill="white" opacity="0.4"/>
+
+  <!-- Eye - large and friendly -->
+  <ellipse cx="310" cy="270" rx="18" ry="20" fill="#27272A"/>
+  <!-- Eye shine -->
+  <ellipse cx="316" cy="264" rx="7" ry="8" fill="white"/>
+  <ellipse cx="304" cy="278" rx="3.5" ry="4" fill="white" opacity="0.5"/>
+
+  <!-- Second eye (further back, slightly hidden) -->
+  <ellipse cx="230" cy="275" rx="14" ry="16" fill="#27272A"/>
+  <ellipse cx="235" cy="270" rx="5.5" ry="6" fill="white"/>
+  <ellipse cx="226" cy="280" rx="2.5" ry="3" fill="white" opacity="0.5"/>
+
+  <!-- Nostrils -->
+  <ellipse cx="385" cy="305" rx="5" ry="4" fill="#7C3AED" opacity="0.5"/>
+  <ellipse cx="395" cy="310" rx="4.5" ry="3.5" fill="#7C3AED" opacity="0.4"/>
+
+  <!-- Smile -->
+  <path d="M 365 325 Q 375 345 360 342" fill="none" stroke="#7C3AED" stroke-width="3" stroke-linecap="round" opacity="0.6"/>
+
+  <!-- Cheek blush -->
+  <ellipse cx="340" cy="300" rx="16" ry="10" fill="#FBCFE8" opacity="0.45"/>
+
+  <!-- Mane strands - flowing from between ears -->
+  <path d="M 200 190 Q 160 220 155 270 Q 152 300 165 330"
+        fill="none" stroke="#C084FC" stroke-width="10" stroke-linecap="round" opacity="0.5"/>
+  <path d="M 195 200 Q 148 240 150 290 Q 152 320 170 345"
+        fill="none" stroke="#A855F7" stroke-width="7" stroke-linecap="round" opacity="0.35"/>
+  <path d="M 210 195 Q 170 215 162 260 Q 158 290 168 320"
+        fill="none" stroke="#EC4899" stroke-width="6" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Crescent moon accent (top right) -->
+  <path d="M 420 100 A 40 40 0 1 0 420 180 A 30 30 0 0 1 420 100 Z"
+        fill="url(#grad)" opacity="0.25"/>
+
+  <!-- Small stars scattered -->
+  <path d="M 440 140 L 441 144 L 445 145 L 441 146 L 440 150 L 439 146 L 435 145 L 439 144 Z"
+        fill="#C084FC" opacity="0.5"/>
+  <path d="M 130 120 L 131 123 L 134 124 L 131 125 L 130 128 L 129 125 L 126 124 L 129 123 Z"
+        fill="#EC4899" opacity="0.4"/>
+  <path d="M 400 200 L 401 203 L 404 204 L 401 205 L 400 208 L 399 205 L 396 204 L 399 203 Z"
+        fill="#A855F7" opacity="0.35"/>
+</svg>

@@ -1,0 +1,109 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 200" width="800" height="200">
+  <defs>
+    <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8B5CF6"/>
+      <stop offset="100%" stop-color="#EC4899"/>
+    </linearGradient>
+    <linearGradient id="hg" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#C084FC"/>
+      <stop offset="100%" stop-color="#FBCFE8"/>
+    </linearGradient>
+  </defs>
+
+  <!-- === ICON (left side, 180x180 area centered at 100,100) === -->
+
+  <!-- Unicorn head -->
+  <ellipse cx="95" cy="115" rx="42" ry="36" fill="url(#g)"/>
+  <!-- Snout -->
+  <ellipse cx="130" cy="122" rx="22" ry="18" fill="url(#g)"/>
+
+  <!-- Ear left -->
+  <path d="M 72 82 L 66 58 L 84 78 Z" fill="url(#g)"/>
+  <path d="M 74 82 L 70 64 L 82 79 Z" fill="#C084FC"/>
+
+  <!-- Ear right -->
+  <path d="M 96 78 L 98 54 L 112 75 Z" fill="url(#g)"/>
+  <path d="M 98 78 L 100 60 L 109 76 Z" fill="#C084FC"/>
+
+  <!-- Horn -->
+  <path d="M 82 72 L 92 24 L 102 72 Z" fill="url(#hg)"/>
+  <!-- Horn stripes -->
+  <line x1="86" y1="58" x2="98" y2="58" stroke="white" stroke-width="1.2" stroke-linecap="round" opacity="0.4"/>
+  <line x1="87.5" y1="48" x2="96.5" y2="48" stroke="white" stroke-width="1" stroke-linecap="round" opacity="0.35"/>
+  <line x1="89" y1="39" x2="95" y2="39" stroke="white" stroke-width="0.8" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Sparkle on horn -->
+  <path d="M 92 14 L 93.5 20 L 99.5 21.5 L 93.5 23 L 92 29 L 90.5 23 L 84.5 21.5 L 90.5 20 Z"
+        fill="white" opacity="0.85"/>
+  <path d="M 78 18 L 78.5 20 L 80.5 20.5 L 78.5 21 L 78 23 L 77.5 21 L 75.5 20.5 L 77.5 20 Z"
+        fill="white" opacity="0.45"/>
+  <path d="M 105 15 L 105.5 17 L 107.5 17.5 L 105.5 18 L 105 20 L 104.5 18 L 102.5 17.5 L 104.5 17 Z"
+        fill="white" opacity="0.4"/>
+
+  <!-- Eyes -->
+  <ellipse cx="112" cy="107" rx="7" ry="8" fill="#27272A"/>
+  <ellipse cx="114" cy="104" rx="2.8" ry="3.2" fill="white"/>
+  <ellipse cx="110" cy="110" rx="1.4" ry="1.6" fill="white" opacity="0.5"/>
+
+  <ellipse cx="82" cy="109" rx="5.5" ry="6.5" fill="#27272A"/>
+  <ellipse cx="84" cy="107" rx="2.2" ry="2.5" fill="white"/>
+  <ellipse cx="80" cy="112" rx="1" ry="1.2" fill="white" opacity="0.5"/>
+
+  <!-- Nostrils -->
+  <ellipse cx="142" cy="119" rx="2" ry="1.5" fill="#7C3AED" opacity="0.5"/>
+  <ellipse cx="146" cy="121" rx="1.8" ry="1.4" fill="#7C3AED" opacity="0.4"/>
+
+  <!-- Smile -->
+  <path d="M 138 128 Q 142 136 136 135" fill="none" stroke="#7C3AED" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>
+
+  <!-- Cheek blush -->
+  <ellipse cx="125" cy="118" rx="6" ry="4" fill="#FBCFE8" opacity="0.4"/>
+
+  <!-- Mane -->
+  <path d="M 68 78 Q 52 90 50 108 Q 49 118 54 128"
+        fill="none" stroke="#C084FC" stroke-width="4" stroke-linecap="round" opacity="0.5"/>
+  <path d="M 65 82 Q 47 96 48 114 Q 48 124 55 132"
+        fill="none" stroke="#A855F7" stroke-width="3" stroke-linecap="round" opacity="0.35"/>
+  <path d="M 72 80 Q 56 88 52 106 Q 50 116 56 125"
+        fill="none" stroke="#EC4899" stroke-width="2.5" stroke-linecap="round" opacity="0.3"/>
+
+  <!-- Moon accent -->
+  <path d="M 155 45 A 16 16 0 1 0 155 77 A 12 12 0 0 1 155 45 Z"
+        fill="url(#g)" opacity="0.2"/>
+
+  <!-- === WORDMARK (right side) === -->
+  <!-- "moonbeam" in rounded, friendly letterforms -->
+
+  <!-- m -->
+  <path d="M 200 130 L 200 100 Q 200 88 210 88 Q 220 88 220 100 L 220 130 M 220 100 Q 220 88 230 88 Q 240 88 240 100 L 240 130"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- o -->
+  <ellipse cx="262" cy="109" rx="14" ry="21" fill="none" stroke="#27272A" stroke-width="7"/>
+
+  <!-- o -->
+  <ellipse cx="298" cy="109" rx="14" ry="21" fill="none" stroke="#27272A" stroke-width="7"/>
+
+  <!-- n -->
+  <path d="M 322 130 L 322 100 Q 322 88 332 88 Q 342 88 342 100 L 342 130"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- b -->
+  <path d="M 362 70 L 362 130 M 362 100 Q 362 88 374 88 Q 386 88 386 109 Q 386 130 374 130 Q 362 130 362 109"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- e -->
+  <path d="M 398 109 L 420 109 Q 420 88 409 88 Q 398 88 398 109 Q 398 130 409 130 Q 418 130 420 120"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- a -->
+  <path d="M 454 130 L 454 100 Q 454 88 442 88 Q 430 88 430 109 Q 430 130 442 130 Q 454 130 454 109"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- m -->
+  <path d="M 468 130 L 468 100 Q 468 88 478 88 Q 488 88 488 100 L 488 130 M 488 100 Q 488 88 498 88 Q 508 88 508 100 L 508 130"
+        fill="none" stroke="#27272A" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Gradient underline accent -->
+  <line x1="200" y1="148" x2="508" y2="148" stroke="url(#g)" stroke-width="3" stroke-linecap="round" opacity="0.3"/>
+</svg>
