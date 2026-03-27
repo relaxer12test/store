@@ -94,6 +94,28 @@ export interface StorefrontWidgetReply {
 	tone: StorefrontReplyTone;
 }
 
+export interface StorefrontWidgetSessionSummary {
+	createdAt: string;
+	lastReplyPreview: string | null;
+	lastReplyTone: StorefrontReplyTone | null;
+	lastUpdatedAt: string;
+	sessionId: string;
+	title: string;
+}
+
+export interface StorefrontWidgetTranscriptMessage {
+	body: string;
+	createdAt: string;
+	id: string;
+	role: "assistant" | "system" | "user";
+}
+
+export interface StorefrontWidgetSessionDetail {
+	messages: StorefrontWidgetTranscriptMessage[];
+	sessionId: string;
+	title: string;
+}
+
 export interface StorefrontWidgetRequest {
 	message: string;
 	pageTitle?: string;

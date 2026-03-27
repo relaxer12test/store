@@ -1,4 +1,3 @@
-import { betterAuth } from "better-auth";
-import { createAuthOptions } from "../auth";
+import { createAuth } from "@convex/auth";
 
-export const auth = betterAuth(createAuthOptions({} as never));
+export const auth = createAuth({} as never);

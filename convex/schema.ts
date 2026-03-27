@@ -337,9 +337,11 @@ export default defineSchema({
 		shopId: v.id("shops"),
 		threadId: v.string(),
 		updatedAt: v.number(),
+		viewerUserId: v.optional(v.string()),
 	})
 		.index("by_shop_and_session_id", ["shopId", "sessionId"])
 		.index("by_shop_and_thread_id", ["shopId", "threadId"])
+		.index("by_shop_and_viewer_user_id_and_updated_at", ["shopId", "viewerUserId", "updatedAt"])
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
 		.index("by_updated_at", ["updatedAt"])
 		.index("by_session_id", ["sessionId"])

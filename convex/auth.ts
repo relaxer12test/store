@@ -15,6 +15,7 @@ import { betterAuth, type BetterAuthOptions } from "better-auth";
 import { APIError, createAuthEndpoint } from "better-auth/api";
 import { setSessionCookie } from "better-auth/cookies";
 import { admin } from "better-auth/plugins/admin";
+import { anonymous } from "better-auth/plugins/anonymous";
 import { getOrgAdapter, organization } from "better-auth/plugins/organization";
 import type { UserIdentity } from "convex/server";
 import { z } from "zod";
@@ -82,6 +83,7 @@ interface BetterAuthUserRecord {
 	emailVerified?: boolean | null;
 	id: string;
 	image?: string | null;
+	isAnonymous?: boolean | null;
 	name: string;
 	role?: string | null;
 	updatedAt: Date;
@@ -934,6 +936,7 @@ export function createAuthOptions(ctx: AuthCtx) {
 		},
 		plugins: [
 			admin(),
+			anonymous(),
 			organization(merchantOrganizationOptions),
 			shopifyMerchantBridgePlugin(),
 			betterAuthConvexPlugin({

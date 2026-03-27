@@ -57,6 +57,7 @@ type PreparedRequest = {
 	shopDomain: string;
 	shopId: Id<"shops">;
 	userId: string;
+	viewerUserId?: string;
 };
 
 type PolicyToolOutput = {
@@ -80,6 +81,7 @@ type RuntimeRequest = {
 	pageTitle?: string;
 	sessionId?: string;
 	shopDomain: string;
+	viewerUserId?: string;
 };
 
 const DEFAULT_SAFE_SUGGESTIONS = [
@@ -891,13 +893,14 @@ async function prepareRequest(
 						message,
 						pageTitle,
 						promptCategory: "discovery",
-						promptPreview: sanitizePromptPreview(message || "widget disabled"),
-						shopDomain,
-						shopId: context.shopId,
-						userId: `${context.shopId}:${sessionId}`,
-					}
-				: undefined,
-		};
+					promptPreview: sanitizePromptPreview(message || "widget disabled"),
+					shopDomain,
+					shopId: context.shopId,
+					userId: `${context.shopId}:${sessionId}`,
+					viewerUserId: request.viewerUserId,
+				}
+			: undefined,
+	};
 	}
 
 	if (message.length === 0) {
@@ -931,6 +934,7 @@ async function prepareRequest(
 				shopDomain,
 				shopId: context.shopId,
 				userId: `${context.shopId}:${sessionId}`,
+				viewerUserId: request.viewerUserId,
 			},
 		};
 	}
@@ -951,6 +955,7 @@ async function prepareRequest(
 			shopDomain,
 			shopId: context.shopId,
 			userId: sessionKey,
+			viewerUserId: request.viewerUserId,
 		},
 	};
 }
@@ -1025,6 +1030,7 @@ async function ensureThreadId(ctx: ActionCtx, prepared: PreparedRequest) {
 		sessionId: prepared.effectiveSessionId,
 		shopId: prepared.shopId,
 		threadId,
+		viewerUserId: prepared.viewerUserId,
 	});
 
 	return threadId;
@@ -1414,6 +1420,7 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				shopId: prepared.shopId,
 				threadId,
 				threadOrder: result.order,
+				viewerUserId: prepared.viewerUserId,
 			});
 
 			await ctx.runMutation(internal.storefrontConcierge.recordEvent, {

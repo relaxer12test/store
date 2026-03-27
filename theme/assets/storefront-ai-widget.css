@@ -120,6 +120,7 @@
 
 .storefront-ai-widget-toggle:focus-visible,
 .storefront-ai-widget-close:focus-visible,
+.storefront-ai-widget-session:focus-visible,
 .storefront-ai-widget-card-link:focus-visible,
 .storefront-ai-widget-reference:focus-visible,
 .storefront-ai-widget-apply-cart:focus-visible,
@@ -264,6 +265,72 @@
 	border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 	background: rgba(255, 255, 255, 0.78);
 	backdrop-filter: blur(14px);
+}
+
+.storefront-ai-widget-session-strip {
+	display: flex;
+	gap: 8px;
+	padding: 10px 18px 0;
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+
+.storefront-ai-widget-session-strip::-webkit-scrollbar {
+	display: none;
+}
+
+.storefront-ai-widget-session {
+	display: grid;
+	gap: 2px;
+	min-width: 0;
+	max-width: 148px;
+	padding: 10px 12px;
+	border: 1px solid rgba(15, 23, 42, 0.08);
+	border-radius: 16px;
+	background: rgba(255, 255, 255, 0.82);
+	color: #0f172a;
+	cursor: pointer;
+	text-align: left;
+	transition:
+		transform 160ms ease,
+		border-color 160ms ease,
+		background 160ms ease;
+}
+
+.storefront-ai-widget-session:hover {
+	transform: translateY(-1px);
+	border-color: rgba(123, 107, 138, 0.28);
+}
+
+.storefront-ai-widget-session.is-active {
+	border-color: rgba(123, 107, 138, 0.4);
+	background: rgba(200, 162, 200, 0.16);
+}
+
+.storefront-ai-widget-session:focus-visible {
+	outline-offset: 3px;
+}
+
+.storefront-ai-widget-session--new {
+	max-width: none;
+	white-space: nowrap;
+}
+
+.storefront-ai-widget-session-title,
+.storefront-ai-widget-session-meta {
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.storefront-ai-widget-session-title {
+	font-size: 12px;
+	font-weight: 700;
+}
+
+.storefront-ai-widget-session-meta {
+	font-size: 10px;
+	color: #64748b;
 }
 
 .storefront-ai-widget-title {
@@ -730,6 +797,7 @@
 
 @media (prefers-reduced-motion: reduce) {
 	.storefront-ai-widget-toggle,
+	.storefront-ai-widget-session,
 	.storefront-ai-widget-card-link,
 	.storefront-ai-widget-apply-cart,
 	.storefront-ai-widget-submit,
@@ -768,6 +836,10 @@
 		max-height: calc(100dvh - 32px);
 		min-height: calc(100dvh - 32px);
 		border-radius: 28px;
+	}
+
+	.storefront-ai-widget-session {
+		max-width: 136px;
 	}
 
 	.storefront-ai-widget-toolbar {

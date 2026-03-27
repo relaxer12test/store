@@ -409,6 +409,7 @@ export const upsertSessionThread = internalMutation({
 		sessionId: v.string(),
 		shopId: v.id("shops"),
 		threadId: v.string(),
+		viewerUserId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const existing = await ctx.db
@@ -426,6 +427,7 @@ export const upsertSessionThread = internalMutation({
 				lastPromptPreview: args.lastPromptPreview,
 				threadId: args.threadId,
 				updatedAt: now,
+				viewerUserId: args.viewerUserId,
 			});
 
 			return existing._id;
@@ -440,6 +442,7 @@ export const upsertSessionThread = internalMutation({
 			shopId: args.shopId,
 			threadId: args.threadId,
 			updatedAt: now,
+			viewerUserId: args.viewerUserId,
 		});
 	},
 });
@@ -504,6 +507,7 @@ export const saveSessionReply = internalMutation({
 		shopId: v.id("shops"),
 		threadId: v.string(),
 		threadOrder: v.number(),
+		viewerUserId: v.optional(v.string()),
 	},
 	handler: async (ctx, args) => {
 		const existing = await ctx.db
@@ -524,6 +528,7 @@ export const saveSessionReply = internalMutation({
 				lastPromptAt: now,
 				threadId: args.threadId,
 				updatedAt: now,
+				viewerUserId: args.viewerUserId,
 			});
 
 			return existing._id;
@@ -541,6 +546,7 @@ export const saveSessionReply = internalMutation({
 			shopId: args.shopId,
 			threadId: args.threadId,
 			updatedAt: now,
+			viewerUserId: args.viewerUserId,
 		});
 	},
 });
