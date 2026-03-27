@@ -219,13 +219,7 @@
 				"type": "text",
 				"id": "storefront_ai_app_base_url",
 				"label": "App base URL",
-				"info": "Required for loading the storefront AI runtime asset from your app host."
-			},
-			{
-				"type": "text",
-				"id": "storefront_ai_convex_base_url",
-				"label": "Convex base URL",
-				"info": "Optional. Set this to your Convex site URL to send storefront AI requests directly to Convex instead of the app origin."
+				"info": "Required for loading the storefront AI runtime asset and routing storefront AI requests through your app host."
 			}
 		]
 	},

@@ -3,11 +3,7 @@ import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { useAppAuth } from "@/lib/auth-client";
-import {
-	getOptionalConvexDeploymentUrl,
-	getOptionalConvexHttpUrl,
-	getOptionalShopifyApiKey,
-} from "@/lib/env";
+import { getOptionalConvexDeploymentUrl, getOptionalShopifyApiKey } from "@/lib/env";
 
 const checklistItems = [
 	"Shopify app API key available to the frontend shell",
@@ -22,7 +18,6 @@ export function InstallPage() {
 	const auth = useAppAuth();
 	const embeddedApp = useEmbeddedAppBootstrap();
 	const hasConvexDeploymentUrl = Boolean(getOptionalConvexDeploymentUrl());
-	const hasConvexHttpUrl = Boolean(getOptionalConvexHttpUrl());
 	const hasShopifyApiKey = Boolean(getOptionalShopifyApiKey());
 
 	return (
@@ -46,14 +41,12 @@ export function InstallPage() {
 										? "Convex deployment URL set"
 										: "Convex deployment URL missing"}
 								</StatusPill>
-								<StatusPill tone={hasConvexHttpUrl ? "success" : "blocked"}>
-									{hasConvexHttpUrl ? "Convex HTTP URL ready" : "Convex HTTP URL missing"}
-								</StatusPill>
+								<StatusPill tone="success">Worker `/api` proxy active</StatusPill>
 							</div>
 							<Text className="mt-3">
-								`VITE_CONVEX_URL` powers the client query shell. `VITE_CONVEX_SITE_URL` is an
-								optional override for server-side HTTP action proxies and otherwise derives from the
-								deployment URL.
+								`VITE_CONVEX_URL` powers the internal Convex client and Worker-to-Convex proxy
+								target. Public browser and storefront traffic should stay on the app host under
+								`/api/*`.
 							</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">

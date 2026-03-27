@@ -4,7 +4,7 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 
 ## Architecture
 
-- `src/`: TanStack Start app shell, embedded admin routes, merchant UI, internal diagnostics, and API proxy routes.
+- `src/`: TanStack Start app shell, embedded admin routes, merchant UI, internal diagnostics, and Worker-side `/api/*` proxy middleware.
 - `convex/`: shop auth/bootstrap, webhook ingestion, sync/cache workflows, merchant copilot flows, document processing, and storefront AI runtime.
 - `extensions/storefront-ai/`: theme app embed that mounts the shopper-facing assistant on the Online Store.
 - `theme/`: custom Shopify theme source that is pushed directly to the live theme.
@@ -25,20 +25,20 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 
 1. Shopify admin loads the embedded app.
 2. App Bridge provides a session token.
-3. `/api/shopify/bootstrap` verifies the token in Convex, persists the shop + merchant actor, then completes a Better Auth merchant bridge on an HTTP cookie-capable path.
+3. `/api/shopify/bootstrap` on the app host proxies to Convex, persists the shop + merchant actor, then completes a Better Auth merchant bridge on an HTTP cookie-capable path.
 4. Better Auth establishes the browser session, issues the Convex JWT cookie, and the first merchant-authenticated user is promoted to native `admin`.
 
 ### Webhooks and cache refresh
 
 1. Shopify sends webhooks to `/api/shopify/webhooks`.
-2. TanStack Start forwards the validated headers/body to Convex HTTP.
+2. The Worker `/api/shopify/webhooks` proxy forwards the validated headers/body to Convex HTTP.
 3. Convex validates the webhook, stores delivery/audit rows, and queues only the relevant follow-up jobs:
    `catalog_index_rebuild`, `metrics_cache_refresh`, `reconciliation_scan`, or `shop_uninstall_cleanup`.
 
 ### Storefront AI
 
-- The theme app embed fetches widget config through `/api/shopify/widget`.
-- Chat requests stream through `/api/shopify/widget/chat`.
+- The theme app embed fetches widget config through app-host `/api/shopify/widget`.
+- Chat requests stream through app-host `/api/shopify/widget/chat`.
 - The storefront runtime refuses discount, private-data, and restricted-action prompts before model generation.
 - Replies are grounded only in public catalog data and storefront-safe policy content.
 
@@ -85,7 +85,7 @@ npm run convex:dev
 
 ### Client / TanStack Start
 
-- `VITE_CONVEX_URL`: Convex deployment URL used by the app shell, Convex query client, and embedded merchant token flow.
+- `VITE_CONVEX_URL`: Convex deployment URL used internally by the app shell and Worker-side proxy target selection.
 - `VITE_SHOPIFY_API_KEY`: Shopify app key exposed to embedded HTML for App Bridge boot.
 
 ### Convex / server-only
@@ -113,7 +113,7 @@ Production deploy target:
 
 - TanStack Start on Cloudflare Workers at `storeai.ldev.cloud`
 - Shopify app config with `application_url = "https://storeai.ldev.cloud"`
-- Convex custom domain for bootstrap, webhook, widget, document, and merchant-protected backend traffic
+- Convex deployment for backend execution behind the Worker `/api/*` proxy
 - Resend webhook at `<your CONVEX_SITE_URL>/resend-webhook` once you add the webhook in Resend
 
 Deploy commands:
@@ -129,7 +129,7 @@ Shopify app configuration plus theme app extension with
 `shopify theme push --path theme --live --allow-live`.
 
 `npm run shopify:deploy` first renders `shopify.app.deploy.toml` from the current environment so
-`SHOPIFY_APP_URL` and the Shopify webhook target stay configurable per deployment. The checked-in
+`SHOPIFY_APP_URL` and the Shopify webhook proxy target stay configurable per deployment. The checked-in
 `shopify.app.toml` is only a template and intentionally does not contain a real environment URL.
 
 If you only need to push the Worker runtime without releasing a Shopify app version,
@@ -149,8 +149,7 @@ After `shopify app deploy`, open the embedded app in Shopify admin, go to
 `/app/settings`, use the `Open theme editor` action in the `Storefront embed status`
 panel, enable the `storefront-ai` app embed on the live theme, and save the theme.
 Set the storefront widget hosts through configuration, not source edits:
-- `App base URL` / `storefront_ai_app_base_url`: app host that serves `storefront-ai-widget-runtime.js`
-- `Convex base URL` / `storefront_ai_convex_base_url`: Convex site URL for direct widget config/chat requests
+- `App base URL` / `storefront_ai_app_base_url`: app host that serves `storefront-ai-widget-runtime.js` and routes widget requests through `/api/shopify/*`
 
 ## Quality and security posture
 

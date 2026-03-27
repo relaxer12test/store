@@ -50,21 +50,7 @@ function getRequiredEnv(name) {
 	return value;
 }
 
-function toConvexSiteUrl(convexUrl) {
-	const parsedUrl = new URL(convexUrl);
-
-	if (parsedUrl.hostname.endsWith(".convex.cloud")) {
-		parsedUrl.hostname = parsedUrl.hostname.replace(/\.convex\.cloud$/, ".convex.site");
-	}
-
-	parsedUrl.pathname = "";
-	parsedUrl.search = "";
-	parsedUrl.hash = "";
-
-	return parsedUrl.toString().replace(/\/$/, "");
-}
-
-function renderThemeSettingsData({ applicationUrl, convexSiteUrl, cwd }) {
+function renderThemeSettingsData({ applicationUrl, cwd }) {
 	const settingsDataPath = resolve(cwd, "theme/config/settings_data.json");
 	const source = readFileSync(settingsDataPath, "utf8");
 	const jsonStartIndex = source.indexOf("{");
@@ -78,7 +64,7 @@ function renderThemeSettingsData({ applicationUrl, convexSiteUrl, cwd }) {
 
 	settingsData.current ??= {};
 	settingsData.current.storefront_ai_app_base_url = applicationUrl;
-	settingsData.current.storefront_ai_convex_base_url = convexSiteUrl;
+	delete settingsData.current.storefront_ai_convex_base_url;
 	settingsData.current.blocks ??= {};
 
 	for (const block of Object.values(settingsData.current.blocks)) {
@@ -93,7 +79,7 @@ function renderThemeSettingsData({ applicationUrl, convexSiteUrl, cwd }) {
 
 		block.settings ??= {};
 		block.settings.app_base_url = applicationUrl;
-		block.settings.convex_base_url = convexSiteUrl;
+		delete block.settings.convex_base_url;
 	}
 
 	writeFileSync(settingsDataPath, `${prefix}${JSON.stringify(settingsData, null, "\t")}\n`);
@@ -103,8 +89,7 @@ const cwd = process.cwd();
 const sourcePath = resolve(cwd, "shopify.app.toml");
 const targetPath = resolve(cwd, "shopify.app.deploy.toml");
 const applicationUrl = getRequiredEnv("SHOPIFY_APP_URL");
-const convexSiteUrl = toConvexSiteUrl(getRequiredEnv("VITE_CONVEX_URL"));
-const webhookUri = `${convexSiteUrl}/shopify/webhooks`;
+const webhookUri = `${applicationUrl}/api/shopify/webhooks`;
 
 const template = readFileSync(sourcePath, "utf8");
 const rendered = template
@@ -114,6 +99,5 @@ const rendered = template
 writeFileSync(targetPath, rendered);
 renderThemeSettingsData({
 	applicationUrl,
-	convexSiteUrl,
 	cwd,
 });

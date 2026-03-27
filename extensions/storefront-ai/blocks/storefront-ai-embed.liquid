@@ -2,7 +2,6 @@
   class="storefront-ai-embed-root"
   {{ block.shopify_attributes }}
   data-api-base="{{ block.settings.app_base_url | escape }}"
-  data-convex-base="{{ block.settings.convex_base_url | escape }}"
   data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
   data-theme-editor="{% if request.design_mode %}true{% else %}false{% endif %}"
 ></div>
@@ -18,13 +17,7 @@
       "type": "text",
       "id": "app_base_url",
       "label": "App base URL",
-      "info": "Required for loading the storefront widget runtime asset from your app host."
-    },
-    {
-      "type": "text",
-      "id": "convex_base_url",
-      "label": "Convex base URL",
-      "info": "Optional. Set this to your Convex site URL to send widget requests directly to Convex instead of the app origin."
+      "info": "Required for loading the storefront widget runtime asset and routing storefront requests through your app host."
     }
   ]
 }

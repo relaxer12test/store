@@ -408,14 +408,13 @@
 		root.dataset.storefrontAiReady = "true";
 
 		var apiBase = (root.dataset.apiBase || "").replace(/\/$/, "");
-		var convexBase = (root.dataset.convexBase || "").replace(/\/$/, "");
 		var shopDomain = root.dataset.shopDomain || "";
 		var isThemeEditor = root.dataset.themeEditor === "true";
 
-		if (!apiBase || !convexBase || !shopDomain) {
+		if (!apiBase || !shopDomain) {
 			if (isThemeEditor) {
 				root.appendChild(
-					buildThemeEditorNotice("The app embed is missing its app base, Convex base, or shop domain."),
+					buildThemeEditorNotice("The app embed is missing its app base URL or shop domain."),
 				);
 			}
 
@@ -668,7 +667,7 @@
 			scrollFeedToBottom();
 
 			return fetchEventStream(
-				convexBase + "/shopify/widget/chat",
+				apiBase + "/api/shopify/widget/chat",
 				{
 					method: "POST",
 					headers: {
@@ -734,7 +733,7 @@
 			void sendMessage();
 		});
 
-		fetchJson(convexBase + "/shopify/widget?shop=" + encodeURIComponent(shopDomain))
+		fetchJson(apiBase + "/api/shopify/widget?shop=" + encodeURIComponent(shopDomain))
 			.then(function (config) {
 				state.config = config;
 				heading.textContent = config.shopName || "Unicorn Concierge";

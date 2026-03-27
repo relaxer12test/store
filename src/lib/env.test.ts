@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildConvexHttpActionUrl, toConvexHttpUrl } from "./env";
 
-describe("toConvexHttpUrl", () => {
+describe("internal Convex HTTP helpers", () => {
 	it("maps Convex cloud deployments to the HTTP actions host", () => {
 		expect(toConvexHttpUrl("https://robust-bulldog-269.convex.cloud")).toBe(
 			"https://robust-bulldog-269.convex.site/",
