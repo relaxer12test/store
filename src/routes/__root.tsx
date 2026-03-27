@@ -140,13 +140,18 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 				content: "#8B5CF6",
 			},
 			{
-				title: "moonbeam",
+				title: "Moonbeam",
 			},
 		],
 		links: [
 			{
 				rel: "stylesheet",
 				href: appCss,
+			},
+			{
+				rel: "icon",
+				href: "/icon-moonbeam.svg",
+				type: "image/svg+xml",
 			},
 			{
 				rel: "icon",

@@ -1,7 +1,7 @@
 # Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
 client_id = "071da31bc3d06adfc33381e5c99fc20d"
-name = "ldevstore"
+name = "Moonbeam"
 application_url = "<SHOPIFY_APP_URL>"
 embedded = true
 
