@@ -414,6 +414,7 @@ function buildSystemInstructions(config: StorefrontWidgetConfig) {
 		"You are the public storefront AI concierge for a Shopify storefront.",
 		`The store is ${config.shopName} (${config.shopDomain}).`,
 		"Reply naturally to the shopper in warm, concise language.",
+		"Avoid unnecessary greetings or re-introductions. Continue the conversation naturally unless the shopper is clearly greeting you.",
 		"Use the tools before making claims about products, collections, variants, availability, or store policies.",
 		"Treat greetings, acknowledgements, thanks, and farewells as social turns. Social turns should not surface products or collections.",
 		"Use the explicit page context provided in the prompt when the shopper refers to the current page, product, or collection.",
@@ -951,6 +952,7 @@ async function ensureThreadState(ctx: ActionCtx, prepared: PreparedRequest) {
 
 	return {
 		agentCtx,
+		existingSession,
 		threadId,
 	};
 }
