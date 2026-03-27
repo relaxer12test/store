@@ -1,3 +1,4 @@
+import { Strong, Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { MetricGrid, Panel } from "@/components/ui/layout";
 import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
@@ -14,14 +15,14 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 					<div className="space-y-3">
 						{snapshot.signals.map((signal) => (
 							<article
-								className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4"
+								className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800"
 								key={signal.label}
 							>
 								<div className="flex items-center justify-between gap-3">
-									<p className="font-semibold text-slate-900">{signal.label}</p>
+									<Strong>{signal.label}</Strong>
 									<StatusPill tone={signal.tone}>{signal.tone}</StatusPill>
 								</div>
-								<p className="mt-2 text-sm leading-6 text-slate-600">{signal.detail}</p>
+								<Text className="mt-2">{signal.detail}</Text>
 							</article>
 						))}
 					</div>
@@ -34,17 +35,17 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 						<ul className="space-y-3">
 							{snapshot.blockers.map((blocker) => (
 								<li
-									className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900"
+									className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
 									key={blocker}
 								>
-									{blocker}
+									<Text>{blocker}</Text>
 								</li>
 							))}
 						</ul>
 					) : (
-						<p className="text-sm leading-6 text-slate-600">
+						<Text>
 							No backend blockers were detected from the current Convex tables.
-						</p>
+						</Text>
 					)}
 				</Panel>
 			</div>

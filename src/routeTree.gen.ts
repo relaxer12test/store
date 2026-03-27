@@ -9,118 +9,91 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as InternalResetPasswordRouteImport } from './routes/internal-reset-password'
-import { Route as InternalAuthRouteImport } from './routes/internal-auth'
-import { Route as InternalRouteImport } from './routes/internal'
-import { Route as InstallRouteImport } from './routes/install'
-import { Route as AppRouteImport } from './routes/app'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as InternalIndexRouteImport } from './routes/internal.index'
-import { Route as AppIndexRouteImport } from './routes/app.index'
-import { Route as InternalWebhooksRouteImport } from './routes/internal.webhooks'
-import { Route as InternalUsersRouteImport } from './routes/internal.users'
-import { Route as InternalInstallStateRouteImport } from './routes/internal.install-state'
-import { Route as InternalCacheRouteImport } from './routes/internal.cache'
-import { Route as InternalAiChatsRouteImport } from './routes/internal.ai-chats'
-import { Route as InternalActionAuditsRouteImport } from './routes/internal.action-audits'
-import { Route as AppWorkflowsRouteImport } from './routes/app.workflows'
-import { Route as AppSettingsRouteImport } from './routes/app.settings'
-import { Route as AppExplorerRouteImport } from './routes/app.explorer'
-import { Route as AppCopilotRouteImport } from './routes/app.copilot'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as ChromeRouteImport } from './routes/_chrome'
+import { Route as ChromeIndexRouteImport } from './routes/_chrome.index'
+import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
+import { Route as AuthResetSentRouteImport } from './routes/auth.reset-sent'
+import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
+import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
+import { Route as ChromeInternalRouteImport } from './routes/_chrome.internal'
+import { Route as ChromeInstallRouteImport } from './routes/_chrome.install'
+import { Route as ChromeAppRouteImport } from './routes/_chrome.app'
+import { Route as ChromeInternalIndexRouteImport } from './routes/_chrome.internal.index'
+import { Route as ChromeAppIndexRouteImport } from './routes/_chrome.app.index'
 import { Route as ApiShopifyWidgetRouteImport } from './routes/api.shopify.widget'
 import { Route as ApiShopifyWebhooksRouteImport } from './routes/api.shopify.webhooks'
 import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bootstrap'
+import { Route as ChromeInternalWebhooksRouteImport } from './routes/_chrome.internal.webhooks'
+import { Route as ChromeInternalUsersRouteImport } from './routes/_chrome.internal.users'
+import { Route as ChromeInternalInstallStateRouteImport } from './routes/_chrome.internal.install-state'
+import { Route as ChromeInternalCacheRouteImport } from './routes/_chrome.internal.cache'
+import { Route as ChromeInternalAiChatsRouteImport } from './routes/_chrome.internal.ai-chats'
+import { Route as ChromeInternalActionAuditsRouteImport } from './routes/_chrome.internal.action-audits'
+import { Route as ChromeAppWorkflowsRouteImport } from './routes/_chrome.app.workflows'
+import { Route as ChromeAppSettingsRouteImport } from './routes/_chrome.app.settings'
+import { Route as ChromeAppExplorerRouteImport } from './routes/_chrome.app.explorer'
+import { Route as ChromeAppCopilotRouteImport } from './routes/_chrome.app.copilot'
 import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
-const InternalResetPasswordRoute = InternalResetPasswordRouteImport.update({
-  id: '/internal-reset-password',
-  path: '/internal-reset-password',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InternalAuthRoute = InternalAuthRouteImport.update({
-  id: '/internal-auth',
-  path: '/internal-auth',
+const ChromeRoute = ChromeRouteImport.update({
+  id: '/_chrome',
   getParentRoute: () => rootRouteImport,
 } as any)
-const InternalRoute = InternalRouteImport.update({
+const ChromeIndexRoute = ChromeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ChromeRoute,
+} as any)
+const AuthSignInRoute = AuthSignInRouteImport.update({
+  id: '/sign-in',
+  path: '/sign-in',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthResetSentRoute = AuthResetSentRouteImport.update({
+  id: '/reset-sent',
+  path: '/reset-sent',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthResetPasswordRoute = AuthResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => AuthRoute,
+} as any)
+const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
+  id: '/forgot-password',
+  path: '/forgot-password',
+  getParentRoute: () => AuthRoute,
+} as any)
+const ChromeInternalRoute = ChromeInternalRouteImport.update({
   id: '/internal',
   path: '/internal',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ChromeRoute,
 } as any)
-const InstallRoute = InstallRouteImport.update({
+const ChromeInstallRoute = ChromeInstallRouteImport.update({
   id: '/install',
   path: '/install',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ChromeRoute,
 } as any)
-const AppRoute = AppRouteImport.update({
+const ChromeAppRoute = ChromeAppRouteImport.update({
   id: '/app',
   path: '/app',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ChromeRoute,
 } as any)
-const IndexRoute = IndexRouteImport.update({
+const ChromeInternalIndexRoute = ChromeInternalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
+  getParentRoute: () => ChromeInternalRoute,
 } as any)
-const InternalIndexRoute = InternalIndexRouteImport.update({
+const ChromeAppIndexRoute = ChromeAppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => InternalRoute,
-} as any)
-const AppIndexRoute = AppIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => AppRoute,
-} as any)
-const InternalWebhooksRoute = InternalWebhooksRouteImport.update({
-  id: '/webhooks',
-  path: '/webhooks',
-  getParentRoute: () => InternalRoute,
-} as any)
-const InternalUsersRoute = InternalUsersRouteImport.update({
-  id: '/users',
-  path: '/users',
-  getParentRoute: () => InternalRoute,
-} as any)
-const InternalInstallStateRoute = InternalInstallStateRouteImport.update({
-  id: '/install-state',
-  path: '/install-state',
-  getParentRoute: () => InternalRoute,
-} as any)
-const InternalCacheRoute = InternalCacheRouteImport.update({
-  id: '/cache',
-  path: '/cache',
-  getParentRoute: () => InternalRoute,
-} as any)
-const InternalAiChatsRoute = InternalAiChatsRouteImport.update({
-  id: '/ai-chats',
-  path: '/ai-chats',
-  getParentRoute: () => InternalRoute,
-} as any)
-const InternalActionAuditsRoute = InternalActionAuditsRouteImport.update({
-  id: '/action-audits',
-  path: '/action-audits',
-  getParentRoute: () => InternalRoute,
-} as any)
-const AppWorkflowsRoute = AppWorkflowsRouteImport.update({
-  id: '/workflows',
-  path: '/workflows',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppExplorerRoute = AppExplorerRouteImport.update({
-  id: '/explorer',
-  path: '/explorer',
-  getParentRoute: () => AppRoute,
-} as any)
-const AppCopilotRoute = AppCopilotRouteImport.update({
-  id: '/copilot',
-  path: '/copilot',
-  getParentRoute: () => AppRoute,
+  getParentRoute: () => ChromeAppRoute,
 } as any)
 const ApiShopifyWidgetRoute = ApiShopifyWidgetRouteImport.update({
   id: '/api/shopify/widget',
@@ -137,6 +110,58 @@ const ApiShopifyBootstrapRoute = ApiShopifyBootstrapRouteImport.update({
   path: '/api/shopify/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ChromeInternalWebhooksRoute = ChromeInternalWebhooksRouteImport.update({
+  id: '/webhooks',
+  path: '/webhooks',
+  getParentRoute: () => ChromeInternalRoute,
+} as any)
+const ChromeInternalUsersRoute = ChromeInternalUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => ChromeInternalRoute,
+} as any)
+const ChromeInternalInstallStateRoute =
+  ChromeInternalInstallStateRouteImport.update({
+    id: '/install-state',
+    path: '/install-state',
+    getParentRoute: () => ChromeInternalRoute,
+  } as any)
+const ChromeInternalCacheRoute = ChromeInternalCacheRouteImport.update({
+  id: '/cache',
+  path: '/cache',
+  getParentRoute: () => ChromeInternalRoute,
+} as any)
+const ChromeInternalAiChatsRoute = ChromeInternalAiChatsRouteImport.update({
+  id: '/ai-chats',
+  path: '/ai-chats',
+  getParentRoute: () => ChromeInternalRoute,
+} as any)
+const ChromeInternalActionAuditsRoute =
+  ChromeInternalActionAuditsRouteImport.update({
+    id: '/action-audits',
+    path: '/action-audits',
+    getParentRoute: () => ChromeInternalRoute,
+  } as any)
+const ChromeAppWorkflowsRoute = ChromeAppWorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => ChromeAppRoute,
+} as any)
+const ChromeAppSettingsRoute = ChromeAppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => ChromeAppRoute,
+} as any)
+const ChromeAppExplorerRoute = ChromeAppExplorerRouteImport.update({
+  id: '/explorer',
+  path: '/explorer',
+  getParentRoute: () => ChromeAppRoute,
+} as any)
+const ChromeAppCopilotRoute = ChromeAppCopilotRouteImport.update({
+  id: '/copilot',
+  path: '/copilot',
+  getParentRoute: () => ChromeAppRoute,
+} as any)
 const ApiShopifyWidgetChatRoute = ApiShopifyWidgetChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -144,85 +169,98 @@ const ApiShopifyWidgetChatRoute = ApiShopifyWidgetChatRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
-  '/install': typeof InstallRoute
-  '/internal': typeof InternalRouteWithChildren
-  '/internal-auth': typeof InternalAuthRoute
-  '/internal-reset-password': typeof InternalResetPasswordRoute
-  '/app/copilot': typeof AppCopilotRoute
-  '/app/explorer': typeof AppExplorerRoute
-  '/app/settings': typeof AppSettingsRoute
-  '/app/workflows': typeof AppWorkflowsRoute
-  '/internal/action-audits': typeof InternalActionAuditsRoute
-  '/internal/ai-chats': typeof InternalAiChatsRoute
-  '/internal/cache': typeof InternalCacheRoute
-  '/internal/install-state': typeof InternalInstallStateRoute
-  '/internal/users': typeof InternalUsersRoute
-  '/internal/webhooks': typeof InternalWebhooksRoute
-  '/app/': typeof AppIndexRoute
-  '/internal/': typeof InternalIndexRoute
+  '/': typeof ChromeIndexRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/app': typeof ChromeAppRouteWithChildren
+  '/install': typeof ChromeInstallRoute
+  '/internal': typeof ChromeInternalRouteWithChildren
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/reset-sent': typeof AuthResetSentRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/app/copilot': typeof ChromeAppCopilotRoute
+  '/app/explorer': typeof ChromeAppExplorerRoute
+  '/app/settings': typeof ChromeAppSettingsRoute
+  '/app/workflows': typeof ChromeAppWorkflowsRoute
+  '/internal/action-audits': typeof ChromeInternalActionAuditsRoute
+  '/internal/ai-chats': typeof ChromeInternalAiChatsRoute
+  '/internal/cache': typeof ChromeInternalCacheRoute
+  '/internal/install-state': typeof ChromeInternalInstallStateRoute
+  '/internal/users': typeof ChromeInternalUsersRoute
+  '/internal/webhooks': typeof ChromeInternalWebhooksRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/app/': typeof ChromeAppIndexRoute
+  '/internal/': typeof ChromeInternalIndexRoute
   '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
-  '/install': typeof InstallRoute
-  '/internal-auth': typeof InternalAuthRoute
-  '/internal-reset-password': typeof InternalResetPasswordRoute
-  '/app/copilot': typeof AppCopilotRoute
-  '/app/explorer': typeof AppExplorerRoute
-  '/app/settings': typeof AppSettingsRoute
-  '/app/workflows': typeof AppWorkflowsRoute
-  '/internal/action-audits': typeof InternalActionAuditsRoute
-  '/internal/ai-chats': typeof InternalAiChatsRoute
-  '/internal/cache': typeof InternalCacheRoute
-  '/internal/install-state': typeof InternalInstallStateRoute
-  '/internal/users': typeof InternalUsersRoute
-  '/internal/webhooks': typeof InternalWebhooksRoute
-  '/app': typeof AppIndexRoute
-  '/internal': typeof InternalIndexRoute
+  '/auth': typeof AuthRouteWithChildren
+  '/install': typeof ChromeInstallRoute
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/reset-sent': typeof AuthResetSentRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/': typeof ChromeIndexRoute
+  '/app/copilot': typeof ChromeAppCopilotRoute
+  '/app/explorer': typeof ChromeAppExplorerRoute
+  '/app/settings': typeof ChromeAppSettingsRoute
+  '/app/workflows': typeof ChromeAppWorkflowsRoute
+  '/internal/action-audits': typeof ChromeInternalActionAuditsRoute
+  '/internal/ai-chats': typeof ChromeInternalAiChatsRoute
+  '/internal/cache': typeof ChromeInternalCacheRoute
+  '/internal/install-state': typeof ChromeInternalInstallStateRoute
+  '/internal/users': typeof ChromeInternalUsersRoute
+  '/internal/webhooks': typeof ChromeInternalWebhooksRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/app': typeof ChromeAppIndexRoute
+  '/internal': typeof ChromeInternalIndexRoute
   '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
-  '/app': typeof AppRouteWithChildren
-  '/install': typeof InstallRoute
-  '/internal': typeof InternalRouteWithChildren
-  '/internal-auth': typeof InternalAuthRoute
-  '/internal-reset-password': typeof InternalResetPasswordRoute
-  '/app/copilot': typeof AppCopilotRoute
-  '/app/explorer': typeof AppExplorerRoute
-  '/app/settings': typeof AppSettingsRoute
-  '/app/workflows': typeof AppWorkflowsRoute
-  '/internal/action-audits': typeof InternalActionAuditsRoute
-  '/internal/ai-chats': typeof InternalAiChatsRoute
-  '/internal/cache': typeof InternalCacheRoute
-  '/internal/install-state': typeof InternalInstallStateRoute
-  '/internal/users': typeof InternalUsersRoute
-  '/internal/webhooks': typeof InternalWebhooksRoute
-  '/app/': typeof AppIndexRoute
-  '/internal/': typeof InternalIndexRoute
+  '/_chrome': typeof ChromeRouteWithChildren
+  '/auth': typeof AuthRouteWithChildren
+  '/_chrome/app': typeof ChromeAppRouteWithChildren
+  '/_chrome/install': typeof ChromeInstallRoute
+  '/_chrome/internal': typeof ChromeInternalRouteWithChildren
+  '/auth/forgot-password': typeof AuthForgotPasswordRoute
+  '/auth/reset-password': typeof AuthResetPasswordRoute
+  '/auth/reset-sent': typeof AuthResetSentRoute
+  '/auth/sign-in': typeof AuthSignInRoute
+  '/_chrome/': typeof ChromeIndexRoute
+  '/_chrome/app/copilot': typeof ChromeAppCopilotRoute
+  '/_chrome/app/explorer': typeof ChromeAppExplorerRoute
+  '/_chrome/app/settings': typeof ChromeAppSettingsRoute
+  '/_chrome/app/workflows': typeof ChromeAppWorkflowsRoute
+  '/_chrome/internal/action-audits': typeof ChromeInternalActionAuditsRoute
+  '/_chrome/internal/ai-chats': typeof ChromeInternalAiChatsRoute
+  '/_chrome/internal/cache': typeof ChromeInternalCacheRoute
+  '/_chrome/internal/install-state': typeof ChromeInternalInstallStateRoute
+  '/_chrome/internal/users': typeof ChromeInternalUsersRoute
+  '/_chrome/internal/webhooks': typeof ChromeInternalWebhooksRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
+  '/_chrome/app/': typeof ChromeAppIndexRoute
+  '/_chrome/internal/': typeof ChromeInternalIndexRoute
   '/api/shopify/widget/chat': typeof ApiShopifyWidgetChatRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/app'
     | '/install'
     | '/internal'
-    | '/internal-auth'
-    | '/internal-reset-password'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/reset-sent'
+    | '/auth/sign-in'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -233,18 +271,21 @@ export interface FileRouteTypes {
     | '/internal/install-state'
     | '/internal/users'
     | '/internal/webhooks'
-    | '/app/'
-    | '/internal/'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
+    | '/app/'
+    | '/internal/'
     | '/api/shopify/widget/chat'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
+    | '/auth'
     | '/install'
-    | '/internal-auth'
-    | '/internal-reset-password'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/reset-sent'
+    | '/auth/sign-in'
+    | '/'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -255,45 +296,45 @@ export interface FileRouteTypes {
     | '/internal/install-state'
     | '/internal/users'
     | '/internal/webhooks'
-    | '/app'
-    | '/internal'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
+    | '/app'
+    | '/internal'
     | '/api/shopify/widget/chat'
   id:
     | '__root__'
-    | '/'
-    | '/app'
-    | '/install'
-    | '/internal'
-    | '/internal-auth'
-    | '/internal-reset-password'
-    | '/app/copilot'
-    | '/app/explorer'
-    | '/app/settings'
-    | '/app/workflows'
-    | '/internal/action-audits'
-    | '/internal/ai-chats'
-    | '/internal/cache'
-    | '/internal/install-state'
-    | '/internal/users'
-    | '/internal/webhooks'
-    | '/app/'
-    | '/internal/'
+    | '/_chrome'
+    | '/auth'
+    | '/_chrome/app'
+    | '/_chrome/install'
+    | '/_chrome/internal'
+    | '/auth/forgot-password'
+    | '/auth/reset-password'
+    | '/auth/reset-sent'
+    | '/auth/sign-in'
+    | '/_chrome/'
+    | '/_chrome/app/copilot'
+    | '/_chrome/app/explorer'
+    | '/_chrome/app/settings'
+    | '/_chrome/app/workflows'
+    | '/_chrome/internal/action-audits'
+    | '/_chrome/internal/ai-chats'
+    | '/_chrome/internal/cache'
+    | '/_chrome/internal/install-state'
+    | '/_chrome/internal/users'
+    | '/_chrome/internal/webhooks'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
+    | '/_chrome/app/'
+    | '/_chrome/internal/'
     | '/api/shopify/widget/chat'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
-  AppRoute: typeof AppRouteWithChildren
-  InstallRoute: typeof InstallRoute
-  InternalRoute: typeof InternalRouteWithChildren
-  InternalAuthRoute: typeof InternalAuthRoute
-  InternalResetPasswordRoute: typeof InternalResetPasswordRoute
+  ChromeRoute: typeof ChromeRouteWithChildren
+  AuthRoute: typeof AuthRouteWithChildren
   ApiShopifyBootstrapRoute: typeof ApiShopifyBootstrapRoute
   ApiShopifyWebhooksRoute: typeof ApiShopifyWebhooksRoute
   ApiShopifyWidgetRoute: typeof ApiShopifyWidgetRouteWithChildren
@@ -301,131 +342,89 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/internal-reset-password': {
-      id: '/internal-reset-password'
-      path: '/internal-reset-password'
-      fullPath: '/internal-reset-password'
-      preLoaderRoute: typeof InternalResetPasswordRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/internal-auth': {
-      id: '/internal-auth'
-      path: '/internal-auth'
-      fullPath: '/internal-auth'
-      preLoaderRoute: typeof InternalAuthRouteImport
+    '/_chrome': {
+      id: '/_chrome'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof ChromeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/internal': {
-      id: '/internal'
-      path: '/internal'
-      fullPath: '/internal'
-      preLoaderRoute: typeof InternalRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/install': {
-      id: '/install'
-      path: '/install'
-      fullPath: '/install'
-      preLoaderRoute: typeof InstallRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/app': {
-      id: '/app'
-      path: '/app'
-      fullPath: '/app'
-      preLoaderRoute: typeof AppRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
+    '/_chrome/': {
+      id: '/_chrome/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
+      preLoaderRoute: typeof ChromeIndexRouteImport
+      parentRoute: typeof ChromeRoute
     }
-    '/internal/': {
-      id: '/internal/'
+    '/auth/sign-in': {
+      id: '/auth/sign-in'
+      path: '/sign-in'
+      fullPath: '/auth/sign-in'
+      preLoaderRoute: typeof AuthSignInRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/reset-sent': {
+      id: '/auth/reset-sent'
+      path: '/reset-sent'
+      fullPath: '/auth/reset-sent'
+      preLoaderRoute: typeof AuthResetSentRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/reset-password': {
+      id: '/auth/reset-password'
+      path: '/reset-password'
+      fullPath: '/auth/reset-password'
+      preLoaderRoute: typeof AuthResetPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/auth/forgot-password': {
+      id: '/auth/forgot-password'
+      path: '/forgot-password'
+      fullPath: '/auth/forgot-password'
+      preLoaderRoute: typeof AuthForgotPasswordRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_chrome/internal': {
+      id: '/_chrome/internal'
+      path: '/internal'
+      fullPath: '/internal'
+      preLoaderRoute: typeof ChromeInternalRouteImport
+      parentRoute: typeof ChromeRoute
+    }
+    '/_chrome/install': {
+      id: '/_chrome/install'
+      path: '/install'
+      fullPath: '/install'
+      preLoaderRoute: typeof ChromeInstallRouteImport
+      parentRoute: typeof ChromeRoute
+    }
+    '/_chrome/app': {
+      id: '/_chrome/app'
+      path: '/app'
+      fullPath: '/app'
+      preLoaderRoute: typeof ChromeAppRouteImport
+      parentRoute: typeof ChromeRoute
+    }
+    '/_chrome/internal/': {
+      id: '/_chrome/internal/'
       path: '/'
       fullPath: '/internal/'
-      preLoaderRoute: typeof InternalIndexRouteImport
-      parentRoute: typeof InternalRoute
+      preLoaderRoute: typeof ChromeInternalIndexRouteImport
+      parentRoute: typeof ChromeInternalRoute
     }
-    '/app/': {
-      id: '/app/'
+    '/_chrome/app/': {
+      id: '/_chrome/app/'
       path: '/'
       fullPath: '/app/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/internal/webhooks': {
-      id: '/internal/webhooks'
-      path: '/webhooks'
-      fullPath: '/internal/webhooks'
-      preLoaderRoute: typeof InternalWebhooksRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/internal/users': {
-      id: '/internal/users'
-      path: '/users'
-      fullPath: '/internal/users'
-      preLoaderRoute: typeof InternalUsersRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/internal/install-state': {
-      id: '/internal/install-state'
-      path: '/install-state'
-      fullPath: '/internal/install-state'
-      preLoaderRoute: typeof InternalInstallStateRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/internal/cache': {
-      id: '/internal/cache'
-      path: '/cache'
-      fullPath: '/internal/cache'
-      preLoaderRoute: typeof InternalCacheRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/internal/ai-chats': {
-      id: '/internal/ai-chats'
-      path: '/ai-chats'
-      fullPath: '/internal/ai-chats'
-      preLoaderRoute: typeof InternalAiChatsRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/internal/action-audits': {
-      id: '/internal/action-audits'
-      path: '/action-audits'
-      fullPath: '/internal/action-audits'
-      preLoaderRoute: typeof InternalActionAuditsRouteImport
-      parentRoute: typeof InternalRoute
-    }
-    '/app/workflows': {
-      id: '/app/workflows'
-      path: '/workflows'
-      fullPath: '/app/workflows'
-      preLoaderRoute: typeof AppWorkflowsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/settings': {
-      id: '/app/settings'
-      path: '/settings'
-      fullPath: '/app/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/explorer': {
-      id: '/app/explorer'
-      path: '/explorer'
-      fullPath: '/app/explorer'
-      preLoaderRoute: typeof AppExplorerRouteImport
-      parentRoute: typeof AppRoute
-    }
-    '/app/copilot': {
-      id: '/app/copilot'
-      path: '/copilot'
-      fullPath: '/app/copilot'
-      preLoaderRoute: typeof AppCopilotRouteImport
-      parentRoute: typeof AppRoute
+      preLoaderRoute: typeof ChromeAppIndexRouteImport
+      parentRoute: typeof ChromeAppRoute
     }
     '/api/shopify/widget': {
       id: '/api/shopify/widget'
@@ -448,6 +447,76 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopifyBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_chrome/internal/webhooks': {
+      id: '/_chrome/internal/webhooks'
+      path: '/webhooks'
+      fullPath: '/internal/webhooks'
+      preLoaderRoute: typeof ChromeInternalWebhooksRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/internal/users': {
+      id: '/_chrome/internal/users'
+      path: '/users'
+      fullPath: '/internal/users'
+      preLoaderRoute: typeof ChromeInternalUsersRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/internal/install-state': {
+      id: '/_chrome/internal/install-state'
+      path: '/install-state'
+      fullPath: '/internal/install-state'
+      preLoaderRoute: typeof ChromeInternalInstallStateRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/internal/cache': {
+      id: '/_chrome/internal/cache'
+      path: '/cache'
+      fullPath: '/internal/cache'
+      preLoaderRoute: typeof ChromeInternalCacheRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/internal/ai-chats': {
+      id: '/_chrome/internal/ai-chats'
+      path: '/ai-chats'
+      fullPath: '/internal/ai-chats'
+      preLoaderRoute: typeof ChromeInternalAiChatsRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/internal/action-audits': {
+      id: '/_chrome/internal/action-audits'
+      path: '/action-audits'
+      fullPath: '/internal/action-audits'
+      preLoaderRoute: typeof ChromeInternalActionAuditsRouteImport
+      parentRoute: typeof ChromeInternalRoute
+    }
+    '/_chrome/app/workflows': {
+      id: '/_chrome/app/workflows'
+      path: '/workflows'
+      fullPath: '/app/workflows'
+      preLoaderRoute: typeof ChromeAppWorkflowsRouteImport
+      parentRoute: typeof ChromeAppRoute
+    }
+    '/_chrome/app/settings': {
+      id: '/_chrome/app/settings'
+      path: '/settings'
+      fullPath: '/app/settings'
+      preLoaderRoute: typeof ChromeAppSettingsRouteImport
+      parentRoute: typeof ChromeAppRoute
+    }
+    '/_chrome/app/explorer': {
+      id: '/_chrome/app/explorer'
+      path: '/explorer'
+      fullPath: '/app/explorer'
+      preLoaderRoute: typeof ChromeAppExplorerRouteImport
+      parentRoute: typeof ChromeAppRoute
+    }
+    '/_chrome/app/copilot': {
+      id: '/_chrome/app/copilot'
+      path: '/copilot'
+      fullPath: '/app/copilot'
+      preLoaderRoute: typeof ChromeAppCopilotRouteImport
+      parentRoute: typeof ChromeAppRoute
+    }
     '/api/shopify/widget/chat': {
       id: '/api/shopify/widget/chat'
       path: '/chat'
@@ -458,47 +527,82 @@ declare module '@tanstack/react-router' {
   }
 }
 
-interface AppRouteChildren {
-  AppCopilotRoute: typeof AppCopilotRoute
-  AppExplorerRoute: typeof AppExplorerRoute
-  AppSettingsRoute: typeof AppSettingsRoute
-  AppWorkflowsRoute: typeof AppWorkflowsRoute
-  AppIndexRoute: typeof AppIndexRoute
+interface ChromeAppRouteChildren {
+  ChromeAppCopilotRoute: typeof ChromeAppCopilotRoute
+  ChromeAppExplorerRoute: typeof ChromeAppExplorerRoute
+  ChromeAppSettingsRoute: typeof ChromeAppSettingsRoute
+  ChromeAppWorkflowsRoute: typeof ChromeAppWorkflowsRoute
+  ChromeAppIndexRoute: typeof ChromeAppIndexRoute
 }
 
-const AppRouteChildren: AppRouteChildren = {
-  AppCopilotRoute: AppCopilotRoute,
-  AppExplorerRoute: AppExplorerRoute,
-  AppSettingsRoute: AppSettingsRoute,
-  AppWorkflowsRoute: AppWorkflowsRoute,
-  AppIndexRoute: AppIndexRoute,
+const ChromeAppRouteChildren: ChromeAppRouteChildren = {
+  ChromeAppCopilotRoute: ChromeAppCopilotRoute,
+  ChromeAppExplorerRoute: ChromeAppExplorerRoute,
+  ChromeAppSettingsRoute: ChromeAppSettingsRoute,
+  ChromeAppWorkflowsRoute: ChromeAppWorkflowsRoute,
+  ChromeAppIndexRoute: ChromeAppIndexRoute,
 }
 
-const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
-
-interface InternalRouteChildren {
-  InternalActionAuditsRoute: typeof InternalActionAuditsRoute
-  InternalAiChatsRoute: typeof InternalAiChatsRoute
-  InternalCacheRoute: typeof InternalCacheRoute
-  InternalInstallStateRoute: typeof InternalInstallStateRoute
-  InternalUsersRoute: typeof InternalUsersRoute
-  InternalWebhooksRoute: typeof InternalWebhooksRoute
-  InternalIndexRoute: typeof InternalIndexRoute
-}
-
-const InternalRouteChildren: InternalRouteChildren = {
-  InternalActionAuditsRoute: InternalActionAuditsRoute,
-  InternalAiChatsRoute: InternalAiChatsRoute,
-  InternalCacheRoute: InternalCacheRoute,
-  InternalInstallStateRoute: InternalInstallStateRoute,
-  InternalUsersRoute: InternalUsersRoute,
-  InternalWebhooksRoute: InternalWebhooksRoute,
-  InternalIndexRoute: InternalIndexRoute,
-}
-
-const InternalRouteWithChildren = InternalRoute._addFileChildren(
-  InternalRouteChildren,
+const ChromeAppRouteWithChildren = ChromeAppRoute._addFileChildren(
+  ChromeAppRouteChildren,
 )
+
+interface ChromeInternalRouteChildren {
+  ChromeInternalActionAuditsRoute: typeof ChromeInternalActionAuditsRoute
+  ChromeInternalAiChatsRoute: typeof ChromeInternalAiChatsRoute
+  ChromeInternalCacheRoute: typeof ChromeInternalCacheRoute
+  ChromeInternalInstallStateRoute: typeof ChromeInternalInstallStateRoute
+  ChromeInternalUsersRoute: typeof ChromeInternalUsersRoute
+  ChromeInternalWebhooksRoute: typeof ChromeInternalWebhooksRoute
+  ChromeInternalIndexRoute: typeof ChromeInternalIndexRoute
+}
+
+const ChromeInternalRouteChildren: ChromeInternalRouteChildren = {
+  ChromeInternalActionAuditsRoute: ChromeInternalActionAuditsRoute,
+  ChromeInternalAiChatsRoute: ChromeInternalAiChatsRoute,
+  ChromeInternalCacheRoute: ChromeInternalCacheRoute,
+  ChromeInternalInstallStateRoute: ChromeInternalInstallStateRoute,
+  ChromeInternalUsersRoute: ChromeInternalUsersRoute,
+  ChromeInternalWebhooksRoute: ChromeInternalWebhooksRoute,
+  ChromeInternalIndexRoute: ChromeInternalIndexRoute,
+}
+
+const ChromeInternalRouteWithChildren = ChromeInternalRoute._addFileChildren(
+  ChromeInternalRouteChildren,
+)
+
+interface ChromeRouteChildren {
+  ChromeAppRoute: typeof ChromeAppRouteWithChildren
+  ChromeInstallRoute: typeof ChromeInstallRoute
+  ChromeInternalRoute: typeof ChromeInternalRouteWithChildren
+  ChromeIndexRoute: typeof ChromeIndexRoute
+}
+
+const ChromeRouteChildren: ChromeRouteChildren = {
+  ChromeAppRoute: ChromeAppRouteWithChildren,
+  ChromeInstallRoute: ChromeInstallRoute,
+  ChromeInternalRoute: ChromeInternalRouteWithChildren,
+  ChromeIndexRoute: ChromeIndexRoute,
+}
+
+const ChromeRouteWithChildren =
+  ChromeRoute._addFileChildren(ChromeRouteChildren)
+
+interface AuthRouteChildren {
+  AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
+  AuthResetPasswordRoute: typeof AuthResetPasswordRoute
+  AuthResetSentRoute: typeof AuthResetSentRoute
+  AuthSignInRoute: typeof AuthSignInRoute
+}
+
+const AuthRouteChildren: AuthRouteChildren = {
+  AuthForgotPasswordRoute: AuthForgotPasswordRoute,
+  AuthResetPasswordRoute: AuthResetPasswordRoute,
+  AuthResetSentRoute: AuthResetSentRoute,
+  AuthSignInRoute: AuthSignInRoute,
+}
+
+const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 interface ApiShopifyWidgetRouteChildren {
   ApiShopifyWidgetChatRoute: typeof ApiShopifyWidgetChatRoute
@@ -512,12 +616,8 @@ const ApiShopifyWidgetRouteWithChildren =
   ApiShopifyWidgetRoute._addFileChildren(ApiShopifyWidgetRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  AppRoute: AppRouteWithChildren,
-  InstallRoute: InstallRoute,
-  InternalRoute: InternalRouteWithChildren,
-  InternalAuthRoute: InternalAuthRoute,
-  InternalResetPasswordRoute: InternalResetPasswordRoute,
+  ChromeRoute: ChromeRouteWithChildren,
+  AuthRoute: AuthRouteWithChildren,
   ApiShopifyBootstrapRoute: ApiShopifyBootstrapRoute,
   ApiShopifyWebhooksRoute: ApiShopifyWebhooksRoute,
   ApiShopifyWidgetRoute: ApiShopifyWidgetRouteWithChildren,

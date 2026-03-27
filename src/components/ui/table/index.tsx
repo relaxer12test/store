@@ -12,6 +12,20 @@ import {
 	type VisibilityState,
 } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
+import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
+import { Label } from "@/components/ui/cata/fieldset";
+import { Subheading } from "@/components/ui/cata/heading";
+import { Input } from "@/components/ui/cata/input";
+import { Select } from "@/components/ui/cata/select";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/cata/table";
+import { Text } from "@/components/ui/cata/text";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 
 interface DataTableShellProps<TData extends Record<string, unknown>> {
@@ -156,27 +170,26 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 	}, [selectedRow, selectedRowId]);
 
 	return (
-		<section className="rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm">
+		<section className="rounded-lg border border-zinc-950/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
 			<div className="mb-5 flex flex-col gap-4">
 				<div>
-					<h2 className="font-serif text-2xl text-slate-950">{title}</h2>
+					<Subheading className="font-serif text-2xl">{title}</Subheading>
 					{description ? (
-						<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
+						<Text className="mt-2 max-w-2xl">{description}</Text>
 					) : null}
 				</div>
 
 				<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
 					<div className="flex flex-1 flex-col gap-3 md:flex-row">
-						<input
-							className="w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400 md:max-w-sm"
+						<Input
+							className="md:max-w-sm"
 							onChange={(event) => setGlobalFilter(event.target.value)}
 							placeholder="Search rows"
 							value={globalFilter}
 						/>
 						{activeFilterColumnId ? (
 							<div className="flex flex-col gap-3 md:flex-row">
-								<select
-									className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+								<Select
 									onChange={(event) => setFilterColumnId(event.target.value)}
 									value={activeFilterColumnId}
 								>
@@ -185,9 +198,8 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 											{item.column.id.replaceAll("_", " ")}
 										</option>
 									))}
-								</select>
-								<select
-									className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+								</Select>
+								<Select
 									onChange={(event) => setFilterValue(event.target.value)}
 									value={filterValue}
 								>
@@ -197,26 +209,24 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 											{value}
 										</option>
 									))}
-								</select>
+								</Select>
 							</div>
 						) : null}
 					</div>
 
 					<details className="group">
-						<summary className="cursor-pointer list-none rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50">
+						<summary className="cursor-pointer list-none rounded-lg border border-zinc-950/10 bg-white px-4 py-2 text-sm font-semibold text-zinc-950 transition hover:border-zinc-950/20 hover:bg-zinc-50 dark:border-white/10 dark:bg-zinc-900 dark:text-white dark:hover:border-white/20 dark:hover:bg-zinc-800">
 							Columns
 						</summary>
-						<div className="mt-3 grid min-w-56 gap-2 rounded-[1.1rem] border border-slate-200 bg-slate-50 p-4">
+						<div className="mt-3 grid min-w-56 gap-2 rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
 							{table.getAllLeafColumns().map((column) => (
-								<label className="flex items-center gap-3 text-sm text-slate-900" key={column.id}>
-									<input
+								<CheckboxField key={column.id}>
+									<Checkbox
 										checked={column.getIsVisible()}
-										className="size-4 rounded border border-slate-300 accent-slate-900"
-										onChange={column.getToggleVisibilityHandler()}
-										type="checkbox"
+										onChange={(checked) => column.toggleVisibility(checked)}
 									/>
-									<span>{column.id.replaceAll("_", " ")}</span>
-								</label>
+									<Label>{column.id.replaceAll("_", " ")}</Label>
+								</CheckboxField>
 							))}
 						</div>
 					</details>
@@ -227,73 +237,68 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 				<EmptyState body={emptyBody} title={emptyTitle} />
 			) : (
 				<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
-					<div className="overflow-hidden rounded-[1.4rem] border border-slate-200">
-						<div className="overflow-x-auto">
-							<table className="min-w-full border-collapse">
-								<thead className="bg-slate-50">
-									{table.getHeaderGroups().map((headerGroup) => (
-										<tr key={headerGroup.id}>
-											{headerGroup.headers.map((header) => (
-												<th
-													className="px-4 py-3 text-left text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500"
-													key={header.id}
-												>
-													{header.isPlaceholder ? null : (
-														<button
-															className="inline-flex items-center gap-2"
-															onClick={header.column.getToggleSortingHandler()}
-															type="button"
-														>
-															{flexRender(header.column.columnDef.header, header.getContext())}
-														</button>
-													)}
-												</th>
-											))}
-										</tr>
-									))}
-								</thead>
-								<tbody>
-									{rows.map((row) => (
-										<tr
-											className={`border-t border-slate-200 transition ${
-												selectedRow?.id === row.id ? "bg-slate-100" : "bg-white hover:bg-slate-50"
-											}`}
-											key={row.id}
-										>
-											{visibleColumns.map((column) => {
-												const cell = row
-													.getVisibleCells()
-													.find((item) => item.column.id === column.id);
-
-												if (!cell) {
-													return null;
-												}
-
-												return (
-													<td
-														className="px-4 py-3 align-top text-sm leading-6 text-slate-900"
-														key={cell.id}
+					<div className="overflow-hidden rounded-lg border border-zinc-950/5 dark:border-white/10">
+						<Table dense>
+							<TableHead>
+								{table.getHeaderGroups().map((headerGroup) => (
+									<TableRow key={headerGroup.id}>
+										{headerGroup.headers.map((header) => (
+											<TableHeader
+												className="text-[0.68rem] font-semibold uppercase tracking-[0.22em]"
+												key={header.id}
+											>
+												{header.isPlaceholder ? null : (
+													<button
+														className="inline-flex items-center gap-2"
+														onClick={header.column.getToggleSortingHandler()}
+														type="button"
 													>
-														<button
-															className="block w-full text-left"
-															onClick={() => setSelectedRowId(row.id)}
-															type="button"
-														>
-															{flexRender(cell.column.columnDef.cell, cell.getContext())}
-														</button>
-													</td>
-												);
-											})}
-										</tr>
-									))}
-								</tbody>
-							</table>
-						</div>
+														{flexRender(header.column.columnDef.header, header.getContext())}
+													</button>
+												)}
+											</TableHeader>
+										))}
+									</TableRow>
+								))}
+							</TableHead>
+							<TableBody>
+								{rows.map((row) => (
+									<TableRow
+										className={`cursor-pointer transition ${
+											selectedRow?.id === row.id
+												? "bg-zinc-100 dark:bg-zinc-800"
+												: ""
+										}`}
+										key={row.id}
+										onClick={() => setSelectedRowId(row.id)}
+									>
+										{visibleColumns.map((column) => {
+											const cell = row
+												.getVisibleCells()
+												.find((item) => item.column.id === column.id);
+
+											if (!cell) {
+												return null;
+											}
+
+											return (
+												<TableCell
+													className="align-top text-sm leading-6"
+													key={cell.id}
+												>
+													{flexRender(cell.column.columnDef.cell, cell.getContext())}
+												</TableCell>
+											);
+										})}
+									</TableRow>
+								))}
+							</TableBody>
+						</Table>
 					</div>
 
-					<aside className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-5">
+					<aside className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800">
 						<div className="flex items-center justify-between gap-3">
-							<p className="text-sm font-semibold text-slate-900">Row drill-in</p>
+							<Text className="font-semibold">Row drill-in</Text>
 							<StatusPill tone="neutral">
 								{selectedRow
 									? `row ${rows.findIndex((row) => row.id === selectedRow.id) + 1}`
@@ -305,13 +310,13 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 							<div className="mt-4 space-y-3">
 								{Object.entries(selectedRecord).map(([key, value]) => (
 									<div
-										className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3"
+										className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
 										key={`${selectedRow?.id}-${key}`}
 									>
-										<p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500">
+										<p className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">
 											{key.replaceAll("_", " ")}
 										</p>
-										<p className="mt-2 text-sm leading-6 text-slate-900">
+										<p className="mt-2 text-sm leading-6 text-zinc-950 dark:text-white">
 											{renderPreviewValue(value)}
 										</p>
 									</div>

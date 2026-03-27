@@ -6,7 +6,6 @@ import {
 	Scripts,
 } from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
-import { GlobalChrome } from "@/features/shell/components/global-chrome";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
 import { getSessionEnvelope } from "@/lib/auth-server";
@@ -80,7 +79,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				/>
 				{shopifyApiKey ? <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" /> : null}
 			</head>
-			<body className="min-h-screen bg-slate-50 text-slate-900 antialiased">
+			<body className="antialiased">
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
@@ -89,21 +88,18 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					queryClient={context.queryClient}
 					sessionManager={context.sessionManager}
 				>
-					<div className="min-h-screen">
-						<GlobalChrome />
-						<main>{children}</main>
-						<TanStackDevtools
-							config={{
-								position: "bottom-right",
-							}}
-							plugins={[
-								{
-									name: "TanStack Router",
-									render: <TanStackRouterDevtoolsPanel />,
-								},
-							]}
-						/>
-					</div>
+					{children}
+					<TanStackDevtools
+						config={{
+							position: "bottom-right",
+						}}
+						plugins={[
+							{
+								name: "TanStack Router",
+								render: <TanStackRouterDevtoolsPanel />,
+							},
+						]}
+					/>
 				</AppProviders>
 				<Scripts />
 			</body>

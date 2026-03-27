@@ -6,7 +6,7 @@ import { api } from "@/lib/convex-api";
 
 const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
 
-export const Route = createFileRoute("/internal/install-state")({
+export const Route = createFileRoute("/_chrome/internal/install-state")({
 	loader: async ({ context }) => {
 		await context.preload.ensureQueryData(snapshotQuery);
 	},
@@ -24,5 +24,5 @@ function InternalInstallStateRoute() {
 			records={data.shops}
 			title="Install state"
 		/>
-	);
+	)
 }

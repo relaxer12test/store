@@ -6,7 +6,7 @@ import { api } from "@/lib/convex-api";
 
 const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
 
-export const Route = createFileRoute("/internal/")({
+export const Route = createFileRoute("/_chrome/internal/")({
 	loader: async ({ context }) => {
 		await context.preload.ensureQueryData(snapshotQuery);
 	},

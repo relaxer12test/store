@@ -6,7 +6,7 @@ import {
 } from "@/features/app-shell/merchant-workspace";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
-export const Route = createFileRoute("/app/workflows")({
+export const Route = createFileRoute("/_chrome/app/workflows")({
 	loader: async ({ context }) => {
 		const session = await context.sessionApi.ensureEmbeddedSession();
 

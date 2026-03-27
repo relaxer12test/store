@@ -6,23 +6,23 @@ import { api } from "@/lib/convex-api";
 
 const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
 
-export const Route = createFileRoute("/internal/action-audits")({
+export const Route = createFileRoute("/_chrome/internal/webhooks")({
 	loader: async ({ context }) => {
 		await context.preload.ensureQueryData(snapshotQuery);
 	},
-	component: InternalActionAuditsRoute,
+	component: InternalWebhooksRoute,
 });
 
-function InternalActionAuditsRoute() {
+function InternalWebhooksRoute() {
 	const { data } = useSuspenseQuery(snapshotQuery);
 
 	return (
 		<InternalModulePage
-			description="Audit log rows that have really been written to Convex."
-			emptyBody="No merchant action audit rows exist yet."
-			emptyTitle="No action audits"
-			records={data.auditLogs}
-			title="Action audits"
+			description="Webhook deliveries that have actually been written to Convex."
+			emptyBody="No webhook deliveries have been recorded yet."
+			emptyTitle="No webhook deliveries"
+			records={data.webhookDeliveries}
+			title="Webhook deliveries"
 		/>
-	);
+	)
 }

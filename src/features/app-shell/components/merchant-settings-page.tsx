@@ -1,8 +1,16 @@
 import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
+import { Button } from "@/components/ui/cata/button";
+import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
+import { Description, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Subheading } from "@/components/ui/cata/heading";
+import { Input } from "@/components/ui/cata/input";
+import { Select } from "@/components/ui/cata/select";
+import { Text } from "@/components/ui/cata/text";
+import { Textarea } from "@/components/ui/cata/textarea";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
-import { Panel } from "@/components/ui/layout";
+import { DetailRow, Panel } from "@/components/ui/layout";
 import { merchantSettingsQuery } from "@/features/app-shell/merchant-settings";
 import {
 	invalidateMerchantWorkspaceQueries,
@@ -15,14 +23,6 @@ import type {
 } from "@/shared/contracts/merchant-settings";
 import type { MerchantKnowledgeDocumentsData } from "@/shared/contracts/merchant-workspace";
 import type { Id } from "../../../../convex/_generated/dataModel";
-
-const primaryButtonClass =
-	"inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60";
-const secondaryButtonClass =
-	"inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
-const detailCardClass = "rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4";
-const inputClass =
-	"w-full rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 
 function embedStatusTone(status: ThemeAppEmbedStatus) {
 	switch (status) {
@@ -82,15 +82,6 @@ function textToKnowledgeSources(value: string) {
 		.split("\n")
 		.map((source) => source.trim())
 		.filter(Boolean);
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-	return (
-		<div className="flex flex-col gap-1 border-t border-slate-200 py-3 first:border-t-0 first:pt-0 last:pb-0 sm:flex-row sm:items-start sm:justify-between">
-			<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
-			<p className="max-w-lg text-sm leading-6 text-slate-900">{value}</p>
-		</div>
-	);
 }
 
 export function MerchantSettingsPage({
@@ -316,21 +307,17 @@ export function MerchantSettingsPage({
 					</div>
 
 					<div className="mt-5 grid gap-4 md:grid-cols-2">
-						<div className={detailCardClass}>
-							<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-								Current theme
-							</p>
-							<p className="mt-3 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+							<Subheading level={3}>Current theme</Subheading>
+							<Text>
 								{data.extensionStatus.mainThemeName
 									? `${data.extensionStatus.mainThemeName}${data.extensionStatus.mainThemeId ? ` (${data.extensionStatus.mainThemeId})` : ""}`
 									: "The current live theme could not be resolved from Admin API diagnostics."}
-							</p>
+							</Text>
 						</div>
-						<div className={detailCardClass}>
-							<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-								Live embed state
-							</p>
-							<p className="mt-3 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+							<Subheading level={3}>Live embed state</Subheading>
+							<Text>
 								{data.extensionStatus.status === "enabled"
 									? "The app embed is enabled on the live theme."
 									: data.extensionStatus.status === "disabled"
@@ -338,7 +325,7 @@ export function MerchantSettingsPage({
 										: data.extensionStatus.status === "not_detected"
 											? "The app embed has not been activated on the live theme yet."
 											: "Theme diagnostics are unavailable until the app has a valid offline token."}
-							</p>
+							</Text>
 						</div>
 					</div>
 
@@ -353,23 +340,21 @@ export function MerchantSettingsPage({
 
 					<div className="mt-5 flex flex-wrap gap-3">
 						{data.extensionStatus.activationUrl ? (
-							<a
-								className={primaryButtonClass}
+							<Button
+								color="dark/zinc"
 								href={data.extensionStatus.activationUrl}
-								rel="noreferrer"
-								target="_top"
 							>
 								Open theme editor
-							</a>
+							</Button>
 						) : null}
-						<button
-							className={secondaryButtonClass}
+						<Button
+							outline
 							disabled={isRefreshing}
 							onClick={onRefresh}
 							type="button"
 						>
 							{isRefreshing ? "Refreshing..." : "Refresh diagnostics"}
-						</button>
+						</Button>
 					</div>
 				</Panel>
 			</div>
@@ -380,58 +365,54 @@ export function MerchantSettingsPage({
 			>
 				<div className="grid gap-4 md:grid-cols-2">
 					{data.cacheHealth.caches.map((cache) => (
-						<div className={detailCardClass} key={cache.cacheKey}>
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800" key={cache.cacheKey}>
 							<div className="flex flex-wrap items-center gap-2">
-								<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
+								<Subheading level={3}>
 									{cache.cacheKey.replaceAll("_", " ")}
-								</p>
+								</Subheading>
 								<StatusPill tone={cacheStatusTone(cache.status)}>{cache.status}</StatusPill>
 							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-900">
+							<Text>
 								{cache.recordCount !== null
 									? `${cache.recordCount} cached record(s) tracked.`
 									: "No record count has been written for this cache yet."}
-							</p>
-							<p className="mt-2 text-sm leading-6 text-slate-600">
+							</Text>
+							<Text>
 								Requested: {cache.lastRequestedAt ?? "n/a"}
-							</p>
-							<p className="text-sm leading-6 text-slate-600">
+							</Text>
+							<Text>
 								Completed: {cache.lastCompletedAt ?? "n/a"}
-							</p>
-							<p className="text-sm leading-6 text-slate-600">
+							</Text>
+							<Text>
 								Last webhook: {cache.lastWebhookAt ?? "n/a"}
-							</p>
+							</Text>
 							{cache.pendingReason ? (
-								<p className="mt-2 text-sm leading-6 text-slate-600">
+								<Text>
 									Reason: {cache.pendingReason}
-								</p>
+								</Text>
 							) : null}
 							{cache.lastError ? (
-								<p className="mt-2 text-sm leading-6 text-rose-700">Error: {cache.lastError}</p>
+								<Text className="text-rose-700">Error: {cache.lastError}</Text>
 							) : null}
 						</div>
 					))}
 				</div>
 
 				<div className="mt-5 grid gap-4 md:grid-cols-2">
-					<div className={detailCardClass}>
-						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-							Pending workflows
-						</p>
-						<p className="mt-3 text-sm leading-6 text-slate-900">
+					<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+						<Subheading level={3}>Pending workflows</Subheading>
+						<Text>
 							{data.cacheHealth.pendingJobCount} queued or running job(s) currently exist for this
 							shop.
-						</p>
+						</Text>
 					</div>
-					<div className={detailCardClass}>
-						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-							Stale warnings
-						</p>
-						<p className="mt-3 text-sm leading-6 text-slate-900">
+					<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+						<Subheading level={3}>Stale warnings</Subheading>
+						<Text>
 							{data.cacheHealth.staleWarnings.length > 0
 								? `${data.cacheHealth.staleWarnings.length} warning(s) need review.`
 								: "No stale-cache warning is active right now."}
-						</p>
+						</Text>
 					</div>
 				</div>
 
@@ -471,103 +452,98 @@ export function MerchantSettingsPage({
 						});
 					}}
 				>
-					<label className="grid gap-2">
-						<span className="text-sm font-semibold text-slate-900">Public AI enabled</span>
-						<span className="text-sm leading-6 text-slate-600">
-							Disable this if the app embed should stay installed but the storefront assistant
-							should stop rendering.
-						</span>
-						<label className="flex items-center gap-3 rounded-[1rem] border border-slate-200 bg-slate-50 px-4 py-3">
-							<input
-								checked={enabled}
-								className="size-4 rounded border border-slate-300 accent-slate-900"
-								onChange={(event) => setEnabled(event.target.checked)}
-								type="checkbox"
-							/>
-							<span className="text-sm font-semibold text-slate-900">
-								{enabled ? "Widget enabled" : "Widget disabled"}
-							</span>
-						</label>
-					</label>
+					<Fieldset>
+						<FieldGroup>
+							<CheckboxField>
+								<Checkbox
+									checked={enabled}
+									onChange={setEnabled}
+								/>
+								<Label>{enabled ? "Widget enabled" : "Widget disabled"}</Label>
+								<Description>
+									Disable this if the app embed should stay installed but the storefront assistant
+									should stop rendering.
+								</Description>
+							</CheckboxField>
 
-					<div className="grid gap-5 lg:grid-cols-2">
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Greeting</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setGreeting(event.target.value)}
-								value={greeting}
-							/>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Public knowledge sources</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setKnowledgeSources(event.target.value)}
-								placeholder={"Shipping policy\nReturns page\nCollections overview"}
-								value={knowledgeSources}
-							/>
-						</label>
-					</div>
+							<div className="grid gap-5 lg:grid-cols-2">
+								<Field>
+									<Label>Greeting</Label>
+									<Textarea
+										onChange={(event) => setGreeting(event.target.value)}
+										rows={4}
+										value={greeting}
+									/>
+								</Field>
+								<Field>
+									<Label>Public knowledge sources</Label>
+									<Textarea
+										onChange={(event) => setKnowledgeSources(event.target.value)}
+										placeholder={"Shipping policy\nReturns page\nCollections overview"}
+										rows={4}
+										value={knowledgeSources}
+									/>
+								</Field>
+							</div>
 
-					<div className="grid gap-5 lg:grid-cols-3">
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Shipping policy answer</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setShippingPolicy(event.target.value)}
-								value={shippingPolicy}
-							/>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Returns policy answer</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setReturnsPolicy(event.target.value)}
-								value={returnsPolicy}
-							/>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Contact policy answer</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setContactPolicy(event.target.value)}
-								value={contactPolicy}
-							/>
-						</label>
-					</div>
+							<div className="grid gap-5 lg:grid-cols-3">
+								<Field>
+									<Label>Shipping policy answer</Label>
+									<Textarea
+										onChange={(event) => setShippingPolicy(event.target.value)}
+										rows={4}
+										value={shippingPolicy}
+									/>
+								</Field>
+								<Field>
+									<Label>Returns policy answer</Label>
+									<Textarea
+										onChange={(event) => setReturnsPolicy(event.target.value)}
+										rows={4}
+										value={returnsPolicy}
+									/>
+								</Field>
+								<Field>
+									<Label>Contact policy answer</Label>
+									<Textarea
+										onChange={(event) => setContactPolicy(event.target.value)}
+										rows={4}
+										value={contactPolicy}
+									/>
+								</Field>
+							</div>
 
-					<div className="grid gap-5 md:grid-cols-2">
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Widget position</span>
-							<select
-								className={inputClass}
-								onChange={(event) =>
-									setPosition(
-										event.target.value as MerchantSettingsData["widgetSettings"]["position"],
-									)
-								}
-								value={position}
-							>
-								<option value="bottom-right">Bottom right</option>
-								<option value="bottom-left">Bottom left</option>
-							</select>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Accent color</span>
-							<input
-								className={inputClass}
-								onChange={(event) => setAccentColor(event.target.value)}
-								placeholder="#0f172a"
-								value={accentColor}
-							/>
-						</label>
-					</div>
+							<div className="grid gap-5 md:grid-cols-2">
+								<Field>
+									<Label>Widget position</Label>
+									<Select
+										onChange={(event) =>
+											setPosition(
+												event.target.value as MerchantSettingsData["widgetSettings"]["position"],
+											)
+										}
+										value={position}
+									>
+										<option value="bottom-right">Bottom right</option>
+										<option value="bottom-left">Bottom left</option>
+									</Select>
+								</Field>
+								<Field>
+									<Label>Accent color</Label>
+									<Input
+										onChange={(event) => setAccentColor(event.target.value)}
+										placeholder="#0f172a"
+										value={accentColor}
+									/>
+								</Field>
+							</div>
+						</FieldGroup>
+					</Fieldset>
 
 					<div className="flex flex-wrap items-center gap-3">
-						<button className={primaryButtonClass} disabled={saveMutation.isPending} type="submit">
+						<Button color="dark/zinc" disabled={saveMutation.isPending} type="submit">
 							{saveMutation.isPending ? "Saving..." : "Save widget settings"}
-						</button>
+						</Button>
 						{saveMutation.isSuccess ? <StatusPill tone="success">saved</StatusPill> : null}
 						{saveMutation.error ? (
 							<StatusPill tone="blocked">{saveMutation.error.message}</StatusPill>
@@ -582,14 +558,14 @@ export function MerchantSettingsPage({
 			>
 				<div className="flex flex-wrap items-center gap-3">
 					<StatusPill tone="accent">{documents.documents.length} document(s)</StatusPill>
-					<button
-						className={secondaryButtonClass}
+					<Button
+						outline
 						disabled={reprocessDocumentsMutation.isPending}
 						onClick={() => reprocessDocumentsMutation.mutate({})}
 						type="button"
 					>
 						{reprocessDocumentsMutation.isPending ? "Queueing..." : "Queue re-index workflow"}
-					</button>
+					</Button>
 				</div>
 
 				<form
@@ -599,77 +575,77 @@ export function MerchantSettingsPage({
 						uploadDocumentMutation.mutate();
 					}}
 				>
-					<div className="grid gap-5 lg:grid-cols-3">
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Document title</span>
-							<input
-								className={inputClass}
-								onChange={(event) => setDocumentTitle(event.target.value)}
-								placeholder="Returns SOP"
-								value={documentTitle}
-							/>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Inline file name</span>
-							<input
-								className={inputClass}
-								onChange={(event) => setDocumentFileName(event.target.value)}
-								placeholder="returns-sop.md"
-								value={documentFileName}
-							/>
-						</label>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">Visibility</span>
-							<select
-								className={inputClass}
-								onChange={(event) =>
-									setDocumentVisibility(event.target.value as "public" | "shop_private")
-								}
-								value={documentVisibility}
-							>
-								<option value="shop_private">Shop private</option>
-								<option value="public">Public</option>
-							</select>
-						</label>
-					</div>
+					<Fieldset>
+						<FieldGroup>
+							<div className="grid gap-5 lg:grid-cols-3">
+								<Field>
+									<Label>Document title</Label>
+									<Input
+										onChange={(event) => setDocumentTitle(event.target.value)}
+										placeholder="Returns SOP"
+										value={documentTitle}
+									/>
+								</Field>
+								<Field>
+									<Label>Inline file name</Label>
+									<Input
+										onChange={(event) => setDocumentFileName(event.target.value)}
+										placeholder="returns-sop.md"
+										value={documentFileName}
+									/>
+								</Field>
+								<Field>
+									<Label>Visibility</Label>
+									<Select
+										onChange={(event) =>
+											setDocumentVisibility(event.target.value as "public" | "shop_private")
+										}
+										value={documentVisibility}
+									>
+										<option value="shop_private">Shop private</option>
+										<option value="public">Public</option>
+									</Select>
+								</Field>
+							</div>
 
-					<label className="grid gap-2">
-						<span className="text-sm font-semibold text-slate-900">Upload a file</span>
-						<input
-							accept=".pdf,.txt,.md,.markdown,.docx,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-							className={`${inputClass} file:mr-4 file:rounded-full file:border-0 file:bg-slate-900 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-white`}
-							onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
-							ref={documentFileInputRef}
-							type="file"
-						/>
-						<p className="text-sm leading-6 text-slate-600">
-							If a file is selected, the pasted text field below is ignored.
-						</p>
-						{selectedDocumentFile ? (
-							<StatusPill tone="accent">
-								{selectedDocumentFile.name} · {(selectedDocumentFile.size / 1024).toFixed(1)} KB
-							</StatusPill>
-						) : null}
-					</label>
+							<Field>
+								<Label>Upload a file</Label>
+								<input
+									accept=".pdf,.txt,.md,.markdown,.docx,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+									onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
+									ref={documentFileInputRef}
+									type="file"
+								/>
+								<Description>
+									If a file is selected, the pasted text field below is ignored.
+								</Description>
+								{selectedDocumentFile ? (
+									<StatusPill tone="accent">
+										{selectedDocumentFile.name} · {(selectedDocumentFile.size / 1024).toFixed(1)} KB
+									</StatusPill>
+								) : null}
+							</Field>
 
-					<label className="grid gap-2">
-						<span className="text-sm font-semibold text-slate-900">Inline document content</span>
-						<textarea
-							className={`${inputClass} min-h-40`}
-							onChange={(event) => setDocumentContent(event.target.value)}
-							placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
-							value={documentContent}
-						/>
-					</label>
+							<Field>
+								<Label>Inline document content</Label>
+								<Textarea
+									onChange={(event) => setDocumentContent(event.target.value)}
+									placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
+									rows={6}
+									value={documentContent}
+								/>
+							</Field>
+						</FieldGroup>
+					</Fieldset>
 
 					<div className="flex flex-wrap items-center gap-3">
-						<button
-							className={primaryButtonClass}
+						<Button
+							color="dark/zinc"
 							disabled={uploadDocumentMutation.isPending}
 							type="submit"
 						>
 							{uploadDocumentMutation.isPending ? "Uploading..." : "Upload or index document"}
-						</button>
+						</Button>
 						{uploadDocumentMutation.error ? (
 							<StatusPill tone="blocked">{uploadDocumentMutation.error.message}</StatusPill>
 						) : null}
@@ -680,18 +656,18 @@ export function MerchantSettingsPage({
 					{documents.documents.length > 0 ? (
 						documents.documents.map((document) => (
 							<article
-								className="rounded-[1.3rem] border border-slate-200 bg-slate-50 p-5"
+								className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800"
 								key={document.id}
 							>
 								<div className="flex flex-wrap items-start justify-between gap-3">
 									<div className="max-w-3xl">
-										<p className="text-sm font-semibold text-slate-950">{document.title}</p>
-										<p className="mt-2 text-sm leading-6 text-slate-600">{document.summary}</p>
-										<p className="mt-2 text-sm leading-6 text-slate-600">
+										<Text className="font-semibold text-zinc-950">{document.title}</Text>
+										<Text>{document.summary}</Text>
+										<Text>
 											{document.fileName ?? "Inline upload"} · {document.sourceType} · updated{" "}
 											{document.updatedAt}
 											{document.chunkCount !== null ? ` · ${document.chunkCount} chunk(s)` : ""}
-										</p>
+										</Text>
 									</div>
 									<div className="flex flex-wrap gap-2">
 										<StatusPill
@@ -709,18 +685,18 @@ export function MerchantSettingsPage({
 									</div>
 								</div>
 
-								<p className="mt-4 rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900">
+								<Text className="mt-4 rounded-[1rem] border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 									{document.contentPreview}
-								</p>
+								</Text>
 								{document.failureReason ? (
-									<p className="mt-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-sm leading-6 text-rose-900">
+									<Text className="mt-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900">
 										{document.failureReason}
-									</p>
+									</Text>
 								) : null}
 
 								<div className="mt-4 flex flex-wrap items-center gap-3">
-									<button
-										className={secondaryButtonClass}
+									<Button
+										outline
 										disabled={reprocessDocumentMutation.isPending}
 										onClick={() =>
 											reprocessDocumentMutation.mutate({
@@ -730,9 +706,9 @@ export function MerchantSettingsPage({
 										type="button"
 									>
 										Reprocess
-									</button>
-									<button
-										className={secondaryButtonClass}
+									</Button>
+									<Button
+										outline
 										disabled={updateDocumentVisibilityMutation.isPending}
 										onClick={() =>
 											updateDocumentVisibilityMutation.mutate({
@@ -744,9 +720,9 @@ export function MerchantSettingsPage({
 										type="button"
 									>
 										Make {document.visibility === "shop_private" ? "public" : "private"}
-									</button>
-									<button
-										className={secondaryButtonClass}
+									</Button>
+									<Button
+										outline
 										disabled={deleteDocumentMutation.isPending}
 										onClick={() =>
 											deleteDocumentMutation.mutate({
@@ -756,7 +732,7 @@ export function MerchantSettingsPage({
 										type="button"
 									>
 										Delete
-									</button>
+									</Button>
 								</div>
 							</article>
 						))

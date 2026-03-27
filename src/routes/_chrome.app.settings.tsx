@@ -7,7 +7,7 @@ import {
 } from "@/features/app-shell/merchant-workspace";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
-export const Route = createFileRoute("/app/settings")({
+export const Route = createFileRoute("/_chrome/app/settings")({
 	loader: async ({ context }) => {
 		const session = await context.sessionApi.ensureEmbeddedSession();
 
@@ -15,7 +15,7 @@ export const Route = createFileRoute("/app/settings")({
 			await Promise.all([
 				context.preload.ensureQueryData(merchantSettingsQuery),
 				context.preload.ensureQueryData(merchantKnowledgeDocumentsQuery),
-			]);
+			])
 		}
 	},
 	component: MerchantSettingsRoute,
@@ -32,5 +32,5 @@ function MerchantSettingsRoute() {
 			isRefreshing={isRefetching}
 			onRefresh={() => void refetch()}
 		/>
-	);
+	)
 }

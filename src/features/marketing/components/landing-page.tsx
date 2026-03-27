@@ -1,12 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
+import { Heading } from "@/components/ui/cata/heading";
+import { Strong, Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { useSessionEnvelope } from "@/lib/auth-client";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
-
-const cardClass =
-	"group flex flex-col gap-2 rounded-2xl border border-slate-200 bg-white px-6 py-5 transition hover:border-slate-300 hover:shadow-sm";
 
 export function LandingPage() {
 	const navigate = useNavigate();
@@ -38,25 +37,29 @@ export function LandingPage() {
 				)}
 			</div>
 
-			<h1 className="mt-8 font-serif text-4xl text-slate-950">Shopify AI Console</h1>
-			<p className="mt-3 max-w-lg text-sm leading-6 text-slate-600">
+			<Heading level={1} className="mt-8">
+				Shopify AI Console
+			</Heading>
+			<Text className="mt-3 max-w-lg">
 				Embedded admin shell on `storeai.ldev.cloud` with real Shopify bootstrap, webhook ingestion,
 				diagnostics, and a live storefront app embed path for the shopper widget.
-			</p>
+			</Text>
 
 			<nav className="mt-10 grid gap-4 sm:grid-cols-2">
-				<Link className={cardClass} to="/app">
-					<span className="text-sm font-semibold text-slate-900 group-hover:text-slate-950">
-						Merchant app
-					</span>
-					<span className="text-xs leading-5 text-slate-500">Embedded Shopify admin surface</span>
+				<Link
+					className="group flex flex-col gap-2 rounded-lg border border-zinc-950/5 bg-white px-6 py-5 transition hover:border-zinc-300 hover:shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
+					to="/app"
+				>
+					<Strong>Merchant app</Strong>
+					<Text>Embedded Shopify admin surface</Text>
 				</Link>
 
-				<Link className={cardClass} to="/install">
-					<span className="text-sm font-semibold text-slate-900 group-hover:text-slate-950">
-						Install
-					</span>
-					<span className="text-xs leading-5 text-slate-500">Connection setup and checklist</span>
+				<Link
+					className="group flex flex-col gap-2 rounded-lg border border-zinc-950/5 bg-white px-6 py-5 transition hover:border-zinc-300 hover:shadow-sm dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
+					to="/install"
+				>
+					<Strong>Install</Strong>
+					<Text>Connection setup and checklist</Text>
 				</Link>
 			</nav>
 		</div>

@@ -1,6 +1,13 @@
 import type { ReactFormExtendedApi } from "@tanstack/react-form";
-import { createContext, useContext, useId } from "react";
+import { createContext, useContext } from "react";
 import { cn } from "@/lib/cn";
+import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
+import { Field, Label, Description, ErrorMessage } from "@/components/ui/cata/fieldset";
+import { Subheading } from "@/components/ui/cata/heading";
+import { Input } from "@/components/ui/cata/input";
+import { Select } from "@/components/ui/cata/select";
+import { Textarea } from "@/components/ui/cata/textarea";
+import { Text } from "@/components/ui/cata/text";
 
 type MainFormApi = ReactFormExtendedApi<any, any, any, any, any, any, any, any, any, any, any, any>;
 
@@ -26,27 +33,6 @@ function getErrorMessage(error: unknown) {
 	}
 
 	return undefined;
-}
-
-function FieldShell({
-	children,
-	description,
-	error,
-	label,
-}: {
-	children: React.ReactNode;
-	description?: string;
-	error?: string;
-	label: string;
-}) {
-	return (
-		<div className="grid gap-2">
-			<span className="text-sm font-semibold text-slate-900">{label}</span>
-			{description ? <span className="text-sm leading-6 text-slate-600">{description}</span> : null}
-			{children}
-			{error ? <span className="text-sm font-medium text-red-600">{error}</span> : null}
-		</div>
-	);
 }
 
 interface MainFormProps {
@@ -76,12 +62,10 @@ export function FormSection({
 	title: string;
 }) {
 	return (
-		<section className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-5">
+		<section className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800">
 			<div className="mb-4">
-				<h3 className="font-serif text-2xl text-slate-950">{title}</h3>
-				{description ? (
-					<p className="mt-2 text-sm leading-6 text-slate-600">{description}</p>
-				) : null}
+				<Subheading level={3}>{title}</Subheading>
+				{description ? <Text className="mt-2">{description}</Text> : null}
 			</div>
 			<div className="grid gap-5">{children}</div>
 		</section>
@@ -101,26 +85,24 @@ export function FormTextField({
 	placeholder,
 }: BaseFieldProps & { placeholder?: string }) {
 	const form = useMainForm();
-	const inputId = useId();
 
 	return (
 		<form.Field name={name}>
 			{(field: any) => (
-				<FieldShell
-					description={description}
-					error={getErrorMessage(field.state.meta.errors[0])}
-					label={label}
-				>
-					<input
-						className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-						id={inputId}
+				<Field>
+					<Label>{label}</Label>
+					{description ? <Description>{description}</Description> : null}
+					<Input
 						name={field.name}
 						onBlur={field.handleBlur}
 						onChange={(event) => field.handleChange(event.target.value)}
 						placeholder={placeholder}
 						value={(field.state.value ?? "") as string}
 					/>
-				</FieldShell>
+					{getErrorMessage(field.state.meta.errors[0]) ? (
+						<ErrorMessage>{getErrorMessage(field.state.meta.errors[0])}</ErrorMessage>
+					) : null}
+				</Field>
 			)}
 		</form.Field>
 	);
@@ -137,20 +119,20 @@ export function FormTextareaField({
 	return (
 		<form.Field name={name}>
 			{(field: any) => (
-				<FieldShell
-					description={description}
-					error={getErrorMessage(field.state.meta.errors[0])}
-					label={label}
-				>
-					<textarea
-						className="min-h-28 rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+				<Field>
+					<Label>{label}</Label>
+					{description ? <Description>{description}</Description> : null}
+					<Textarea
 						name={field.name}
 						onBlur={field.handleBlur}
 						onChange={(event) => field.handleChange(event.target.value)}
 						placeholder={placeholder}
 						value={(field.state.value ?? "") as string}
 					/>
-				</FieldShell>
+					{getErrorMessage(field.state.meta.errors[0]) ? (
+						<ErrorMessage>{getErrorMessage(field.state.meta.errors[0])}</ErrorMessage>
+					) : null}
+				</Field>
 			)}
 		</form.Field>
 	);
@@ -169,13 +151,10 @@ export function FormSelectField({
 	return (
 		<form.Field name={name}>
 			{(field: any) => (
-				<FieldShell
-					description={description}
-					error={getErrorMessage(field.state.meta.errors[0])}
-					label={label}
-				>
-					<select
-						className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400"
+				<Field>
+					<Label>{label}</Label>
+					{description ? <Description>{description}</Description> : null}
+					<Select
 						name={field.name}
 						onBlur={field.handleBlur}
 						onChange={(event) => field.handleChange(event.target.value)}
@@ -186,8 +165,11 @@ export function FormSelectField({
 								{option.label}
 							</option>
 						))}
-					</select>
-				</FieldShell>
+					</Select>
+					{getErrorMessage(field.state.meta.errors[0]) ? (
+						<ErrorMessage>{getErrorMessage(field.state.meta.errors[0])}</ErrorMessage>
+					) : null}
+				</Field>
 			)}
 		</form.Field>
 	);
@@ -199,22 +181,18 @@ export function FormCheckboxField({ description, label, name }: BaseFieldProps) 
 	return (
 		<form.Field name={name}>
 			{(field: any) => (
-				<label className="flex items-start gap-3 rounded-[1rem] border border-slate-200 bg-white p-4">
-					<input
-						checked={Boolean(field.state.value)}
-						className="mt-1 size-4 rounded border border-slate-300 accent-slate-900"
-						name={field.name}
-						onBlur={field.handleBlur}
-						onChange={(event) => field.handleChange(event.target.checked)}
-						type="checkbox"
-					/>
-					<span>
-						<span className="block text-sm font-semibold text-slate-900">{label}</span>
-						{description ? (
-							<span className="mt-1 block text-sm leading-6 text-slate-600">{description}</span>
-						) : null}
-					</span>
-				</label>
+				<div className="rounded-lg border border-zinc-950/5 bg-white p-4 dark:border-white/10 dark:bg-white/5">
+					<CheckboxField>
+						<Checkbox
+							checked={Boolean(field.state.value)}
+							name={field.name}
+							onBlur={field.handleBlur}
+							onChange={(checked) => field.handleChange(checked)}
+						/>
+						<Label>{label}</Label>
+						{description ? <Description>{description}</Description> : null}
+					</CheckboxField>
+				</div>
 			)}
 		</form.Field>
 	);
@@ -222,8 +200,8 @@ export function FormCheckboxField({ description, label, name }: BaseFieldProps) 
 
 export function FormSubmitBar({ children, hint }: { children: React.ReactNode; hint: string }) {
 	return (
-		<div className="flex flex-col gap-3 rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-4 md:flex-row md:items-center md:justify-between">
-			<p className="text-sm leading-6 text-slate-600">{hint}</p>
+		<div className="flex flex-col gap-3 rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800 md:flex-row md:items-center md:justify-between">
+			<Text>{hint}</Text>
 			<div>{children}</div>
 		</div>
 	);

@@ -1,12 +1,16 @@
+import { Heading } from "@/components/ui/cata/heading";
+import { Text } from "@/components/ui/cata/text";
 import { Panel } from "@/components/ui/layout";
 import { MerchantWorkflowCards } from "@/features/app-shell/components/merchant-workspace-ui";
 import type { MerchantWorkflowsData } from "@/shared/contracts/merchant-workspace";
 
 function WorkflowSummaryCard({ label, value }: { label: string; value: number }) {
 	return (
-		<article className="rounded-[1.35rem] border border-slate-200 bg-slate-50 p-5">
-			<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">{label}</p>
-			<p className="mt-4 font-serif text-4xl leading-none text-slate-950">{value}</p>
+		<article className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800">
+			<Text className="text-xs font-semibold uppercase tracking-[0.22em]">{label}</Text>
+			<Heading level={2} className="mt-4">
+				{value}
+			</Heading>
 		</article>
 	);
 }

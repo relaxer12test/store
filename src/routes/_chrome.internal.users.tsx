@@ -1,5 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState, useTransition } from "react";
+import { Button } from "@/components/ui/cata/button";
+import {
+	DescriptionDetails,
+	DescriptionList,
+	DescriptionTerm,
+} from "@/components/ui/cata/description-list";
+import { Subheading } from "@/components/ui/cata/heading";
+import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
@@ -23,7 +31,7 @@ function formatTimestamp(value: Date | string | null | undefined) {
 	return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-export const Route = createFileRoute("/internal/users")({
+export const Route = createFileRoute("/_chrome/internal/users")({
 	component: InternalUsersRoute,
 });
 
@@ -82,20 +90,19 @@ function InternalUsersRoute() {
 				<div className="flex flex-wrap items-center gap-3">
 					<StatusPill tone="accent">{`${adminCount} admin${adminCount === 1 ? "" : "s"}`}</StatusPill>
 					<StatusPill tone="neutral">{`${users.length} total user${users.length === 1 ? "" : "s"}`}</StatusPill>
-					<button
-						className="inline-flex items-center rounded-full border border-slate-300 bg-white px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-slate-700 transition hover:border-slate-400 hover:text-slate-950 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+					<Button
 						disabled={isLoading || isPending}
+						outline
 						onClick={() => {
 							startTransition(() => {
 								void loadUsers();
 							});
 						}}
-						type="button"
 					>
 						{isLoading || isPending ? "Refreshing" : "Refresh"}
-					</button>
+					</Button>
 				</div>
-				{error ? <p className="mt-4 text-sm leading-6 text-red-700">{error}</p> : null}
+				{error ? <Text className="mt-4 text-red-700">{error}</Text> : null}
 			</Panel>
 
 			<Panel
@@ -103,9 +110,9 @@ function InternalUsersRoute() {
 				title="Users"
 			>
 				{isLoading ? (
-					<p className="text-sm leading-6 text-slate-600">Loading Better Auth users…</p>
+					<Text>Loading Better Auth users…</Text>
 				) : users.length === 0 ? (
-					<p className="text-sm leading-6 text-slate-600">No Better Auth users exist yet.</p>
+					<Text>No Better Auth users exist yet.</Text>
 				) : (
 					<div className="space-y-4">
 						{users.map((user) => {
@@ -115,14 +122,14 @@ function InternalUsersRoute() {
 
 							return (
 								<article
-									className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-5"
+									className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800"
 									key={user.id}
 								>
 									<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 										<div className="space-y-3">
 											<div>
-												<h2 className="text-lg font-semibold text-slate-950">{user.name}</h2>
-												<p className="text-sm leading-6 text-slate-600">{user.email}</p>
+												<Subheading>{user.name}</Subheading>
+												<Text>{user.email}</Text>
 											</div>
 											<div className="flex flex-wrap items-center gap-2">
 												<StatusPill tone={user.role === "admin" ? "accent" : "neutral"}>
@@ -133,25 +140,19 @@ function InternalUsersRoute() {
 													<StatusPill tone="accent">Current session</StatusPill>
 												) : null}
 											</div>
-											<dl className="grid gap-2 text-sm leading-6 text-slate-600 sm:grid-cols-2">
-												<div>
-													<dt className="font-semibold text-slate-900">Better Auth user id</dt>
-													<dd>{user.id}</dd>
-												</div>
-												<div>
-													<dt className="font-semibold text-slate-900">Created at</dt>
-													<dd>{formatTimestamp(user.createdAt)}</dd>
-												</div>
-												<div>
-													<dt className="font-semibold text-slate-900">Updated at</dt>
-													<dd>{formatTimestamp(user.updatedAt)}</dd>
-												</div>
-											</dl>
+											<DescriptionList>
+												<DescriptionTerm>Better Auth user id</DescriptionTerm>
+												<DescriptionDetails>{user.id}</DescriptionDetails>
+												<DescriptionTerm>Created at</DescriptionTerm>
+												<DescriptionDetails>{formatTimestamp(user.createdAt)}</DescriptionDetails>
+												<DescriptionTerm>Updated at</DescriptionTerm>
+												<DescriptionDetails>{formatTimestamp(user.updatedAt)}</DescriptionDetails>
+											</DescriptionList>
 										</div>
 
 										<div className="flex flex-wrap items-center gap-3">
-											<button
-												className="inline-flex items-center rounded-full border border-slate-900 bg-slate-900 px-4 py-2 text-xs font-semibold uppercase tracking-[0.16em] text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-300"
+											<Button
+												color="dark/zinc"
 												disabled={isPending || isLastAdmin}
 												onClick={() => {
 													setError(null);
@@ -183,14 +184,11 @@ function InternalUsersRoute() {
 														})();
 													});
 												}}
-												type="button"
 											>
 												{user.role === "admin" ? "Revoke admin" : "Make admin"}
-											</button>
+											</Button>
 											{isLastAdmin ? (
-												<p className="text-xs leading-5 text-slate-500">
-													At least one admin must remain.
-												</p>
+												<Text>At least one admin must remain.</Text>
 											) : null}
 										</div>
 									</div>

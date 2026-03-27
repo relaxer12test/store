@@ -1,6 +1,10 @@
 import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/cata/button";
+import { Field, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Text } from "@/components/ui/cata/text";
+import { Textarea } from "@/components/ui/cata/textarea";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import {
@@ -15,13 +19,6 @@ import {
 import { api } from "@/lib/convex-api";
 import type { MerchantCopilotConversation } from "@/shared/contracts/merchant-workspace";
 import type { Id } from "../../../../convex/_generated/dataModel";
-
-const primaryButtonClass =
-	"inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60";
-const secondaryButtonClass =
-	"inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
-const inputClass =
-	"w-full rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-slate-400";
 
 function formatTimestamp(value: string) {
 	const parsed = Date.parse(value);
@@ -119,35 +116,34 @@ export function MerchantCopilotPage({
 					description="The merchant copilot answers from live Shopify reads, shop-private documents, and Convex workflow history. Any proposed write stays as an approval card until you explicitly approve it."
 					title="Merchant copilot"
 				>
-					<form
-						className="grid gap-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							submitPrompt();
-						}}
-					>
-						<label className="grid gap-2">
-							<span className="text-sm font-semibold text-slate-900">
-								Ask an operational question
-							</span>
-							<textarea
-								className={`${inputClass} min-h-28`}
-								onChange={(event) => setPrompt(event.target.value)}
-								placeholder='Show me low-stock items, summarize the returns SOP, or draft an approval to pause "Unicorn Sparkle Backpack".'
-								value={prompt}
-							/>
-						</label>
+					<Fieldset>
+						<form
+							onSubmit={(event) => {
+								event.preventDefault();
+								submitPrompt();
+							}}
+						>
+							<Field>
+								<Label>Ask an operational question</Label>
+								<Textarea
+									onChange={(event) => setPrompt(event.target.value)}
+									placeholder='Show me low-stock items, summarize the returns SOP, or draft an approval to pause "Unicorn Sparkle Backpack".'
+									rows={4}
+									value={prompt}
+								/>
+							</Field>
 
-						<div className="flex flex-wrap items-center gap-3">
-							<button className={primaryButtonClass} disabled={isWorking} type="submit">
-								{askMutation.isPending ? "Working..." : "Ask copilot"}
-							</button>
-							<StatusPill tone={isWorking ? "watch" : "neutral"}>{activityLabel}</StatusPill>
-							{conversation.conversationId ? (
-								<StatusPill tone="accent">conversation active</StatusPill>
-							) : null}
-						</div>
-					</form>
+							<div className="mt-4 flex flex-wrap items-center gap-3">
+								<Button color="dark/zinc" disabled={isWorking} type="submit">
+									{askMutation.isPending ? "Working..." : "Ask copilot"}
+								</Button>
+								<StatusPill tone={isWorking ? "watch" : "neutral"}>{activityLabel}</StatusPill>
+								{conversation.conversationId ? (
+									<StatusPill tone="accent">conversation active</StatusPill>
+								) : null}
+							</div>
+						</form>
+					</Fieldset>
 
 					{askMutation.error ? (
 						<div className="mt-5">
@@ -164,10 +160,10 @@ export function MerchantCopilotPage({
 						<div className="space-y-4">
 							{conversation.messages.map((message) => (
 								<article
-									className={`rounded-[1.4rem] border p-5 ${
+									className={`rounded-lg border p-5 ${
 										message.role === "assistant"
-											? "border-slate-200 bg-slate-50"
-											: "border-slate-200 bg-white"
+											? "border-zinc-950/5 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800"
+											: "border-zinc-950/5 bg-white dark:border-white/10 dark:bg-zinc-900"
 									}`}
 									key={message.id}
 								>
@@ -183,7 +179,7 @@ export function MerchantCopilotPage({
 										))}
 									</div>
 
-									<p className="mt-4 text-sm leading-7 text-slate-900">{message.body}</p>
+									<Text className="mt-4">{message.body}</Text>
 
 									{message.dashboard ? (
 										<div className="mt-5">
@@ -268,15 +264,15 @@ export function MerchantCopilotPage({
 				>
 					<div className="flex flex-wrap gap-3">
 						{conversation.quickPrompts.map((quickPrompt) => (
-							<button
-								className={secondaryButtonClass}
+							<Button
+								outline
 								disabled={isWorking}
 								key={quickPrompt}
 								onClick={() => submitPrompt(quickPrompt)}
 								type="button"
 							>
 								{quickPrompt}
-							</button>
+							</Button>
 						))}
 					</div>
 				</Panel>

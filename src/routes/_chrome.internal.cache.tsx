@@ -6,7 +6,7 @@ import { api } from "@/lib/convex-api";
 
 const snapshotQuery = convexQuery(api.systemStatus.snapshot, {});
 
-export const Route = createFileRoute("/internal/cache")({
+export const Route = createFileRoute("/_chrome/internal/cache")({
 	loader: async ({ context }) => {
 		await context.preload.ensureQueryData(snapshotQuery);
 	},
@@ -24,5 +24,5 @@ function InternalCacheRoute() {
 			records={data.cacheStates}
 			title="Cache"
 		/>
-	);
+	)
 }

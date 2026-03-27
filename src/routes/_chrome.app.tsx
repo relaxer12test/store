@@ -35,7 +35,7 @@ const appNav: SurfaceNavItem[] = [
 	},
 ];
 
-export const Route = createFileRoute("/app")({
+export const Route = createFileRoute("/_chrome/app")({
 	loader: async ({ context }) => {
 		await context.sessionApi.ensureEmbeddedSession();
 	},
@@ -63,5 +63,5 @@ function MerchantLayoutRoute() {
 				<Outlet />
 			</MerchantSessionGate>
 		</SurfaceLayout>
-	);
+	)
 }

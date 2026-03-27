@@ -1,4 +1,11 @@
 import { Link } from "@tanstack/react-router";
+import {
+	DescriptionDetails,
+	DescriptionList,
+	DescriptionTerm,
+} from "@/components/ui/cata/description-list";
+import { Heading, Subheading } from "@/components/ui/cata/heading";
+import { Text, Strong } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { cn } from "@/lib/cn";
 import type { MetricCard, TimelineItem } from "@/shared/contracts/app-shell";
@@ -17,13 +24,9 @@ export function PageHeader({
 	return (
 		<header className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
 			<div className="max-w-3xl">
-				<p className="text-[0.7rem] font-semibold uppercase tracking-[0.28em] text-slate-500">
-					{eyebrow}
-				</p>
-				<h1 className="mt-3 font-serif text-4xl leading-none text-slate-950 sm:text-5xl">
-					{title}
-				</h1>
-				<p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">{description}</p>
+				<Text>{eyebrow}</Text>
+				<Heading level={1}>{title}</Heading>
+				<Text>{description}</Text>
 			</div>
 			{actions ? <div className="flex items-center gap-3">{actions}</div> : null}
 		</header>
@@ -43,13 +46,14 @@ export function Panel({
 }) {
 	return (
 		<section
-			className={cn("rounded-[1.75rem] border border-slate-200 bg-white p-6 shadow-sm", className)}
+			className={cn(
+				"rounded-lg border border-zinc-950/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900",
+				className,
+			)}
 		>
 			<div className="mb-5">
-				<h2 className="font-serif text-2xl text-slate-950">{title}</h2>
-				{description ? (
-					<p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">{description}</p>
-				) : null}
+				<Subheading>{title}</Subheading>
+				{description ? <Text>{description}</Text> : null}
 			</div>
 			{children}
 		</section>
@@ -61,17 +65,17 @@ export function MetricGrid({ metrics }: { metrics: MetricCard[] }) {
 		<div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
 			{metrics.map((metric) => (
 				<article
-					className="rounded-[1.35rem] border border-slate-200 bg-slate-50 p-5"
+					className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800"
 					key={metric.label}
 				>
 					<div className="flex items-center justify-between gap-3">
-						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-							{metric.label}
-						</p>
+						<Text>{metric.label}</Text>
 						<StatusPill tone={metric.tone}>{metric.delta}</StatusPill>
 					</div>
-					<p className="mt-5 font-serif text-4xl leading-none text-slate-950">{metric.value}</p>
-					<p className="mt-3 text-sm leading-6 text-slate-600">{metric.hint}</p>
+					<Heading level={2} className="mt-5">
+						{metric.value}
+					</Heading>
+					<Text>{metric.hint}</Text>
 				</article>
 			))}
 		</div>
@@ -83,16 +87,14 @@ export function TimelineList({ items }: { items: TimelineItem[] }) {
 		<ol className="space-y-4">
 			{items.map((item) => (
 				<li
-					className="grid gap-2 rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4 md:grid-cols-[1fr_auto]"
+					className="grid gap-2 rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800 md:grid-cols-[1fr_auto]"
 					key={`${item.title}-${item.meta}`}
 				>
 					<div>
-						<p className="font-semibold text-slate-900">{item.title}</p>
-						<p className="mt-1 text-sm leading-6 text-slate-600">{item.detail}</p>
+						<Strong>{item.title}</Strong>
+						<Text>{item.detail}</Text>
 					</div>
-					<p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">
-						{item.meta}
-					</p>
+					<Text>{item.meta}</Text>
 				</li>
 			))}
 		</ol>
@@ -111,16 +113,25 @@ export function SurfaceNav({ items, label }: { items: SurfaceNavItem[]; label: s
 			{items.map((item) => (
 				<Link
 					activeProps={{
-						className: "border-slate-300 bg-slate-100",
+						className: "border-zinc-300 bg-zinc-100 dark:border-white/20 dark:bg-zinc-800",
 					}}
-					className="min-w-[13rem] rounded-[1.25rem] border border-slate-200 bg-white px-4 py-3 transition hover:border-slate-300"
+					className="min-w-[13rem] rounded-lg border border-zinc-950/5 bg-white px-4 py-3 transition hover:border-zinc-300 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
 					key={item.to}
 					to={item.to}
 				>
-					<p className="text-sm font-semibold text-slate-900">{item.title}</p>
-					<p className="mt-1 text-xs leading-5 text-slate-600">{item.description}</p>
+					<Strong>{item.title}</Strong>
+					<Text>{item.description}</Text>
 				</Link>
 			))}
 		</nav>
+	);
+}
+
+export function DetailRow({ label, value }: { label: string; value: string }) {
+	return (
+		<DescriptionList>
+			<DescriptionTerm>{label}</DescriptionTerm>
+			<DescriptionDetails>{value}</DescriptionDetails>
+		</DescriptionList>
 	);
 }

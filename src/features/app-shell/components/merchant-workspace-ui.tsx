@@ -1,5 +1,16 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { createColumnHelper } from "@tanstack/react-table";
+import { Button } from "@/components/ui/cata/button";
+import { Subheading } from "@/components/ui/cata/heading";
+import {
+	Table,
+	TableBody,
+	TableCell,
+	TableHead,
+	TableHeader,
+	TableRow,
+} from "@/components/ui/cata/table";
+import { Strong, Text } from "@/components/ui/cata/text";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import type {
 	DashboardSpec,
@@ -13,13 +24,8 @@ type ExplorerRow = MerchantExplorerDataset["rows"][number];
 
 const columnHelper = createColumnHelper<ExplorerRow>();
 
-const cardFrameClass = "rounded-[1.4rem] border border-slate-200 bg-slate-50 p-5";
-const metricValueClass = "mt-4 font-serif text-4xl leading-none text-slate-950";
-const smallLabelClass = "text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500";
-const primaryButtonClass =
-	"inline-flex items-center justify-center rounded-full bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60";
-const secondaryButtonClass =
-	"inline-flex items-center justify-center rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60";
+const cardFrameClass =
+	"rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800";
 
 function approvalTone(status: MerchantApprovalCard["status"]) {
 	switch (status) {
@@ -130,18 +136,20 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 			return (
 				<article className={cardFrameClass}>
 					<div className="flex items-center justify-between gap-3">
-						<p className={smallLabelClass}>{card.valueLabel}</p>
+						<Text>{card.valueLabel}</Text>
 						<StatusPill tone={card.tone}>{card.tone}</StatusPill>
 					</div>
-					<p className={metricValueClass}>{card.value}</p>
-					<p className="mt-3 text-sm leading-6 text-slate-600">{card.description}</p>
+					<p className="mt-4 font-serif text-4xl leading-none text-zinc-950 dark:text-white">
+						{card.value}
+					</p>
+					<Text className="mt-3">{card.description}</Text>
 				</article>
 			);
 		case "line_chart":
 			return (
 				<article className={cardFrameClass}>
 					<div className="flex items-center justify-between gap-3">
-						<p className={smallLabelClass}>{card.seriesLabel}</p>
+						<Text>{card.seriesLabel}</Text>
 						<StatusPill tone="accent">{card.type.replaceAll("_", " ")}</StatusPill>
 					</div>
 					<div className="mt-5">
@@ -154,16 +162,16 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 								strokeWidth="2"
 							/>
 						</svg>
-						<div className="mt-3 grid grid-cols-4 gap-2 text-xs text-slate-500">
+						<div className="mt-3 grid grid-cols-4 gap-2 text-xs text-zinc-500 dark:text-zinc-400">
 							{card.points.slice(-4).map((point) => (
 								<div key={`${card.id}-${point.label}`}>
-									<p className="font-semibold text-slate-700">{point.label}</p>
+									<p className="font-semibold text-zinc-700 dark:text-zinc-300">{point.label}</p>
 									<p>{point.value.toLocaleString()}</p>
 								</div>
 							))}
 						</div>
 					</div>
-					<p className="mt-4 text-sm leading-6 text-slate-600">{card.description}</p>
+					<Text className="mt-4">{card.description}</Text>
 				</article>
 			);
 		case "bar_chart": {
@@ -172,7 +180,7 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 			return (
 				<article className={cardFrameClass}>
 					<div className="flex items-center justify-between gap-3">
-						<p className={smallLabelClass}>{card.seriesLabel}</p>
+						<Text>{card.seriesLabel}</Text>
 						<StatusPill tone="accent">{card.type.replaceAll("_", " ")}</StatusPill>
 					</div>
 					<div className="mt-5 flex min-h-40 items-end gap-3">
@@ -182,19 +190,19 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 								key={`${card.id}-${point.label}`}
 							>
 								<div
-									className="w-full rounded-t-full bg-slate-900/85"
+									className="w-full rounded-t-full bg-zinc-900/85 dark:bg-zinc-100/85"
 									style={{
 										height: `${Math.max((point.value / maxValue) * 8, 0.8)}rem`,
 									}}
 								/>
-								<div className="text-center text-xs text-slate-500">
-									<p className="font-semibold text-slate-700">{point.label}</p>
+								<div className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+									<p className="font-semibold text-zinc-700 dark:text-zinc-300">{point.label}</p>
 									<p>{point.value.toLocaleString()}</p>
 								</div>
 							</div>
 						))}
 					</div>
-					<p className="mt-4 text-sm leading-6 text-slate-600">{card.description}</p>
+					<Text className="mt-4">{card.description}</Text>
 				</article>
 			);
 		}
@@ -202,57 +210,54 @@ function DashboardCard({ card }: { card: DashboardSpec["cards"][number] }) {
 			return (
 				<article className={cardFrameClass}>
 					<div className="flex items-center justify-between gap-3">
-						<p className={smallLabelClass}>Structured table</p>
+						<Text>Structured table</Text>
 						<StatusPill tone="neutral">{card.rows.length} rows</StatusPill>
 					</div>
-					<div className="mt-5 overflow-x-auto rounded-[1.1rem] border border-slate-200 bg-white">
-						<table className="min-w-full border-collapse">
-							<thead className="bg-slate-50">
-								<tr>
+					<div className="mt-5">
+						<Table>
+							<TableHead>
+								<TableRow>
 									{card.columns.map((column) => (
-										<th
-											className="px-4 py-3 text-left text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-slate-500"
-											key={`${card.id}-${column}`}
-										>
+										<TableHeader key={`${card.id}-${column}`}>
 											{formatLabel(column)}
-										</th>
+										</TableHeader>
 									))}
-								</tr>
-							</thead>
-							<tbody>
+								</TableRow>
+							</TableHead>
+							<TableBody>
 								{card.rows.slice(0, 8).map((row, rowIndex) => (
-									<tr className="border-t border-slate-200" key={`${card.id}-${rowIndex}`}>
+									<TableRow key={`${card.id}-${rowIndex}`}>
 										{card.columns.map((column) => (
-											<td className="px-4 py-3 text-sm leading-6 text-slate-900" key={column}>
+											<TableCell key={column}>
 												{renderCellValue(row[column] ?? null)}
-											</td>
+											</TableCell>
 										))}
-									</tr>
+									</TableRow>
 								))}
-							</tbody>
-						</table>
+							</TableBody>
+						</Table>
 					</div>
-					<p className="mt-4 text-sm leading-6 text-slate-600">{card.description}</p>
+					<Text className="mt-4">{card.description}</Text>
 				</article>
 			);
 		case "insight":
 			return (
 				<article className={cardFrameClass}>
 					<div className="flex items-center justify-between gap-3">
-						<p className={smallLabelClass}>Operational insight</p>
+						<Text>Operational insight</Text>
 						<StatusPill tone={card.tone}>{card.tone}</StatusPill>
 					</div>
 					<ul className="mt-5 space-y-3">
 						{card.bullets.map((bullet) => (
 							<li
-								className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3 text-sm leading-6 text-slate-900"
+								className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 text-sm leading-6 text-zinc-900 dark:border-white/10 dark:bg-zinc-900 dark:text-zinc-100"
 								key={bullet}
 							>
 								{bullet}
 							</li>
 						))}
 					</ul>
-					<p className="mt-4 text-sm leading-6 text-slate-600">{card.description}</p>
+					<Text className="mt-4">{card.description}</Text>
 				</article>
 			);
 	}
@@ -265,7 +270,7 @@ export function MerchantDashboard({ dashboard }: { dashboard: DashboardSpec }) {
 				<StatusPill tone="accent">{dashboard.title}</StatusPill>
 				<StatusPill tone="neutral">{formatMaybeDate(dashboard.generatedAt)}</StatusPill>
 			</div>
-			<p className="mt-4 max-w-3xl text-sm leading-6 text-slate-600">{dashboard.description}</p>
+			<Text className="mt-4 max-w-3xl">{dashboard.description}</Text>
 			<div className="mt-6 grid gap-4 xl:grid-cols-4">
 				{dashboard.cards.map((card) => (
 					<div className={cardSpanClass(card.type)} key={card.id}>
@@ -299,13 +304,13 @@ export function MerchantCitationList({ citations }: { citations: MerchantCitatio
 		<div className="mt-4 flex flex-wrap gap-2">
 			{citations.map((citation) => (
 				<div
-					className="rounded-full border border-slate-200 bg-slate-100 px-3 py-1.5 text-xs leading-5 text-slate-700"
+					className="rounded-full border border-zinc-950/5 bg-zinc-100 px-3 py-1.5 text-xs leading-5 text-zinc-700 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-300"
 					key={`${citation.sourceType}-${citation.label}-${citation.detail}`}
 				>
-					<span className="mr-2 rounded-full bg-white px-2 py-0.5 font-semibold text-slate-700">
+					<span className="mr-2 rounded-full bg-white px-2 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
 						{sourceLabel(citation.sourceType)}
 					</span>
-					<span className="font-semibold text-slate-900">{citation.label}:</span> {citation.detail}
+					<Strong>{citation.label}:</Strong> {citation.detail}
 				</div>
 			))}
 		</div>
@@ -338,41 +343,41 @@ export function MerchantApprovalCards({
 
 				return (
 					<article
-						className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-5"
+						className={cardFrameClass}
 						key={approval.id}
 					>
 						<div className="flex flex-wrap items-start justify-between gap-3">
 							<div className="max-w-2xl">
-								<p className={smallLabelClass}>
+								<Text>
 									{approval.targetShopDomain} · {approval.targetType}
-								</p>
-								<h3 className="mt-2 text-lg font-semibold text-slate-950">{approval.summary}</h3>
-								<p className="mt-2 text-sm leading-6 text-slate-600">{approval.riskSummary}</p>
+								</Text>
+								<Subheading className="mt-2">{approval.summary}</Subheading>
+								<Text className="mt-2">{approval.riskSummary}</Text>
 							</div>
 							<StatusPill tone={approvalTone(approval.status)}>{approval.status}</StatusPill>
 						</div>
 
 						<div className="mt-4 grid gap-3 md:grid-cols-2">
-							<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-								<p className={smallLabelClass}>Target</p>
-								<p className="mt-2 text-sm font-semibold text-slate-900">{approval.targetLabel}</p>
-								<p className="mt-1 text-sm leading-6 text-slate-600">Tool: {approval.tool}</p>
-								<p className="text-sm leading-6 text-slate-600">
+							<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+								<Text>Target</Text>
+								<p className="mt-2 text-sm font-semibold text-zinc-900 dark:text-zinc-100">{approval.targetLabel}</p>
+								<Text className="mt-1">Tool: {approval.tool}</Text>
+								<Text>
 									Requested: {formatMaybeDate(approval.requestedAt)}
-								</p>
+								</Text>
 							</div>
-							<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-								<p className={smallLabelClass}>Planned changes</p>
+							<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+								<Text>Planned changes</Text>
 								<div className="mt-2 space-y-2">
 									{approval.plannedChanges.map((change) => (
 										<div
-											className="rounded-[0.9rem] border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-6 text-slate-900"
+											className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-3 py-2 text-sm leading-6 text-zinc-900 dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100"
 											key={`${approval.id}-${change.label}`}
 										>
-											<p className="font-semibold">{change.label}</p>
-											<p className="text-slate-600">
+											<Strong>{change.label}</Strong>
+											<Text>
 												{change.before ?? "n/a"} → {change.after ?? "n/a"}
-											</p>
+											</Text>
 										</div>
 									))}
 								</div>
@@ -389,24 +394,24 @@ export function MerchantApprovalCards({
 						{approval.status === "pending" && (onApprove || onReject) ? (
 							<div className="mt-5 flex flex-wrap gap-3">
 								{onApprove ? (
-									<button
-										className={primaryButtonClass}
+									<Button
+										color="dark/zinc"
 										disabled={isBusy}
 										onClick={() => onApprove(approval.id)}
 										type="button"
 									>
 										{isBusy ? "Applying..." : "Approve and apply"}
-									</button>
+									</Button>
 								) : null}
 								{onReject ? (
-									<button
-										className={secondaryButtonClass}
+									<Button
+										outline
 										disabled={isBusy}
 										onClick={() => onReject(approval.id)}
 										type="button"
 									>
 										Reject
-									</button>
+									</Button>
 								) : null}
 							</div>
 						) : null}
@@ -434,13 +439,13 @@ export function MerchantWorkflowCards({
 		<div className="space-y-4">
 			{records.map((record) => (
 				<article
-					className="rounded-[1.4rem] border border-slate-200 bg-slate-50 p-5"
+					className={cardFrameClass}
 					key={record.id}
 				>
 					<div className="flex flex-wrap items-start justify-between gap-3">
 						<div>
-							<p className={smallLabelClass}>{record.type.replaceAll("_", " ")}</p>
-							<h3 className="mt-2 text-lg font-semibold text-slate-950">{record.title}</h3>
+							<Text>{record.type.replaceAll("_", " ")}</Text>
+							<Subheading className="mt-2">{record.title}</Subheading>
 						</div>
 						<div className="flex flex-wrap gap-2">
 							<StatusPill tone={workflowTone(record.status)}>{record.status}</StatusPill>
@@ -451,34 +456,34 @@ export function MerchantWorkflowCards({
 					</div>
 
 					<div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-						<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-							<p className={smallLabelClass}>Requested</p>
-							<p className="mt-2 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+							<Text>Requested</Text>
+							<Text className="mt-2">
 								{formatMaybeDate(record.requestedAt)}
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-							<p className={smallLabelClass}>Started</p>
-							<p className="mt-2 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+							<Text>Started</Text>
+							<Text className="mt-2">
 								{formatMaybeDate(record.startedAt)}
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-							<p className={smallLabelClass}>Completed</p>
-							<p className="mt-2 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+							<Text>Completed</Text>
+							<Text className="mt-2">
 								{formatMaybeDate(record.completedAt)}
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1rem] border border-slate-200 bg-white px-4 py-3">
-							<p className={smallLabelClass}>Retry at</p>
-							<p className="mt-2 text-sm leading-6 text-slate-900">
+						<div className="rounded-lg border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+							<Text>Retry at</Text>
+							<Text className="mt-2">
 								{formatMaybeDate(record.retryAt)}
-							</p>
+							</Text>
 						</div>
 					</div>
 
 					{record.payloadPreview ? (
-						<p className="mt-4 text-sm leading-6 text-slate-700">{record.payloadPreview}</p>
+						<Text className="mt-4">{record.payloadPreview}</Text>
 					) : null}
 					{record.resultSummary ? (
 						<p className="mt-2 text-sm leading-6 text-emerald-800">{record.resultSummary}</p>
@@ -490,13 +495,13 @@ export function MerchantWorkflowCards({
 					<div className="mt-5 space-y-2">
 						{record.logs.map((log) => (
 							<div
-								className="flex flex-col gap-2 rounded-[1rem] border border-slate-200 bg-white px-4 py-3 lg:flex-row lg:items-start lg:justify-between"
+								className="flex flex-col gap-2 rounded-lg border border-zinc-950/5 bg-white px-4 py-3 lg:flex-row lg:items-start lg:justify-between dark:border-white/10 dark:bg-zinc-900"
 								key={`${record.id}-${log.createdAt}-${log.message}`}
 							>
 								<div>
-									<p className="text-sm font-semibold text-slate-900">{log.message}</p>
+									<Strong>{log.message}</Strong>
 									{log.detail ? (
-										<p className="mt-1 text-sm leading-6 text-slate-600">{log.detail}</p>
+										<Text className="mt-1">{log.detail}</Text>
 									) : null}
 								</div>
 								<div className="flex flex-wrap items-center gap-2">

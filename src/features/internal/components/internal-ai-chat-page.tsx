@@ -1,5 +1,12 @@
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
 import { useDeferredValue, useEffect, useState } from "react";
+import {
+	DescriptionDetails,
+	DescriptionList,
+	DescriptionTerm,
+} from "@/components/ui/cata/description-list";
+import { Input } from "@/components/ui/cata/input";
+import { Text } from "@/components/ui/cata/text";
 import { EmptyState, StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import {
@@ -117,12 +124,13 @@ export function InternalAiChatPage() {
 					<StatusPill tone="accent">{`${sessionsData.sessions.length} recent sessions`}</StatusPill>
 				</div>
 
-				<input
-					className="mt-5 w-full rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-900 outline-none transition focus:border-slate-400"
-					onChange={(event) => setSearchValue(event.target.value)}
-					placeholder="Search sessions"
-					value={searchValue}
-				/>
+				<div className="mt-5">
+					<Input
+						onChange={(event) => setSearchValue(event.target.value)}
+						placeholder="Search sessions"
+						value={searchValue}
+					/>
+				</div>
 
 				{filteredSessions.length === 0 ? (
 					<div className="mt-5">
@@ -138,10 +146,10 @@ export function InternalAiChatPage() {
 
 							return (
 								<button
-									className={`w-full rounded-[1.25rem] border p-4 text-left transition ${
+									className={`w-full rounded-lg border p-4 text-left transition ${
 										isSelected
-											? "border-slate-900 bg-slate-900 text-white"
-											: "border-slate-200 bg-slate-50 text-slate-900 hover:border-slate-300 hover:bg-white"
+											? "border-zinc-900 bg-zinc-900 text-white dark:border-white dark:bg-white dark:text-zinc-900"
+											: "border-zinc-950/5 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-white/20"
 									}`}
 									key={session.id}
 									onClick={() => setSelectedSessionId(session.id)}
@@ -168,25 +176,25 @@ export function InternalAiChatPage() {
 
 									<div className="mt-3">
 										<p className="font-semibold">{session.shopName}</p>
-										<p className={isSelected ? "text-sm text-white/70" : "text-sm text-slate-600"}>
+										<p className={`text-sm ${isSelected ? "text-white/70" : "text-zinc-500 dark:text-zinc-400"}`}>
 											{session.shopDomain}
 										</p>
 									</div>
 
 									<div className="mt-4 space-y-3 text-sm leading-6">
 										<div>
-											<p className={isSelected ? "text-white/60" : "text-slate-500"}>Prompt</p>
+											<p className={isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"}>Prompt</p>
 											<p>{session.lastPromptPreview ?? "No prompt preview recorded."}</p>
 										</div>
 										<div>
-											<p className={isSelected ? "text-white/60" : "text-slate-500"}>Reply</p>
+											<p className={isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"}>Reply</p>
 											<p>{session.lastReplyPreview ?? "No assistant reply recorded yet."}</p>
 										</div>
 									</div>
 
 									<p
 										className={`mt-4 text-xs font-semibold uppercase tracking-[0.18em] ${
-											isSelected ? "text-white/65" : "text-slate-500"
+											isSelected ? "text-white/65" : "text-zinc-500 dark:text-zinc-400"
 										}`}
 									>
 										Updated {formatTimestampLabel(session.updatedAt)}
@@ -237,84 +245,60 @@ export function InternalAiChatPage() {
 								) : null}
 							</div>
 
-							<dl className="grid gap-3 text-sm leading-6 text-slate-600 md:grid-cols-2">
-								<div>
-									<dt className="font-semibold text-slate-900">Shop</dt>
-									<dd>{`${transcript.data.shopName} (${transcript.data.shopDomain})`}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Session id</dt>
-									<dd className="break-all font-mono text-xs">{transcript.data.sessionId}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Thread id</dt>
-									<dd className="break-all font-mono text-xs">{transcript.data.threadId}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Thread title</dt>
-									<dd>{transcript.data.threadTitle ?? "n/a"}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Thread user key</dt>
-									<dd className="break-all font-mono text-xs">
-										{transcript.data.threadUserId ?? "n/a"}
-									</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Client fingerprint</dt>
-									<dd className="break-all font-mono text-xs">
-										{transcript.data.clientFingerprint ?? "n/a"}
-									</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Created</dt>
-									<dd>{formatTimestampLabel(transcript.data.createdAt)}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Updated</dt>
-									<dd>{formatTimestampLabel(transcript.data.updatedAt)}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Last prompt</dt>
-									<dd>{formatTimestampLabel(transcript.data.lastPromptAt)}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Last reply</dt>
-									<dd>{formatTimestampLabel(transcript.data.lastReplyAt)}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Cards in last reply</dt>
-									<dd>{transcript.data.lastCardCount}</dd>
-								</div>
-								<div>
-									<dt className="font-semibold text-slate-900">Cart items in last plan</dt>
-									<dd>{transcript.data.lastCartPlanItemCount}</dd>
-								</div>
-							</dl>
+							<DescriptionList>
+								<DescriptionTerm>Shop</DescriptionTerm>
+								<DescriptionDetails>{`${transcript.data.shopName} (${transcript.data.shopDomain})`}</DescriptionDetails>
+								<DescriptionTerm>Session id</DescriptionTerm>
+								<DescriptionDetails className="break-all font-mono text-xs">{transcript.data.sessionId}</DescriptionDetails>
+								<DescriptionTerm>Thread id</DescriptionTerm>
+								<DescriptionDetails className="break-all font-mono text-xs">{transcript.data.threadId}</DescriptionDetails>
+								<DescriptionTerm>Thread title</DescriptionTerm>
+								<DescriptionDetails>{transcript.data.threadTitle ?? "n/a"}</DescriptionDetails>
+								<DescriptionTerm>Thread user key</DescriptionTerm>
+								<DescriptionDetails className="break-all font-mono text-xs">
+									{transcript.data.threadUserId ?? "n/a"}
+								</DescriptionDetails>
+								<DescriptionTerm>Client fingerprint</DescriptionTerm>
+								<DescriptionDetails className="break-all font-mono text-xs">
+									{transcript.data.clientFingerprint ?? "n/a"}
+								</DescriptionDetails>
+								<DescriptionTerm>Created</DescriptionTerm>
+								<DescriptionDetails>{formatTimestampLabel(transcript.data.createdAt)}</DescriptionDetails>
+								<DescriptionTerm>Updated</DescriptionTerm>
+								<DescriptionDetails>{formatTimestampLabel(transcript.data.updatedAt)}</DescriptionDetails>
+								<DescriptionTerm>Last prompt</DescriptionTerm>
+								<DescriptionDetails>{formatTimestampLabel(transcript.data.lastPromptAt)}</DescriptionDetails>
+								<DescriptionTerm>Last reply</DescriptionTerm>
+								<DescriptionDetails>{formatTimestampLabel(transcript.data.lastReplyAt)}</DescriptionDetails>
+								<DescriptionTerm>Cards in last reply</DescriptionTerm>
+								<DescriptionDetails>{transcript.data.lastCardCount}</DescriptionDetails>
+								<DescriptionTerm>Cart items in last plan</DescriptionTerm>
+								<DescriptionDetails>{transcript.data.lastCartPlanItemCount}</DescriptionDetails>
+							</DescriptionList>
 
 							<div className="grid gap-4 lg:grid-cols-2">
-								<article className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-									<p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+								<article className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+									<Text className="text-xs font-semibold uppercase tracking-[0.2em]">
 										Last prompt preview
-									</p>
-									<p className="mt-3 text-sm leading-7 text-slate-900">
+									</Text>
+									<Text className="mt-3">
 										{transcript.data.lastPromptPreview ?? "No prompt preview recorded."}
-									</p>
+									</Text>
 								</article>
-								<article className="rounded-[1.25rem] border border-slate-200 bg-slate-50 p-4">
-									<p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+								<article className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
+									<Text className="text-xs font-semibold uppercase tracking-[0.2em]">
 										Last reply preview
-									</p>
-									<p className="mt-3 text-sm leading-7 text-slate-900">
+									</Text>
+									<Text className="mt-3">
 										{transcript.data.lastReplyPreview ?? "No assistant reply preview recorded."}
-									</p>
+									</Text>
 								</article>
 							</div>
 
 							{transcript.data.threadError ? (
-								<p className="rounded-[1.25rem] border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
+								<Text className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
 									{transcript.data.threadError}
-								</p>
+								</Text>
 							) : null}
 						</div>
 					)}
@@ -343,12 +327,12 @@ export function InternalAiChatPage() {
 						<div className="space-y-4">
 							{transcript.data.messages.map((message) => (
 								<article
-									className={`rounded-[1.35rem] border p-5 ${
+									className={`rounded-lg border p-5 ${
 										message.role === "assistant"
-											? "border-blue-200 bg-blue-50"
+											? "border-blue-200 bg-blue-50 dark:border-blue-800 dark:bg-blue-950"
 											: message.role === "system"
-												? "border-amber-200 bg-amber-50"
-												: "border-slate-200 bg-slate-50"
+												? "border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950"
+												: "border-zinc-950/5 bg-zinc-50 dark:border-white/10 dark:bg-zinc-800"
 									}`}
 									key={message.id}
 								>
@@ -365,14 +349,14 @@ export function InternalAiChatPage() {
 										{message.model ? <StatusPill tone="neutral">{message.model}</StatusPill> : null}
 									</div>
 
-									<p className="mt-4 whitespace-pre-wrap text-sm leading-7 text-slate-900">
+									<Text className="mt-4 whitespace-pre-wrap">
 										{message.body}
-									</p>
+									</Text>
 
 									{message.error ? (
-										<p className="mt-4 rounded-[1rem] border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800">
+										<Text className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">
 											{message.error}
-										</p>
+										</Text>
 									) : null}
 								</article>
 							))}

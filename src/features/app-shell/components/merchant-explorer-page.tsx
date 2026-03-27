@@ -1,13 +1,10 @@
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/cata/button";
 import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { DataTableShell } from "@/components/ui/table";
 import { buildExplorerColumns } from "@/features/app-shell/components/merchant-workspace-ui";
 import type { MerchantExplorerData } from "@/shared/contracts/merchant-workspace";
-
-const datasetButtonClass =
-	"rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-slate-400 hover:bg-slate-50";
-const datasetButtonActiveClass = `${datasetButtonClass} border-slate-950 bg-slate-950 text-white hover:bg-slate-800`;
 
 function formatDatasetTimestamp(value: string) {
 	const parsed = Date.parse(value);
@@ -40,16 +37,15 @@ export function MerchantExplorerPage({ data }: { data: MerchantExplorerData }) {
 
 				<div className="mt-5 flex flex-wrap gap-3">
 					{data.datasets.map((dataset) => (
-						<button
-							className={
-								dataset.key === activeDataset?.key ? datasetButtonActiveClass : datasetButtonClass
-							}
+						<Button
 							key={dataset.key}
+							{...(dataset.key === activeDataset?.key
+								? { color: "dark/zinc" as const }
+								: { outline: true as const })}
 							onClick={() => setActiveDatasetKey(dataset.key)}
-							type="button"
 						>
 							{dataset.title}
-						</button>
+						</Button>
 					))}
 				</div>
 			</Panel>

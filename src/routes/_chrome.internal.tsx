@@ -44,7 +44,7 @@ const internalNav: SurfaceNavItem[] = [
 	},
 ];
 
-export const Route = createFileRoute("/internal")({
+export const Route = createFileRoute("/_chrome/internal")({
 	beforeLoad: async ({ context }) => {
 		const currentSession = context.sessionManager.getState();
 		const session =
@@ -54,8 +54,8 @@ export const Route = createFileRoute("/internal")({
 
 		if (!hasAdminSession(session)) {
 			throw redirect({
-				to: "/internal-auth",
-			});
+				to: "/auth/sign-in",
+			})
 		}
 	},
 	component: InternalLayoutRoute,
@@ -72,5 +72,5 @@ function InternalLayoutRoute() {
 			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
 			title="Internal diagnostics"
 		/>
-	);
+	)
 }

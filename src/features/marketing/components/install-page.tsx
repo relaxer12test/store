@@ -1,3 +1,4 @@
+import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { PageHeader, Panel } from "@/components/ui/layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
@@ -38,7 +39,7 @@ export function InstallPage() {
 					title="Runtime status"
 				>
 					<div className="grid gap-3">
-						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">
 							<div className="flex items-center gap-3">
 								<StatusPill tone={hasConvexDeploymentUrl ? "success" : "blocked"}>
 									{hasConvexDeploymentUrl
@@ -49,26 +50,26 @@ export function InstallPage() {
 									{hasConvexHttpUrl ? "Convex HTTP URL ready" : "Convex HTTP URL missing"}
 								</StatusPill>
 							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-600">
+							<Text className="mt-3">
 								`VITE_CONVEX_URL` powers the client query shell. `VITE_CONVEX_SITE_URL` is an
 								optional override for server-side HTTP action proxies and otherwise derives from the
 								deployment URL.
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">
 							<div className="flex items-center gap-3">
 								<StatusPill tone={hasShopifyApiKey ? "success" : "blocked"}>
 									{hasShopifyApiKey ? "Shopify API key set" : "Shopify API key missing"}
 								</StatusPill>
 							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-600">
+							<Text className="mt-3">
 								`SHOPIFY_API_KEY`{" "}
 								{hasShopifyApiKey
 									? "is available to the frontend shell."
 									: "is not available to the frontend shell."}
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">
 							<div className="flex items-center gap-3">
 								<StatusPill tone={embeddedApp.host ? "success" : "watch"}>
 									{embeddedApp.host ? "Embedded host detected" : "No embedded host"}
@@ -77,12 +78,12 @@ export function InstallPage() {
 									{embeddedApp.sessionToken ? "Session token present" : "No session token"}
 								</StatusPill>
 							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-600">
+							<Text className="mt-3">
 								These values only appear when the shell is loaded by Shopify admin with real embed
 								parameters.
-							</p>
+							</Text>
 						</div>
-						<div className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3">
+						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800">
 							<div className="flex items-center gap-3">
 								<StatusPill
 									tone={
@@ -99,11 +100,11 @@ export function InstallPage() {
 									<StatusPill tone="neutral">{session.activeShop.domain}</StatusPill>
 								) : null}
 							</div>
-							<p className="mt-3 text-sm leading-6 text-slate-600">
+							<Text className="mt-3">
 								{session.activeShop
 									? `The current embedded session resolved the active shop as ${session.activeShop.name}.`
 									: "The app shell has not resolved an embedded shop context yet."}
-							</p>
+							</Text>
 						</div>
 					</div>
 				</Panel>
@@ -115,17 +116,17 @@ export function InstallPage() {
 					<ol className="space-y-3">
 						{checklistItems.map((item) => (
 							<li
-								className="rounded-[1.2rem] border border-slate-200 bg-slate-50 px-4 py-3 text-sm leading-6 text-slate-900"
+								className="rounded-lg border border-zinc-950/5 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
 								key={item}
 							>
-								{item}
+								<Text>{item}</Text>
 							</li>
 						))}
 					</ol>
-					<p className="mt-6 text-sm leading-6 text-slate-600">
+					<Text className="mt-6">
 						No preview sessions, no mocked install flows, and no fabricated shop state remain on
 						this page.
-					</p>
+					</Text>
 				</Panel>
 			</section>
 		</div>
