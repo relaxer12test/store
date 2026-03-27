@@ -494,6 +494,7 @@
 
 		var state = {
 			applyingCart: false,
+			cartVisible: false,
 			config: null,
 			greetingLoaded: false,
 			open: false,
@@ -559,6 +560,30 @@
 		panel.appendChild(form);
 		shell.appendChild(panel);
 		shell.appendChild(toggle);
+
+		function isCartUiOpen() {
+			if (window.storefrontCartUi && typeof window.storefrontCartUi.isOpen === "function") {
+				return window.storefrontCartUi.isOpen();
+			}
+
+			var cartDrawer = document.querySelector("cart-drawer");
+			var cartNotification = document.getElementById("cart-notification");
+
+			return Boolean(
+				(cartDrawer && cartDrawer.classList.contains("active")) ||
+					(cartNotification && cartNotification.classList.contains("active")),
+			);
+		}
+
+		function setCartVisible(nextCartVisible) {
+			state.cartVisible = nextCartVisible;
+
+			if (nextCartVisible && state.open) {
+				closePanel();
+			}
+
+			toggle.hidden = nextCartVisible;
+		}
 
 		function setPending(nextPending) {
 			state.pending = nextPending;
@@ -781,7 +806,7 @@
 		}
 
 		function openPanel() {
-			if (!state.config) {
+			if (!state.config || state.cartVisible) {
 				return;
 			}
 
@@ -823,6 +848,11 @@
 			toggle.classList.remove("storefront-ai-widget-toggle--open");
 			panel.classList.remove("storefront-ai-widget-panel--open");
 		}
+
+		document.addEventListener("storefront-cart-ui:toggle", function (event) {
+			var detail = event && event.detail ? event.detail : null;
+			setCartVisible(detail ? Boolean(detail.open) : isCartUiOpen());
+		});
 
 		function sendMessage(messageText) {
 			var trimmedMessage = (messageText || input.value || "").trim();
@@ -947,6 +977,7 @@
 					return;
 				}
 
+				setCartVisible(isCartUiOpen());
 				root.appendChild(shell);
 			})
 			.catch(function (error) {

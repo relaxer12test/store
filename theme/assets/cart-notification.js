@@ -25,6 +25,9 @@ class CartNotification extends HTMLElement {
 		);
 
 		document.body.addEventListener("click", this.onBodyClick);
+		if (window.storefrontCartUi) {
+			window.storefrontCartUi.sync("notification");
+		}
 	}
 
 	close() {
@@ -32,6 +35,9 @@ class CartNotification extends HTMLElement {
 		document.body.removeEventListener("click", this.onBodyClick);
 
 		removeTrapFocus(this.activeElement);
+		if (window.storefrontCartUi) {
+			window.storefrontCartUi.sync("notification");
+		}
 	}
 
 	renderContents(parsedState) {

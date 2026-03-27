@@ -6,6 +6,36 @@ function getFocusableElements(container) {
 	);
 }
 
+const STOREFRONT_CART_UI_OPEN_CLASS = "storefront-cart-ui-open";
+const STOREFRONT_CART_UI_EVENT = "storefront-cart-ui:toggle";
+
+window.storefrontCartUi = window.storefrontCartUi || {
+	eventName: STOREFRONT_CART_UI_EVENT,
+	isOpen() {
+		return document.body.classList.contains(STOREFRONT_CART_UI_OPEN_CLASS);
+	},
+	sync(source) {
+		const drawer = document.querySelector("cart-drawer");
+		const notification = document.getElementById("cart-notification");
+		const open = Boolean(
+			(drawer && drawer.classList.contains("active")) ||
+				(notification && notification.classList.contains("active")),
+		);
+
+		document.body.classList.toggle(STOREFRONT_CART_UI_OPEN_CLASS, open);
+		document.dispatchEvent(
+			new CustomEvent(STOREFRONT_CART_UI_EVENT, {
+				detail: {
+					open,
+					source: source || null,
+				},
+			}),
+		);
+
+		return open;
+	},
+};
+
 document.querySelectorAll('[id^="Details-"] summary').forEach((summary) => {
 	summary.setAttribute("role", "button");
 	summary.setAttribute("aria-expanded", summary.parentNode.hasAttribute("open"));
