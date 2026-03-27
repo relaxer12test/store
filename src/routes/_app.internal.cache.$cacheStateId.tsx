@@ -16,7 +16,7 @@ import {
 import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalCacheStateDetailQuery } from "@/features/internal/internal-admin-queries";
 
-export const Route = createFileRoute("/_chrome/internal/cache/$cacheStateId")({
+export const Route = createFileRoute("/_app/internal/cache/$cacheStateId")({
 	component: InternalCacheDetailRoute,
 });
 
@@ -33,7 +33,7 @@ function InternalCacheDetailRoute() {
 			<InternalDetailCard title="Cache detail unavailable">
 				<EmptyState body="The selected cache state could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = detailQuery.data;
@@ -66,12 +66,12 @@ function InternalCacheDetailRoute() {
 				<DescriptionDetails>{record.lastError ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Linked activity</Subheading>
 				<Text className="mt-3">
 					{`${recentWorkflows.length} recent workflow${recentWorkflows.length === 1 ? "" : "s"} and ${recentWebhookDeliveries.length} webhook deliver${recentWebhookDeliveries.length === 1 ? "y" : "ies"} for this shop.`}
 				</Text>
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }

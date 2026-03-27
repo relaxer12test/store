@@ -20,7 +20,7 @@ import { authClient } from "@/lib/auth-client";
 import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
 import { invalidateAuthQueries } from "@/lib/auth-queries";
 
-export const Route = createFileRoute("/_chrome/internal/users/$userId")({
+export const Route = createFileRoute("/_app/internal/users/$userId")({
 	component: InternalUserDetailRoute,
 });
 
@@ -33,7 +33,7 @@ function InternalUserDetailRoute() {
 			const result = await authClient.admin.setRole({
 				role,
 				userId,
-			});
+			})
 
 			if (result.error) {
 				throw new Error(getAuthClientErrorMessage(result.error, "Failed to update the user role."));
@@ -43,7 +43,7 @@ function InternalUserDetailRoute() {
 			await queryClient.invalidateQueries();
 			await invalidateAuthQueries(queryClient);
 		},
-	});
+	})
 
 	if (detailQuery.isPending) {
 		return <Text>Loading user detail…</Text>;
@@ -54,7 +54,7 @@ function InternalUserDetailRoute() {
 			<InternalDetailCard title="User detail unavailable">
 				<EmptyState body="The selected Better Auth user could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { user } = detailQuery.data;
@@ -103,7 +103,7 @@ function InternalUserDetailRoute() {
 				) : null}
 			</div>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Memberships</Subheading>
 				{user.memberships.length === 0 ? (
 					<Text className="mt-3">No Better Auth memberships were found for this user.</Text>
@@ -125,7 +125,7 @@ function InternalUserDetailRoute() {
 				)}
 			</section>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Recent sessions</Subheading>
 				{user.recentSessions.length === 0 ? (
 					<Text className="mt-3">No recent sessions were found for this user.</Text>
@@ -144,5 +144,5 @@ function InternalUserDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }

@@ -10,49 +10,55 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as ChromeRouteImport } from './routes/_chrome'
-import { Route as ChromeIndexRouteImport } from './routes/_chrome.index'
+import { Route as AppRouteImport } from './routes/_app'
+import { Route as AuthIndexRouteImport } from './routes/auth.index'
+import { Route as AppIndexRouteImport } from './routes/_app.index'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as AuthResetSentRouteImport } from './routes/auth.reset-sent'
 import { Route as AuthResetPasswordRouteImport } from './routes/auth.reset-password'
 import { Route as AuthForgotPasswordRouteImport } from './routes/auth.forgot-password'
-import { Route as ChromeInternalRouteImport } from './routes/_chrome.internal'
-import { Route as ChromeInstallRouteImport } from './routes/_chrome.install'
-import { Route as ChromeAppRouteImport } from './routes/_chrome.app'
-import { Route as ChromeInternalIndexRouteImport } from './routes/_chrome.internal.index'
-import { Route as ChromeAppIndexRouteImport } from './routes/_chrome.app.index'
-import { Route as ChromeInternalWorkflowsRouteImport } from './routes/_chrome.internal.workflows'
-import { Route as ChromeInternalWebhooksRouteImport } from './routes/_chrome.internal.webhooks'
-import { Route as ChromeInternalUsersRouteImport } from './routes/_chrome.internal.users'
-import { Route as ChromeInternalShopsRouteImport } from './routes/_chrome.internal.shops'
-import { Route as ChromeInternalCacheRouteImport } from './routes/_chrome.internal.cache'
-import { Route as ChromeInternalAuditsRouteImport } from './routes/_chrome.internal.audits'
-import { Route as ChromeInternalAiSessionsRouteImport } from './routes/_chrome.internal.ai-sessions'
-import { Route as ChromeAppWorkflowsRouteImport } from './routes/_chrome.app.workflows'
-import { Route as ChromeAppSettingsRouteImport } from './routes/_chrome.app.settings'
-import { Route as ChromeAppExplorerRouteImport } from './routes/_chrome.app.explorer'
-import { Route as ChromeAppCopilotRouteImport } from './routes/_chrome.app.copilot'
-import { Route as ChromeInternalWorkflowsJobIdRouteImport } from './routes/_chrome.internal.workflows.$jobId'
-import { Route as ChromeInternalWebhooksDeliveryIdRouteImport } from './routes/_chrome.internal.webhooks.$deliveryId'
-import { Route as ChromeInternalUsersUserIdRouteImport } from './routes/_chrome.internal.users.$userId'
-import { Route as ChromeInternalShopsShopIdRouteImport } from './routes/_chrome.internal.shops.$shopId'
-import { Route as ChromeInternalCacheCacheStateIdRouteImport } from './routes/_chrome.internal.cache.$cacheStateId'
-import { Route as ChromeInternalAuditsAuditIdRouteImport } from './routes/_chrome.internal.audits.$auditId'
-import { Route as ChromeInternalAiSessionsSessionDocumentIdRouteImport } from './routes/_chrome.internal.ai-sessions.$sessionDocumentId'
+import { Route as AppInternalRouteImport } from './routes/_app.internal'
+import { Route as AppInstallRouteImport } from './routes/_app.install'
+import { Route as AppAppRouteImport } from './routes/_app.app'
+import { Route as AppInternalIndexRouteImport } from './routes/_app.internal.index'
+import { Route as AppAppIndexRouteImport } from './routes/_app.app.index'
+import { Route as AppInternalWorkflowsRouteImport } from './routes/_app.internal.workflows'
+import { Route as AppInternalWebhooksRouteImport } from './routes/_app.internal.webhooks'
+import { Route as AppInternalUsersRouteImport } from './routes/_app.internal.users'
+import { Route as AppInternalShopsRouteImport } from './routes/_app.internal.shops'
+import { Route as AppInternalCacheRouteImport } from './routes/_app.internal.cache'
+import { Route as AppInternalAuditsRouteImport } from './routes/_app.internal.audits'
+import { Route as AppInternalAiSessionsRouteImport } from './routes/_app.internal.ai-sessions'
+import { Route as AppAppWorkflowsRouteImport } from './routes/_app.app.workflows'
+import { Route as AppAppSettingsRouteImport } from './routes/_app.app.settings'
+import { Route as AppAppExplorerRouteImport } from './routes/_app.app.explorer'
+import { Route as AppAppCopilotRouteImport } from './routes/_app.app.copilot'
+import { Route as AppInternalWorkflowsJobIdRouteImport } from './routes/_app.internal.workflows.$jobId'
+import { Route as AppInternalWebhooksDeliveryIdRouteImport } from './routes/_app.internal.webhooks.$deliveryId'
+import { Route as AppInternalUsersUserIdRouteImport } from './routes/_app.internal.users.$userId'
+import { Route as AppInternalShopsShopIdRouteImport } from './routes/_app.internal.shops.$shopId'
+import { Route as AppInternalCacheCacheStateIdRouteImport } from './routes/_app.internal.cache.$cacheStateId'
+import { Route as AppInternalAuditsAuditIdRouteImport } from './routes/_app.internal.audits.$auditId'
+import { Route as AppInternalAiSessionsSessionDocumentIdRouteImport } from './routes/_app.internal.ai-sessions.$sessionDocumentId'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChromeRoute = ChromeRouteImport.update({
-  id: '/_chrome',
+const AppRoute = AppRouteImport.update({
+  id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ChromeIndexRoute = ChromeIndexRouteImport.update({
+const AuthIndexRoute = AuthIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ChromeRoute,
+  getParentRoute: () => AuthRoute,
+} as any)
+const AppIndexRoute = AppIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
@@ -74,222 +80,221 @@ const AuthForgotPasswordRoute = AuthForgotPasswordRouteImport.update({
   path: '/forgot-password',
   getParentRoute: () => AuthRoute,
 } as any)
-const ChromeInternalRoute = ChromeInternalRouteImport.update({
+const AppInternalRoute = AppInternalRouteImport.update({
   id: '/internal',
   path: '/internal',
-  getParentRoute: () => ChromeRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const ChromeInstallRoute = ChromeInstallRouteImport.update({
+const AppInstallRoute = AppInstallRouteImport.update({
   id: '/install',
   path: '/install',
-  getParentRoute: () => ChromeRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const ChromeAppRoute = ChromeAppRouteImport.update({
+const AppAppRoute = AppAppRouteImport.update({
   id: '/app',
   path: '/app',
-  getParentRoute: () => ChromeRoute,
+  getParentRoute: () => AppRoute,
 } as any)
-const ChromeInternalIndexRoute = ChromeInternalIndexRouteImport.update({
+const AppInternalIndexRoute = AppInternalIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeAppIndexRoute = ChromeAppIndexRouteImport.update({
+const AppAppIndexRoute = AppAppIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ChromeAppRoute,
+  getParentRoute: () => AppAppRoute,
 } as any)
-const ChromeInternalWorkflowsRoute = ChromeInternalWorkflowsRouteImport.update({
+const AppInternalWorkflowsRoute = AppInternalWorkflowsRouteImport.update({
   id: '/workflows',
   path: '/workflows',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalWebhooksRoute = ChromeInternalWebhooksRouteImport.update({
+const AppInternalWebhooksRoute = AppInternalWebhooksRouteImport.update({
   id: '/webhooks',
   path: '/webhooks',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalUsersRoute = ChromeInternalUsersRouteImport.update({
+const AppInternalUsersRoute = AppInternalUsersRouteImport.update({
   id: '/users',
   path: '/users',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalShopsRoute = ChromeInternalShopsRouteImport.update({
+const AppInternalShopsRoute = AppInternalShopsRouteImport.update({
   id: '/shops',
   path: '/shops',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalCacheRoute = ChromeInternalCacheRouteImport.update({
+const AppInternalCacheRoute = AppInternalCacheRouteImport.update({
   id: '/cache',
   path: '/cache',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalAuditsRoute = ChromeInternalAuditsRouteImport.update({
+const AppInternalAuditsRoute = AppInternalAuditsRouteImport.update({
   id: '/audits',
   path: '/audits',
-  getParentRoute: () => ChromeInternalRoute,
+  getParentRoute: () => AppInternalRoute,
 } as any)
-const ChromeInternalAiSessionsRoute =
-  ChromeInternalAiSessionsRouteImport.update({
-    id: '/ai-sessions',
-    path: '/ai-sessions',
-    getParentRoute: () => ChromeInternalRoute,
-  } as any)
-const ChromeAppWorkflowsRoute = ChromeAppWorkflowsRouteImport.update({
+const AppInternalAiSessionsRoute = AppInternalAiSessionsRouteImport.update({
+  id: '/ai-sessions',
+  path: '/ai-sessions',
+  getParentRoute: () => AppInternalRoute,
+} as any)
+const AppAppWorkflowsRoute = AppAppWorkflowsRouteImport.update({
   id: '/workflows',
   path: '/workflows',
-  getParentRoute: () => ChromeAppRoute,
+  getParentRoute: () => AppAppRoute,
 } as any)
-const ChromeAppSettingsRoute = ChromeAppSettingsRouteImport.update({
+const AppAppSettingsRoute = AppAppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
-  getParentRoute: () => ChromeAppRoute,
+  getParentRoute: () => AppAppRoute,
 } as any)
-const ChromeAppExplorerRoute = ChromeAppExplorerRouteImport.update({
+const AppAppExplorerRoute = AppAppExplorerRouteImport.update({
   id: '/explorer',
   path: '/explorer',
-  getParentRoute: () => ChromeAppRoute,
+  getParentRoute: () => AppAppRoute,
 } as any)
-const ChromeAppCopilotRoute = ChromeAppCopilotRouteImport.update({
+const AppAppCopilotRoute = AppAppCopilotRouteImport.update({
   id: '/copilot',
   path: '/copilot',
-  getParentRoute: () => ChromeAppRoute,
+  getParentRoute: () => AppAppRoute,
 } as any)
-const ChromeInternalWorkflowsJobIdRoute =
-  ChromeInternalWorkflowsJobIdRouteImport.update({
+const AppInternalWorkflowsJobIdRoute =
+  AppInternalWorkflowsJobIdRouteImport.update({
     id: '/$jobId',
     path: '/$jobId',
-    getParentRoute: () => ChromeInternalWorkflowsRoute,
+    getParentRoute: () => AppInternalWorkflowsRoute,
   } as any)
-const ChromeInternalWebhooksDeliveryIdRoute =
-  ChromeInternalWebhooksDeliveryIdRouteImport.update({
+const AppInternalWebhooksDeliveryIdRoute =
+  AppInternalWebhooksDeliveryIdRouteImport.update({
     id: '/$deliveryId',
     path: '/$deliveryId',
-    getParentRoute: () => ChromeInternalWebhooksRoute,
+    getParentRoute: () => AppInternalWebhooksRoute,
   } as any)
-const ChromeInternalUsersUserIdRoute =
-  ChromeInternalUsersUserIdRouteImport.update({
-    id: '/$userId',
-    path: '/$userId',
-    getParentRoute: () => ChromeInternalUsersRoute,
-  } as any)
-const ChromeInternalShopsShopIdRoute =
-  ChromeInternalShopsShopIdRouteImport.update({
-    id: '/$shopId',
-    path: '/$shopId',
-    getParentRoute: () => ChromeInternalShopsRoute,
-  } as any)
-const ChromeInternalCacheCacheStateIdRoute =
-  ChromeInternalCacheCacheStateIdRouteImport.update({
+const AppInternalUsersUserIdRoute = AppInternalUsersUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => AppInternalUsersRoute,
+} as any)
+const AppInternalShopsShopIdRoute = AppInternalShopsShopIdRouteImport.update({
+  id: '/$shopId',
+  path: '/$shopId',
+  getParentRoute: () => AppInternalShopsRoute,
+} as any)
+const AppInternalCacheCacheStateIdRoute =
+  AppInternalCacheCacheStateIdRouteImport.update({
     id: '/$cacheStateId',
     path: '/$cacheStateId',
-    getParentRoute: () => ChromeInternalCacheRoute,
+    getParentRoute: () => AppInternalCacheRoute,
   } as any)
-const ChromeInternalAuditsAuditIdRoute =
-  ChromeInternalAuditsAuditIdRouteImport.update({
+const AppInternalAuditsAuditIdRoute =
+  AppInternalAuditsAuditIdRouteImport.update({
     id: '/$auditId',
     path: '/$auditId',
-    getParentRoute: () => ChromeInternalAuditsRoute,
+    getParentRoute: () => AppInternalAuditsRoute,
   } as any)
-const ChromeInternalAiSessionsSessionDocumentIdRoute =
-  ChromeInternalAiSessionsSessionDocumentIdRouteImport.update({
+const AppInternalAiSessionsSessionDocumentIdRoute =
+  AppInternalAiSessionsSessionDocumentIdRouteImport.update({
     id: '/$sessionDocumentId',
     path: '/$sessionDocumentId',
-    getParentRoute: () => ChromeInternalAiSessionsRoute,
+    getParentRoute: () => AppInternalAiSessionsRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof ChromeIndexRoute
+  '/': typeof AppIndexRoute
   '/auth': typeof AuthRouteWithChildren
-  '/app': typeof ChromeAppRouteWithChildren
-  '/install': typeof ChromeInstallRoute
-  '/internal': typeof ChromeInternalRouteWithChildren
+  '/app': typeof AppAppRouteWithChildren
+  '/install': typeof AppInstallRoute
+  '/internal': typeof AppInternalRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/reset-sent': typeof AuthResetSentRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/app/copilot': typeof ChromeAppCopilotRoute
-  '/app/explorer': typeof ChromeAppExplorerRoute
-  '/app/settings': typeof ChromeAppSettingsRoute
-  '/app/workflows': typeof ChromeAppWorkflowsRoute
-  '/internal/ai-sessions': typeof ChromeInternalAiSessionsRouteWithChildren
-  '/internal/audits': typeof ChromeInternalAuditsRouteWithChildren
-  '/internal/cache': typeof ChromeInternalCacheRouteWithChildren
-  '/internal/shops': typeof ChromeInternalShopsRouteWithChildren
-  '/internal/users': typeof ChromeInternalUsersRouteWithChildren
-  '/internal/webhooks': typeof ChromeInternalWebhooksRouteWithChildren
-  '/internal/workflows': typeof ChromeInternalWorkflowsRouteWithChildren
-  '/app/': typeof ChromeAppIndexRoute
-  '/internal/': typeof ChromeInternalIndexRoute
-  '/internal/ai-sessions/$sessionDocumentId': typeof ChromeInternalAiSessionsSessionDocumentIdRoute
-  '/internal/audits/$auditId': typeof ChromeInternalAuditsAuditIdRoute
-  '/internal/cache/$cacheStateId': typeof ChromeInternalCacheCacheStateIdRoute
-  '/internal/shops/$shopId': typeof ChromeInternalShopsShopIdRoute
-  '/internal/users/$userId': typeof ChromeInternalUsersUserIdRoute
-  '/internal/webhooks/$deliveryId': typeof ChromeInternalWebhooksDeliveryIdRoute
-  '/internal/workflows/$jobId': typeof ChromeInternalWorkflowsJobIdRoute
+  '/auth/': typeof AuthIndexRoute
+  '/app/copilot': typeof AppAppCopilotRoute
+  '/app/explorer': typeof AppAppExplorerRoute
+  '/app/settings': typeof AppAppSettingsRoute
+  '/app/workflows': typeof AppAppWorkflowsRoute
+  '/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
+  '/internal/audits': typeof AppInternalAuditsRouteWithChildren
+  '/internal/cache': typeof AppInternalCacheRouteWithChildren
+  '/internal/shops': typeof AppInternalShopsRouteWithChildren
+  '/internal/users': typeof AppInternalUsersRouteWithChildren
+  '/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
+  '/internal/workflows': typeof AppInternalWorkflowsRouteWithChildren
+  '/app/': typeof AppAppIndexRoute
+  '/internal/': typeof AppInternalIndexRoute
+  '/internal/ai-sessions/$sessionDocumentId': typeof AppInternalAiSessionsSessionDocumentIdRoute
+  '/internal/audits/$auditId': typeof AppInternalAuditsAuditIdRoute
+  '/internal/cache/$cacheStateId': typeof AppInternalCacheCacheStateIdRoute
+  '/internal/shops/$shopId': typeof AppInternalShopsShopIdRoute
+  '/internal/users/$userId': typeof AppInternalUsersUserIdRoute
+  '/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
+  '/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
 }
 export interface FileRoutesByTo {
-  '/auth': typeof AuthRouteWithChildren
-  '/install': typeof ChromeInstallRoute
+  '/install': typeof AppInstallRoute
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/reset-sent': typeof AuthResetSentRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/': typeof ChromeIndexRoute
-  '/app/copilot': typeof ChromeAppCopilotRoute
-  '/app/explorer': typeof ChromeAppExplorerRoute
-  '/app/settings': typeof ChromeAppSettingsRoute
-  '/app/workflows': typeof ChromeAppWorkflowsRoute
-  '/internal/ai-sessions': typeof ChromeInternalAiSessionsRouteWithChildren
-  '/internal/audits': typeof ChromeInternalAuditsRouteWithChildren
-  '/internal/cache': typeof ChromeInternalCacheRouteWithChildren
-  '/internal/shops': typeof ChromeInternalShopsRouteWithChildren
-  '/internal/users': typeof ChromeInternalUsersRouteWithChildren
-  '/internal/webhooks': typeof ChromeInternalWebhooksRouteWithChildren
-  '/internal/workflows': typeof ChromeInternalWorkflowsRouteWithChildren
-  '/app': typeof ChromeAppIndexRoute
-  '/internal': typeof ChromeInternalIndexRoute
-  '/internal/ai-sessions/$sessionDocumentId': typeof ChromeInternalAiSessionsSessionDocumentIdRoute
-  '/internal/audits/$auditId': typeof ChromeInternalAuditsAuditIdRoute
-  '/internal/cache/$cacheStateId': typeof ChromeInternalCacheCacheStateIdRoute
-  '/internal/shops/$shopId': typeof ChromeInternalShopsShopIdRoute
-  '/internal/users/$userId': typeof ChromeInternalUsersUserIdRoute
-  '/internal/webhooks/$deliveryId': typeof ChromeInternalWebhooksDeliveryIdRoute
-  '/internal/workflows/$jobId': typeof ChromeInternalWorkflowsJobIdRoute
+  '/': typeof AppIndexRoute
+  '/auth': typeof AuthIndexRoute
+  '/app/copilot': typeof AppAppCopilotRoute
+  '/app/explorer': typeof AppAppExplorerRoute
+  '/app/settings': typeof AppAppSettingsRoute
+  '/app/workflows': typeof AppAppWorkflowsRoute
+  '/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
+  '/internal/audits': typeof AppInternalAuditsRouteWithChildren
+  '/internal/cache': typeof AppInternalCacheRouteWithChildren
+  '/internal/shops': typeof AppInternalShopsRouteWithChildren
+  '/internal/users': typeof AppInternalUsersRouteWithChildren
+  '/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
+  '/internal/workflows': typeof AppInternalWorkflowsRouteWithChildren
+  '/app': typeof AppAppIndexRoute
+  '/internal': typeof AppInternalIndexRoute
+  '/internal/ai-sessions/$sessionDocumentId': typeof AppInternalAiSessionsSessionDocumentIdRoute
+  '/internal/audits/$auditId': typeof AppInternalAuditsAuditIdRoute
+  '/internal/cache/$cacheStateId': typeof AppInternalCacheCacheStateIdRoute
+  '/internal/shops/$shopId': typeof AppInternalShopsShopIdRoute
+  '/internal/users/$userId': typeof AppInternalUsersUserIdRoute
+  '/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
+  '/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/_chrome': typeof ChromeRouteWithChildren
+  '/_app': typeof AppRouteWithChildren
   '/auth': typeof AuthRouteWithChildren
-  '/_chrome/app': typeof ChromeAppRouteWithChildren
-  '/_chrome/install': typeof ChromeInstallRoute
-  '/_chrome/internal': typeof ChromeInternalRouteWithChildren
+  '/_app/app': typeof AppAppRouteWithChildren
+  '/_app/install': typeof AppInstallRoute
+  '/_app/internal': typeof AppInternalRouteWithChildren
   '/auth/forgot-password': typeof AuthForgotPasswordRoute
   '/auth/reset-password': typeof AuthResetPasswordRoute
   '/auth/reset-sent': typeof AuthResetSentRoute
   '/auth/sign-in': typeof AuthSignInRoute
-  '/_chrome/': typeof ChromeIndexRoute
-  '/_chrome/app/copilot': typeof ChromeAppCopilotRoute
-  '/_chrome/app/explorer': typeof ChromeAppExplorerRoute
-  '/_chrome/app/settings': typeof ChromeAppSettingsRoute
-  '/_chrome/app/workflows': typeof ChromeAppWorkflowsRoute
-  '/_chrome/internal/ai-sessions': typeof ChromeInternalAiSessionsRouteWithChildren
-  '/_chrome/internal/audits': typeof ChromeInternalAuditsRouteWithChildren
-  '/_chrome/internal/cache': typeof ChromeInternalCacheRouteWithChildren
-  '/_chrome/internal/shops': typeof ChromeInternalShopsRouteWithChildren
-  '/_chrome/internal/users': typeof ChromeInternalUsersRouteWithChildren
-  '/_chrome/internal/webhooks': typeof ChromeInternalWebhooksRouteWithChildren
-  '/_chrome/internal/workflows': typeof ChromeInternalWorkflowsRouteWithChildren
-  '/_chrome/app/': typeof ChromeAppIndexRoute
-  '/_chrome/internal/': typeof ChromeInternalIndexRoute
-  '/_chrome/internal/ai-sessions/$sessionDocumentId': typeof ChromeInternalAiSessionsSessionDocumentIdRoute
-  '/_chrome/internal/audits/$auditId': typeof ChromeInternalAuditsAuditIdRoute
-  '/_chrome/internal/cache/$cacheStateId': typeof ChromeInternalCacheCacheStateIdRoute
-  '/_chrome/internal/shops/$shopId': typeof ChromeInternalShopsShopIdRoute
-  '/_chrome/internal/users/$userId': typeof ChromeInternalUsersUserIdRoute
-  '/_chrome/internal/webhooks/$deliveryId': typeof ChromeInternalWebhooksDeliveryIdRoute
-  '/_chrome/internal/workflows/$jobId': typeof ChromeInternalWorkflowsJobIdRoute
+  '/_app/': typeof AppIndexRoute
+  '/auth/': typeof AuthIndexRoute
+  '/_app/app/copilot': typeof AppAppCopilotRoute
+  '/_app/app/explorer': typeof AppAppExplorerRoute
+  '/_app/app/settings': typeof AppAppSettingsRoute
+  '/_app/app/workflows': typeof AppAppWorkflowsRoute
+  '/_app/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
+  '/_app/internal/audits': typeof AppInternalAuditsRouteWithChildren
+  '/_app/internal/cache': typeof AppInternalCacheRouteWithChildren
+  '/_app/internal/shops': typeof AppInternalShopsRouteWithChildren
+  '/_app/internal/users': typeof AppInternalUsersRouteWithChildren
+  '/_app/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
+  '/_app/internal/workflows': typeof AppInternalWorkflowsRouteWithChildren
+  '/_app/app/': typeof AppAppIndexRoute
+  '/_app/internal/': typeof AppInternalIndexRoute
+  '/_app/internal/ai-sessions/$sessionDocumentId': typeof AppInternalAiSessionsSessionDocumentIdRoute
+  '/_app/internal/audits/$auditId': typeof AppInternalAuditsAuditIdRoute
+  '/_app/internal/cache/$cacheStateId': typeof AppInternalCacheCacheStateIdRoute
+  '/_app/internal/shops/$shopId': typeof AppInternalShopsShopIdRoute
+  '/_app/internal/users/$userId': typeof AppInternalUsersUserIdRoute
+  '/_app/internal/webhooks/$deliveryId': typeof AppInternalWebhooksDeliveryIdRoute
+  '/_app/internal/workflows/$jobId': typeof AppInternalWorkflowsJobIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -303,6 +308,7 @@ export interface FileRouteTypes {
     | '/auth/reset-password'
     | '/auth/reset-sent'
     | '/auth/sign-in'
+    | '/auth/'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -325,13 +331,13 @@ export interface FileRouteTypes {
     | '/internal/workflows/$jobId'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/auth'
     | '/install'
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/auth/reset-sent'
     | '/auth/sign-in'
     | '/'
+    | '/auth'
     | '/app/copilot'
     | '/app/explorer'
     | '/app/settings'
@@ -354,40 +360,41 @@ export interface FileRouteTypes {
     | '/internal/workflows/$jobId'
   id:
     | '__root__'
-    | '/_chrome'
+    | '/_app'
     | '/auth'
-    | '/_chrome/app'
-    | '/_chrome/install'
-    | '/_chrome/internal'
+    | '/_app/app'
+    | '/_app/install'
+    | '/_app/internal'
     | '/auth/forgot-password'
     | '/auth/reset-password'
     | '/auth/reset-sent'
     | '/auth/sign-in'
-    | '/_chrome/'
-    | '/_chrome/app/copilot'
-    | '/_chrome/app/explorer'
-    | '/_chrome/app/settings'
-    | '/_chrome/app/workflows'
-    | '/_chrome/internal/ai-sessions'
-    | '/_chrome/internal/audits'
-    | '/_chrome/internal/cache'
-    | '/_chrome/internal/shops'
-    | '/_chrome/internal/users'
-    | '/_chrome/internal/webhooks'
-    | '/_chrome/internal/workflows'
-    | '/_chrome/app/'
-    | '/_chrome/internal/'
-    | '/_chrome/internal/ai-sessions/$sessionDocumentId'
-    | '/_chrome/internal/audits/$auditId'
-    | '/_chrome/internal/cache/$cacheStateId'
-    | '/_chrome/internal/shops/$shopId'
-    | '/_chrome/internal/users/$userId'
-    | '/_chrome/internal/webhooks/$deliveryId'
-    | '/_chrome/internal/workflows/$jobId'
+    | '/_app/'
+    | '/auth/'
+    | '/_app/app/copilot'
+    | '/_app/app/explorer'
+    | '/_app/app/settings'
+    | '/_app/app/workflows'
+    | '/_app/internal/ai-sessions'
+    | '/_app/internal/audits'
+    | '/_app/internal/cache'
+    | '/_app/internal/shops'
+    | '/_app/internal/users'
+    | '/_app/internal/webhooks'
+    | '/_app/internal/workflows'
+    | '/_app/app/'
+    | '/_app/internal/'
+    | '/_app/internal/ai-sessions/$sessionDocumentId'
+    | '/_app/internal/audits/$auditId'
+    | '/_app/internal/cache/$cacheStateId'
+    | '/_app/internal/shops/$shopId'
+    | '/_app/internal/users/$userId'
+    | '/_app/internal/webhooks/$deliveryId'
+    | '/_app/internal/workflows/$jobId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  ChromeRoute: typeof ChromeRouteWithChildren
+  AppRoute: typeof AppRouteWithChildren
   AuthRoute: typeof AuthRouteWithChildren
 }
 
@@ -400,19 +407,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_chrome': {
-      id: '/_chrome'
+    '/_app': {
+      id: '/_app'
       path: ''
       fullPath: '/'
-      preLoaderRoute: typeof ChromeRouteImport
+      preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_chrome/': {
-      id: '/_chrome/'
+    '/auth/': {
+      id: '/auth/'
+      path: '/'
+      fullPath: '/auth/'
+      preLoaderRoute: typeof AuthIndexRouteImport
+      parentRoute: typeof AuthRoute
+    }
+    '/_app/': {
+      id: '/_app/'
       path: '/'
       fullPath: '/'
-      preLoaderRoute: typeof ChromeIndexRouteImport
-      parentRoute: typeof ChromeRoute
+      preLoaderRoute: typeof AppIndexRouteImport
+      parentRoute: typeof AppRoute
     }
     '/auth/sign-in': {
       id: '/auth/sign-in'
@@ -442,326 +456,317 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthForgotPasswordRouteImport
       parentRoute: typeof AuthRoute
     }
-    '/_chrome/internal': {
-      id: '/_chrome/internal'
+    '/_app/internal': {
+      id: '/_app/internal'
       path: '/internal'
       fullPath: '/internal'
-      preLoaderRoute: typeof ChromeInternalRouteImport
-      parentRoute: typeof ChromeRoute
+      preLoaderRoute: typeof AppInternalRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_chrome/install': {
-      id: '/_chrome/install'
+    '/_app/install': {
+      id: '/_app/install'
       path: '/install'
       fullPath: '/install'
-      preLoaderRoute: typeof ChromeInstallRouteImport
-      parentRoute: typeof ChromeRoute
+      preLoaderRoute: typeof AppInstallRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_chrome/app': {
-      id: '/_chrome/app'
+    '/_app/app': {
+      id: '/_app/app'
       path: '/app'
       fullPath: '/app'
-      preLoaderRoute: typeof ChromeAppRouteImport
-      parentRoute: typeof ChromeRoute
+      preLoaderRoute: typeof AppAppRouteImport
+      parentRoute: typeof AppRoute
     }
-    '/_chrome/internal/': {
-      id: '/_chrome/internal/'
+    '/_app/internal/': {
+      id: '/_app/internal/'
       path: '/'
       fullPath: '/internal/'
-      preLoaderRoute: typeof ChromeInternalIndexRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalIndexRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/app/': {
-      id: '/_chrome/app/'
+    '/_app/app/': {
+      id: '/_app/app/'
       path: '/'
       fullPath: '/app/'
-      preLoaderRoute: typeof ChromeAppIndexRouteImport
-      parentRoute: typeof ChromeAppRoute
+      preLoaderRoute: typeof AppAppIndexRouteImport
+      parentRoute: typeof AppAppRoute
     }
-    '/_chrome/internal/workflows': {
-      id: '/_chrome/internal/workflows'
+    '/_app/internal/workflows': {
+      id: '/_app/internal/workflows'
       path: '/workflows'
       fullPath: '/internal/workflows'
-      preLoaderRoute: typeof ChromeInternalWorkflowsRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalWorkflowsRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/webhooks': {
-      id: '/_chrome/internal/webhooks'
+    '/_app/internal/webhooks': {
+      id: '/_app/internal/webhooks'
       path: '/webhooks'
       fullPath: '/internal/webhooks'
-      preLoaderRoute: typeof ChromeInternalWebhooksRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalWebhooksRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/users': {
-      id: '/_chrome/internal/users'
+    '/_app/internal/users': {
+      id: '/_app/internal/users'
       path: '/users'
       fullPath: '/internal/users'
-      preLoaderRoute: typeof ChromeInternalUsersRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalUsersRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/shops': {
-      id: '/_chrome/internal/shops'
+    '/_app/internal/shops': {
+      id: '/_app/internal/shops'
       path: '/shops'
       fullPath: '/internal/shops'
-      preLoaderRoute: typeof ChromeInternalShopsRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalShopsRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/cache': {
-      id: '/_chrome/internal/cache'
+    '/_app/internal/cache': {
+      id: '/_app/internal/cache'
       path: '/cache'
       fullPath: '/internal/cache'
-      preLoaderRoute: typeof ChromeInternalCacheRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalCacheRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/audits': {
-      id: '/_chrome/internal/audits'
+    '/_app/internal/audits': {
+      id: '/_app/internal/audits'
       path: '/audits'
       fullPath: '/internal/audits'
-      preLoaderRoute: typeof ChromeInternalAuditsRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalAuditsRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/internal/ai-sessions': {
-      id: '/_chrome/internal/ai-sessions'
+    '/_app/internal/ai-sessions': {
+      id: '/_app/internal/ai-sessions'
       path: '/ai-sessions'
       fullPath: '/internal/ai-sessions'
-      preLoaderRoute: typeof ChromeInternalAiSessionsRouteImport
-      parentRoute: typeof ChromeInternalRoute
+      preLoaderRoute: typeof AppInternalAiSessionsRouteImport
+      parentRoute: typeof AppInternalRoute
     }
-    '/_chrome/app/workflows': {
-      id: '/_chrome/app/workflows'
+    '/_app/app/workflows': {
+      id: '/_app/app/workflows'
       path: '/workflows'
       fullPath: '/app/workflows'
-      preLoaderRoute: typeof ChromeAppWorkflowsRouteImport
-      parentRoute: typeof ChromeAppRoute
+      preLoaderRoute: typeof AppAppWorkflowsRouteImport
+      parentRoute: typeof AppAppRoute
     }
-    '/_chrome/app/settings': {
-      id: '/_chrome/app/settings'
+    '/_app/app/settings': {
+      id: '/_app/app/settings'
       path: '/settings'
       fullPath: '/app/settings'
-      preLoaderRoute: typeof ChromeAppSettingsRouteImport
-      parentRoute: typeof ChromeAppRoute
+      preLoaderRoute: typeof AppAppSettingsRouteImport
+      parentRoute: typeof AppAppRoute
     }
-    '/_chrome/app/explorer': {
-      id: '/_chrome/app/explorer'
+    '/_app/app/explorer': {
+      id: '/_app/app/explorer'
       path: '/explorer'
       fullPath: '/app/explorer'
-      preLoaderRoute: typeof ChromeAppExplorerRouteImport
-      parentRoute: typeof ChromeAppRoute
+      preLoaderRoute: typeof AppAppExplorerRouteImport
+      parentRoute: typeof AppAppRoute
     }
-    '/_chrome/app/copilot': {
-      id: '/_chrome/app/copilot'
+    '/_app/app/copilot': {
+      id: '/_app/app/copilot'
       path: '/copilot'
       fullPath: '/app/copilot'
-      preLoaderRoute: typeof ChromeAppCopilotRouteImport
-      parentRoute: typeof ChromeAppRoute
+      preLoaderRoute: typeof AppAppCopilotRouteImport
+      parentRoute: typeof AppAppRoute
     }
-    '/_chrome/internal/workflows/$jobId': {
-      id: '/_chrome/internal/workflows/$jobId'
+    '/_app/internal/workflows/$jobId': {
+      id: '/_app/internal/workflows/$jobId'
       path: '/$jobId'
       fullPath: '/internal/workflows/$jobId'
-      preLoaderRoute: typeof ChromeInternalWorkflowsJobIdRouteImport
-      parentRoute: typeof ChromeInternalWorkflowsRoute
+      preLoaderRoute: typeof AppInternalWorkflowsJobIdRouteImport
+      parentRoute: typeof AppInternalWorkflowsRoute
     }
-    '/_chrome/internal/webhooks/$deliveryId': {
-      id: '/_chrome/internal/webhooks/$deliveryId'
+    '/_app/internal/webhooks/$deliveryId': {
+      id: '/_app/internal/webhooks/$deliveryId'
       path: '/$deliveryId'
       fullPath: '/internal/webhooks/$deliveryId'
-      preLoaderRoute: typeof ChromeInternalWebhooksDeliveryIdRouteImport
-      parentRoute: typeof ChromeInternalWebhooksRoute
+      preLoaderRoute: typeof AppInternalWebhooksDeliveryIdRouteImport
+      parentRoute: typeof AppInternalWebhooksRoute
     }
-    '/_chrome/internal/users/$userId': {
-      id: '/_chrome/internal/users/$userId'
+    '/_app/internal/users/$userId': {
+      id: '/_app/internal/users/$userId'
       path: '/$userId'
       fullPath: '/internal/users/$userId'
-      preLoaderRoute: typeof ChromeInternalUsersUserIdRouteImport
-      parentRoute: typeof ChromeInternalUsersRoute
+      preLoaderRoute: typeof AppInternalUsersUserIdRouteImport
+      parentRoute: typeof AppInternalUsersRoute
     }
-    '/_chrome/internal/shops/$shopId': {
-      id: '/_chrome/internal/shops/$shopId'
+    '/_app/internal/shops/$shopId': {
+      id: '/_app/internal/shops/$shopId'
       path: '/$shopId'
       fullPath: '/internal/shops/$shopId'
-      preLoaderRoute: typeof ChromeInternalShopsShopIdRouteImport
-      parentRoute: typeof ChromeInternalShopsRoute
+      preLoaderRoute: typeof AppInternalShopsShopIdRouteImport
+      parentRoute: typeof AppInternalShopsRoute
     }
-    '/_chrome/internal/cache/$cacheStateId': {
-      id: '/_chrome/internal/cache/$cacheStateId'
+    '/_app/internal/cache/$cacheStateId': {
+      id: '/_app/internal/cache/$cacheStateId'
       path: '/$cacheStateId'
       fullPath: '/internal/cache/$cacheStateId'
-      preLoaderRoute: typeof ChromeInternalCacheCacheStateIdRouteImport
-      parentRoute: typeof ChromeInternalCacheRoute
+      preLoaderRoute: typeof AppInternalCacheCacheStateIdRouteImport
+      parentRoute: typeof AppInternalCacheRoute
     }
-    '/_chrome/internal/audits/$auditId': {
-      id: '/_chrome/internal/audits/$auditId'
+    '/_app/internal/audits/$auditId': {
+      id: '/_app/internal/audits/$auditId'
       path: '/$auditId'
       fullPath: '/internal/audits/$auditId'
-      preLoaderRoute: typeof ChromeInternalAuditsAuditIdRouteImport
-      parentRoute: typeof ChromeInternalAuditsRoute
+      preLoaderRoute: typeof AppInternalAuditsAuditIdRouteImport
+      parentRoute: typeof AppInternalAuditsRoute
     }
-    '/_chrome/internal/ai-sessions/$sessionDocumentId': {
-      id: '/_chrome/internal/ai-sessions/$sessionDocumentId'
+    '/_app/internal/ai-sessions/$sessionDocumentId': {
+      id: '/_app/internal/ai-sessions/$sessionDocumentId'
       path: '/$sessionDocumentId'
       fullPath: '/internal/ai-sessions/$sessionDocumentId'
-      preLoaderRoute: typeof ChromeInternalAiSessionsSessionDocumentIdRouteImport
-      parentRoute: typeof ChromeInternalAiSessionsRoute
+      preLoaderRoute: typeof AppInternalAiSessionsSessionDocumentIdRouteImport
+      parentRoute: typeof AppInternalAiSessionsRoute
     }
   }
 }
 
-interface ChromeAppRouteChildren {
-  ChromeAppCopilotRoute: typeof ChromeAppCopilotRoute
-  ChromeAppExplorerRoute: typeof ChromeAppExplorerRoute
-  ChromeAppSettingsRoute: typeof ChromeAppSettingsRoute
-  ChromeAppWorkflowsRoute: typeof ChromeAppWorkflowsRoute
-  ChromeAppIndexRoute: typeof ChromeAppIndexRoute
+interface AppAppRouteChildren {
+  AppAppCopilotRoute: typeof AppAppCopilotRoute
+  AppAppExplorerRoute: typeof AppAppExplorerRoute
+  AppAppSettingsRoute: typeof AppAppSettingsRoute
+  AppAppWorkflowsRoute: typeof AppAppWorkflowsRoute
+  AppAppIndexRoute: typeof AppAppIndexRoute
 }
 
-const ChromeAppRouteChildren: ChromeAppRouteChildren = {
-  ChromeAppCopilotRoute: ChromeAppCopilotRoute,
-  ChromeAppExplorerRoute: ChromeAppExplorerRoute,
-  ChromeAppSettingsRoute: ChromeAppSettingsRoute,
-  ChromeAppWorkflowsRoute: ChromeAppWorkflowsRoute,
-  ChromeAppIndexRoute: ChromeAppIndexRoute,
+const AppAppRouteChildren: AppAppRouteChildren = {
+  AppAppCopilotRoute: AppAppCopilotRoute,
+  AppAppExplorerRoute: AppAppExplorerRoute,
+  AppAppSettingsRoute: AppAppSettingsRoute,
+  AppAppWorkflowsRoute: AppAppWorkflowsRoute,
+  AppAppIndexRoute: AppAppIndexRoute,
 }
 
-const ChromeAppRouteWithChildren = ChromeAppRoute._addFileChildren(
-  ChromeAppRouteChildren,
+const AppAppRouteWithChildren =
+  AppAppRoute._addFileChildren(AppAppRouteChildren)
+
+interface AppInternalAiSessionsRouteChildren {
+  AppInternalAiSessionsSessionDocumentIdRoute: typeof AppInternalAiSessionsSessionDocumentIdRoute
+}
+
+const AppInternalAiSessionsRouteChildren: AppInternalAiSessionsRouteChildren = {
+  AppInternalAiSessionsSessionDocumentIdRoute:
+    AppInternalAiSessionsSessionDocumentIdRoute,
+}
+
+const AppInternalAiSessionsRouteWithChildren =
+  AppInternalAiSessionsRoute._addFileChildren(
+    AppInternalAiSessionsRouteChildren,
+  )
+
+interface AppInternalAuditsRouteChildren {
+  AppInternalAuditsAuditIdRoute: typeof AppInternalAuditsAuditIdRoute
+}
+
+const AppInternalAuditsRouteChildren: AppInternalAuditsRouteChildren = {
+  AppInternalAuditsAuditIdRoute: AppInternalAuditsAuditIdRoute,
+}
+
+const AppInternalAuditsRouteWithChildren =
+  AppInternalAuditsRoute._addFileChildren(AppInternalAuditsRouteChildren)
+
+interface AppInternalCacheRouteChildren {
+  AppInternalCacheCacheStateIdRoute: typeof AppInternalCacheCacheStateIdRoute
+}
+
+const AppInternalCacheRouteChildren: AppInternalCacheRouteChildren = {
+  AppInternalCacheCacheStateIdRoute: AppInternalCacheCacheStateIdRoute,
+}
+
+const AppInternalCacheRouteWithChildren =
+  AppInternalCacheRoute._addFileChildren(AppInternalCacheRouteChildren)
+
+interface AppInternalShopsRouteChildren {
+  AppInternalShopsShopIdRoute: typeof AppInternalShopsShopIdRoute
+}
+
+const AppInternalShopsRouteChildren: AppInternalShopsRouteChildren = {
+  AppInternalShopsShopIdRoute: AppInternalShopsShopIdRoute,
+}
+
+const AppInternalShopsRouteWithChildren =
+  AppInternalShopsRoute._addFileChildren(AppInternalShopsRouteChildren)
+
+interface AppInternalUsersRouteChildren {
+  AppInternalUsersUserIdRoute: typeof AppInternalUsersUserIdRoute
+}
+
+const AppInternalUsersRouteChildren: AppInternalUsersRouteChildren = {
+  AppInternalUsersUserIdRoute: AppInternalUsersUserIdRoute,
+}
+
+const AppInternalUsersRouteWithChildren =
+  AppInternalUsersRoute._addFileChildren(AppInternalUsersRouteChildren)
+
+interface AppInternalWebhooksRouteChildren {
+  AppInternalWebhooksDeliveryIdRoute: typeof AppInternalWebhooksDeliveryIdRoute
+}
+
+const AppInternalWebhooksRouteChildren: AppInternalWebhooksRouteChildren = {
+  AppInternalWebhooksDeliveryIdRoute: AppInternalWebhooksDeliveryIdRoute,
+}
+
+const AppInternalWebhooksRouteWithChildren =
+  AppInternalWebhooksRoute._addFileChildren(AppInternalWebhooksRouteChildren)
+
+interface AppInternalWorkflowsRouteChildren {
+  AppInternalWorkflowsJobIdRoute: typeof AppInternalWorkflowsJobIdRoute
+}
+
+const AppInternalWorkflowsRouteChildren: AppInternalWorkflowsRouteChildren = {
+  AppInternalWorkflowsJobIdRoute: AppInternalWorkflowsJobIdRoute,
+}
+
+const AppInternalWorkflowsRouteWithChildren =
+  AppInternalWorkflowsRoute._addFileChildren(AppInternalWorkflowsRouteChildren)
+
+interface AppInternalRouteChildren {
+  AppInternalAiSessionsRoute: typeof AppInternalAiSessionsRouteWithChildren
+  AppInternalAuditsRoute: typeof AppInternalAuditsRouteWithChildren
+  AppInternalCacheRoute: typeof AppInternalCacheRouteWithChildren
+  AppInternalShopsRoute: typeof AppInternalShopsRouteWithChildren
+  AppInternalUsersRoute: typeof AppInternalUsersRouteWithChildren
+  AppInternalWebhooksRoute: typeof AppInternalWebhooksRouteWithChildren
+  AppInternalWorkflowsRoute: typeof AppInternalWorkflowsRouteWithChildren
+  AppInternalIndexRoute: typeof AppInternalIndexRoute
+}
+
+const AppInternalRouteChildren: AppInternalRouteChildren = {
+  AppInternalAiSessionsRoute: AppInternalAiSessionsRouteWithChildren,
+  AppInternalAuditsRoute: AppInternalAuditsRouteWithChildren,
+  AppInternalCacheRoute: AppInternalCacheRouteWithChildren,
+  AppInternalShopsRoute: AppInternalShopsRouteWithChildren,
+  AppInternalUsersRoute: AppInternalUsersRouteWithChildren,
+  AppInternalWebhooksRoute: AppInternalWebhooksRouteWithChildren,
+  AppInternalWorkflowsRoute: AppInternalWorkflowsRouteWithChildren,
+  AppInternalIndexRoute: AppInternalIndexRoute,
+}
+
+const AppInternalRouteWithChildren = AppInternalRoute._addFileChildren(
+  AppInternalRouteChildren,
 )
 
-interface ChromeInternalAiSessionsRouteChildren {
-  ChromeInternalAiSessionsSessionDocumentIdRoute: typeof ChromeInternalAiSessionsSessionDocumentIdRoute
+interface AppRouteChildren {
+  AppAppRoute: typeof AppAppRouteWithChildren
+  AppInstallRoute: typeof AppInstallRoute
+  AppInternalRoute: typeof AppInternalRouteWithChildren
+  AppIndexRoute: typeof AppIndexRoute
 }
 
-const ChromeInternalAiSessionsRouteChildren: ChromeInternalAiSessionsRouteChildren =
-  {
-    ChromeInternalAiSessionsSessionDocumentIdRoute:
-      ChromeInternalAiSessionsSessionDocumentIdRoute,
-  }
-
-const ChromeInternalAiSessionsRouteWithChildren =
-  ChromeInternalAiSessionsRoute._addFileChildren(
-    ChromeInternalAiSessionsRouteChildren,
-  )
-
-interface ChromeInternalAuditsRouteChildren {
-  ChromeInternalAuditsAuditIdRoute: typeof ChromeInternalAuditsAuditIdRoute
+const AppRouteChildren: AppRouteChildren = {
+  AppAppRoute: AppAppRouteWithChildren,
+  AppInstallRoute: AppInstallRoute,
+  AppInternalRoute: AppInternalRouteWithChildren,
+  AppIndexRoute: AppIndexRoute,
 }
 
-const ChromeInternalAuditsRouteChildren: ChromeInternalAuditsRouteChildren = {
-  ChromeInternalAuditsAuditIdRoute: ChromeInternalAuditsAuditIdRoute,
-}
-
-const ChromeInternalAuditsRouteWithChildren =
-  ChromeInternalAuditsRoute._addFileChildren(ChromeInternalAuditsRouteChildren)
-
-interface ChromeInternalCacheRouteChildren {
-  ChromeInternalCacheCacheStateIdRoute: typeof ChromeInternalCacheCacheStateIdRoute
-}
-
-const ChromeInternalCacheRouteChildren: ChromeInternalCacheRouteChildren = {
-  ChromeInternalCacheCacheStateIdRoute: ChromeInternalCacheCacheStateIdRoute,
-}
-
-const ChromeInternalCacheRouteWithChildren =
-  ChromeInternalCacheRoute._addFileChildren(ChromeInternalCacheRouteChildren)
-
-interface ChromeInternalShopsRouteChildren {
-  ChromeInternalShopsShopIdRoute: typeof ChromeInternalShopsShopIdRoute
-}
-
-const ChromeInternalShopsRouteChildren: ChromeInternalShopsRouteChildren = {
-  ChromeInternalShopsShopIdRoute: ChromeInternalShopsShopIdRoute,
-}
-
-const ChromeInternalShopsRouteWithChildren =
-  ChromeInternalShopsRoute._addFileChildren(ChromeInternalShopsRouteChildren)
-
-interface ChromeInternalUsersRouteChildren {
-  ChromeInternalUsersUserIdRoute: typeof ChromeInternalUsersUserIdRoute
-}
-
-const ChromeInternalUsersRouteChildren: ChromeInternalUsersRouteChildren = {
-  ChromeInternalUsersUserIdRoute: ChromeInternalUsersUserIdRoute,
-}
-
-const ChromeInternalUsersRouteWithChildren =
-  ChromeInternalUsersRoute._addFileChildren(ChromeInternalUsersRouteChildren)
-
-interface ChromeInternalWebhooksRouteChildren {
-  ChromeInternalWebhooksDeliveryIdRoute: typeof ChromeInternalWebhooksDeliveryIdRoute
-}
-
-const ChromeInternalWebhooksRouteChildren: ChromeInternalWebhooksRouteChildren =
-  {
-    ChromeInternalWebhooksDeliveryIdRoute:
-      ChromeInternalWebhooksDeliveryIdRoute,
-  }
-
-const ChromeInternalWebhooksRouteWithChildren =
-  ChromeInternalWebhooksRoute._addFileChildren(
-    ChromeInternalWebhooksRouteChildren,
-  )
-
-interface ChromeInternalWorkflowsRouteChildren {
-  ChromeInternalWorkflowsJobIdRoute: typeof ChromeInternalWorkflowsJobIdRoute
-}
-
-const ChromeInternalWorkflowsRouteChildren: ChromeInternalWorkflowsRouteChildren =
-  {
-    ChromeInternalWorkflowsJobIdRoute: ChromeInternalWorkflowsJobIdRoute,
-  }
-
-const ChromeInternalWorkflowsRouteWithChildren =
-  ChromeInternalWorkflowsRoute._addFileChildren(
-    ChromeInternalWorkflowsRouteChildren,
-  )
-
-interface ChromeInternalRouteChildren {
-  ChromeInternalAiSessionsRoute: typeof ChromeInternalAiSessionsRouteWithChildren
-  ChromeInternalAuditsRoute: typeof ChromeInternalAuditsRouteWithChildren
-  ChromeInternalCacheRoute: typeof ChromeInternalCacheRouteWithChildren
-  ChromeInternalShopsRoute: typeof ChromeInternalShopsRouteWithChildren
-  ChromeInternalUsersRoute: typeof ChromeInternalUsersRouteWithChildren
-  ChromeInternalWebhooksRoute: typeof ChromeInternalWebhooksRouteWithChildren
-  ChromeInternalWorkflowsRoute: typeof ChromeInternalWorkflowsRouteWithChildren
-  ChromeInternalIndexRoute: typeof ChromeInternalIndexRoute
-}
-
-const ChromeInternalRouteChildren: ChromeInternalRouteChildren = {
-  ChromeInternalAiSessionsRoute: ChromeInternalAiSessionsRouteWithChildren,
-  ChromeInternalAuditsRoute: ChromeInternalAuditsRouteWithChildren,
-  ChromeInternalCacheRoute: ChromeInternalCacheRouteWithChildren,
-  ChromeInternalShopsRoute: ChromeInternalShopsRouteWithChildren,
-  ChromeInternalUsersRoute: ChromeInternalUsersRouteWithChildren,
-  ChromeInternalWebhooksRoute: ChromeInternalWebhooksRouteWithChildren,
-  ChromeInternalWorkflowsRoute: ChromeInternalWorkflowsRouteWithChildren,
-  ChromeInternalIndexRoute: ChromeInternalIndexRoute,
-}
-
-const ChromeInternalRouteWithChildren = ChromeInternalRoute._addFileChildren(
-  ChromeInternalRouteChildren,
-)
-
-interface ChromeRouteChildren {
-  ChromeAppRoute: typeof ChromeAppRouteWithChildren
-  ChromeInstallRoute: typeof ChromeInstallRoute
-  ChromeInternalRoute: typeof ChromeInternalRouteWithChildren
-  ChromeIndexRoute: typeof ChromeIndexRoute
-}
-
-const ChromeRouteChildren: ChromeRouteChildren = {
-  ChromeAppRoute: ChromeAppRouteWithChildren,
-  ChromeInstallRoute: ChromeInstallRoute,
-  ChromeInternalRoute: ChromeInternalRouteWithChildren,
-  ChromeIndexRoute: ChromeIndexRoute,
-}
-
-const ChromeRouteWithChildren =
-  ChromeRoute._addFileChildren(ChromeRouteChildren)
+const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
 interface AuthRouteChildren {
   AuthForgotPasswordRoute: typeof AuthForgotPasswordRoute
   AuthResetPasswordRoute: typeof AuthResetPasswordRoute
   AuthResetSentRoute: typeof AuthResetSentRoute
   AuthSignInRoute: typeof AuthSignInRoute
+  AuthIndexRoute: typeof AuthIndexRoute
 }
 
 const AuthRouteChildren: AuthRouteChildren = {
@@ -769,12 +774,13 @@ const AuthRouteChildren: AuthRouteChildren = {
   AuthResetPasswordRoute: AuthResetPasswordRoute,
   AuthResetSentRoute: AuthResetSentRoute,
   AuthSignInRoute: AuthSignInRoute,
+  AuthIndexRoute: AuthIndexRoute,
 }
 
 const AuthRouteWithChildren = AuthRoute._addFileChildren(AuthRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  ChromeRoute: ChromeRouteWithChildren,
+  AppRoute: AppRouteWithChildren,
   AuthRoute: AuthRouteWithChildren,
 }
 export const routeTree = rootRouteImport

@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/resource";
 import { getInternalShopDetailQuery } from "@/features/internal/internal-admin-queries";
 
-export const Route = createFileRoute("/_chrome/internal/shops/$shopId")({
+export const Route = createFileRoute("/_app/internal/shops/$shopId")({
 	component: InternalShopDetailRoute,
 });
 
@@ -34,7 +34,7 @@ function InternalShopDetailRoute() {
 			<ResourceDetailCard title="Shop unavailable">
 				<EmptyState body="The selected shop could not be loaded." title="Detail unavailable" />
 			</ResourceDetailCard>
-		);
+		)
 	}
 
 	const {
@@ -78,7 +78,7 @@ function InternalShopDetailRoute() {
 				</DescriptionList>
 			</div>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Installation</Subheading>
 				{installation ? (
 					<DescriptionList className="mt-3">
@@ -149,5 +149,5 @@ function InternalShopDetailRoute() {
 				</div>
 			</section>
 		</ResourceDetailCard>
-	);
+	)
 }

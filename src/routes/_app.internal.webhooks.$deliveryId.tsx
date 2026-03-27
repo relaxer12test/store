@@ -16,7 +16,7 @@ import {
 import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWebhookDetailQuery } from "@/features/internal/internal-admin-queries";
 
-export const Route = createFileRoute("/_chrome/internal/webhooks/$deliveryId")({
+export const Route = createFileRoute("/_app/internal/webhooks/$deliveryId")({
 	component: InternalWebhookDetailRoute,
 });
 
@@ -33,7 +33,7 @@ function InternalWebhookDetailRoute() {
 			<InternalDetailCard title="Webhook detail unavailable">
 				<EmptyState body="The selected webhook delivery could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { payloads, record } = detailQuery.data;
@@ -66,7 +66,7 @@ function InternalWebhookDetailRoute() {
 				<DescriptionDetails>{record.error ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Payload previews</Subheading>
 				{payloads.length === 0 ? (
 					<Text className="mt-3">No payload previews were stored for this delivery.</Text>
@@ -89,5 +89,5 @@ function InternalWebhookDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }

@@ -65,7 +65,7 @@ const userSortOptions = [
 	},
 ];
 
-export const Route = createFileRoute("/_chrome/internal/users")({
+export const Route = createFileRoute("/_app/internal/users")({
 	validateSearch: validateInternalUsersSearch,
 	component: InternalUsersRoute,
 });
@@ -73,10 +73,10 @@ export const Route = createFileRoute("/_chrome/internal/users")({
 function InternalUsersRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	});
+	})
 	const search = Route.useSearch();
 	const usersQuery = useQuery(getInternalUsersQuery(search));
 
@@ -99,7 +99,7 @@ function InternalUsersRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					});
+					})
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -108,13 +108,13 @@ function InternalUsersRoute() {
 								q: q || undefined,
 								role: q ? undefined : current.role,
 							}),
-					});
+					})
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalUsersSort>(value, {
 						direction: "asc",
 						sort: "name",
-					});
+					})
 
 					void navigate({
 						search: (current) =>
@@ -122,7 +122,7 @@ function InternalUsersRoute() {
 								dir: next.direction,
 								sort: next.sort,
 							}),
-					});
+					})
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -139,7 +139,7 @@ function InternalUsersRoute() {
 									q: undefined,
 									role: event.target.value || undefined,
 								}),
-						});
+						})
 					}}
 					value={search.role ?? ""}
 				>
@@ -170,7 +170,7 @@ function InternalUsersRoute() {
 												current,
 												usersQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									});
+									})
 								}
 							: null
 					}
@@ -179,7 +179,7 @@ function InternalUsersRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									});
+									})
 								}
 							: null
 					}
@@ -188,5 +188,5 @@ function InternalUsersRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	);
+	)
 }

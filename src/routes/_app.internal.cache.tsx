@@ -10,10 +10,10 @@ import {
 	InternalResourceToolbar,
 	type InternalTableColumn,
 } from "@/components/ui/resource";
-import { getInternalWorkflowsQuery } from "@/features/internal/internal-admin-queries";
+import { getInternalCacheStatesQuery } from "@/features/internal/internal-admin-queries";
 import {
-	type InternalWorkflowSort,
-	validateInternalWorkflowSearch,
+	type InternalCacheSort,
+	validateInternalCacheSearch,
 } from "@/features/internal/internal-admin-route-state";
 import {
 	advanceInternalPage,
@@ -24,70 +24,70 @@ import {
 	rewindInternalPage,
 } from "@/features/internal/internal-admin-routing";
 import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-search";
-import type { InternalWorkflowSummary } from "@/shared/contracts/internal-admin";
+import type { InternalCacheStateSummary } from "@/shared/contracts/internal-admin";
 
-const workflowColumns: InternalTableColumn<InternalWorkflowSummary>[] = [
+const cacheColumns: InternalTableColumn<InternalCacheStateSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
-				<Text className="font-semibold text-zinc-950 dark:text-white">{row.type}</Text>
+				<Text className="font-semibold text-zinc-950 dark:text-white">{row.cacheKey}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">{row.domain}</Text>
 			</div>
 		),
-		header: "Workflow",
+		header: "Cache key",
 	},
 	{
 		cell: (row) => <InternalStatusValue value={row.status} />,
 		header: "Status",
 	},
 	{
-		cell: (row) => <Text>{row.retryCount > 0 ? `retry ${row.retryCount}` : "first run"}</Text>,
-		header: "Retry",
+		cell: (row) => <Text>{String(row.recordCount)}</Text>,
+		header: "Rows",
 	},
 	{
 		cell: (row) => (
 			<div className="space-y-1">
-				<Text>{formatInternalTimestamp(row.lastUpdatedAt)}</Text>
+				<Text>{formatInternalTimestamp(row.updatedAt)}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-					{row.payloadPreview ?? "No payload preview"}
+					webhook {formatInternalTimestamp(row.lastWebhookAt)}
 				</Text>
 			</div>
 		),
-		header: "Last updated",
+		header: "Freshness",
 	},
 ];
 
-const workflowSortOptions = [
+const cacheSortOptions = [
 	{
 		label: "Latest updated",
-		value: formatInternalSortValue("lastUpdatedAt", "desc"),
+		value: formatInternalSortValue("updatedAt", "desc"),
 	},
 	{
 		label: "Oldest updated",
-		value: formatInternalSortValue("lastUpdatedAt", "asc"),
+		value: formatInternalSortValue("updatedAt", "asc"),
 	},
 	{
-		label: "Workflow type A-Z",
-		value: formatInternalSortValue("type", "asc"),
+		label: "Cache key A-Z",
+		value: formatInternalSortValue("cacheKey", "asc"),
 	},
 ];
 
-export const Route = createFileRoute("/_chrome/internal/workflows")({
-	validateSearch: validateInternalWorkflowSearch,
-	component: InternalWorkflowsRoute,
+export const Route = createFileRoute("/_app/internal/cache")({
+	validateSearch: validateInternalCacheSearch,
+	component: InternalCacheRoute,
 });
 
-function InternalWorkflowsRoute() {
+function InternalCacheRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	});
+	})
 	const search = Route.useSearch();
-	const workflowsQuery = useQuery(getInternalWorkflowsQuery(search));
+	const cacheQuery = useQuery(getInternalCacheStatesQuery(search));
 
-	if (pathname !== "/internal/workflows") {
+	if (pathname !== "/internal/cache") {
 		return <Outlet />;
 	}
 
@@ -95,18 +95,18 @@ function InternalWorkflowsRoute() {
 		<InternalResourceLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Queue state</StatusPill>
-					<StatusPill tone="neutral">{`${workflowsQuery.data?.records.length ?? 0} rows`}</StatusPill>
+					<StatusPill tone="accent">Projection freshness</StatusPill>
+					<StatusPill tone="neutral">{`${cacheQuery.data?.records.length ?? 0} rows`}</StatusPill>
 				</>
 			}
-			description="Async workflow rows with retry posture and recent payload previews. Search is type-driven, while status stays index-backed."
-			title="Workflows"
+			description="Cache state rows for Shopify-backed projections. Search is cache-key driven, while status filtering stays index-backed."
+			title="Cache"
 		>
 			<InternalResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					});
+					})
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -114,31 +114,31 @@ function InternalWorkflowsRoute() {
 							resetInternalPagination(current, {
 								dir: "asc",
 								q: q || undefined,
-								sort: (q ? "type" : current.sort) as InternalWorkflowSort,
+								sort: (q ? "cacheKey" : current.sort) as InternalCacheSort,
 								status: q ? undefined : current.status,
 							}),
-					});
+					})
 				}}
 				onSortChange={(value) => {
-					const next = parseInternalSortValue<InternalWorkflowSort>(value, {
+					const next = parseInternalSortValue<InternalCacheSort>(value, {
 						direction: "desc",
-						sort: "lastUpdatedAt",
-					});
+						sort: "updatedAt",
+					})
 
 					void navigate({
 						search: (current) =>
 							resetInternalPagination(current, {
 								dir: next.direction,
-								q: next.sort === "type" ? current.q : undefined,
+								q: next.sort === "cacheKey" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					});
+					})
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
-				searchPlaceholder="Search by workflow type"
+				searchPlaceholder="Search by cache key"
 				searchValue={search.q}
-				sortOptions={workflowSortOptions}
+				sortOptions={cacheSortOptions}
 				sortValue={formatInternalSortValue(search.sort, search.dir)}
 			>
 				<Select
@@ -149,40 +149,40 @@ function InternalWorkflowsRoute() {
 									q: undefined,
 									status: event.target.value || undefined,
 								}),
-						});
+						})
 					}}
 					value={search.status ?? ""}
 				>
 					<option value="">All statuses</option>
+					<option value="ready">Ready</option>
 					<option value="pending">Pending</option>
-					<option value="running">Running</option>
-					<option value="completed">Completed</option>
 					<option value="failed">Failed</option>
+					<option value="disabled">Disabled</option>
 				</Select>
 			</InternalResourceToolbar>
 
-			{workflowsQuery.isPending ? (
-				<Text>Loading workflows…</Text>
-			) : workflowsQuery.isError || !workflowsQuery.data ? (
-				<Text className="text-red-600 dark:text-red-500">Failed to load workflows.</Text>
+			{cacheQuery.isPending ? (
+				<Text>Loading cache rows…</Text>
+			) : cacheQuery.isError || !cacheQuery.data ? (
+				<Text className="text-red-600 dark:text-red-500">Failed to load cache rows.</Text>
 			) : (
 				<InternalResourceTable
-					columns={workflowColumns}
-					emptyBody="No workflows matched the current filters."
-					emptyTitle="No workflows"
-					getRowHref={(row) => buildInternalHref(`/internal/workflows/${row.id}`, search)}
+					columns={cacheColumns}
+					emptyBody="No cache rows matched the current filters."
+					emptyTitle="No cache rows"
+					getRowHref={(row) => buildInternalHref(`/internal/cache/${row.id}`, search)}
 					getRowKey={(row) => row.id}
-					getRowLabel={(row) => row.type}
+					getRowLabel={(row) => row.cacheKey}
 					onNext={
-						workflowsQuery.data.pageInfo.continueCursor
+						cacheQuery.data.pageInfo.continueCursor
 							? () => {
 									void navigate({
 										search: (current) =>
 											advanceInternalPage(
 												current,
-												workflowsQuery.data?.pageInfo.continueCursor ?? null,
+												cacheQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									});
+									})
 								}
 							: null
 					}
@@ -191,14 +191,14 @@ function InternalWorkflowsRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									});
+									})
 								}
 							: null
 					}
-					pageInfo={workflowsQuery.data.pageInfo}
-					rows={workflowsQuery.data.records}
+					pageInfo={cacheQuery.data.pageInfo}
+					rows={cacheQuery.data.records}
 				/>
 			)}
 		</InternalResourceLayout>
-	);
+	)
 }

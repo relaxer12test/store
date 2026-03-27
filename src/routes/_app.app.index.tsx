@@ -6,7 +6,7 @@ import {
 } from "@/features/app-shell/merchant-workspace";
 import { hasMerchantViewer } from "@/shared/contracts/auth";
 
-export const Route = createFileRoute("/_chrome/app/")({
+export const Route = createFileRoute("/_app/app/")({
 	loader: async ({ context }) => {
 		const viewer = await context.auth.ensureEmbeddedViewer();
 

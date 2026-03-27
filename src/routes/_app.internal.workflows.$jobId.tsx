@@ -16,7 +16,7 @@ import {
 import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWorkflowDetailQuery } from "@/features/internal/internal-admin-queries";
 
-export const Route = createFileRoute("/_chrome/internal/workflows/$jobId")({
+export const Route = createFileRoute("/_app/internal/workflows/$jobId")({
 	component: InternalWorkflowDetailRoute,
 });
 
@@ -33,7 +33,7 @@ function InternalWorkflowDetailRoute() {
 			<InternalDetailCard title="Workflow detail unavailable">
 				<EmptyState body="The selected workflow could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { logs, record } = detailQuery.data;
@@ -68,7 +68,7 @@ function InternalWorkflowDetailRoute() {
 				<DescriptionDetails>{record.error ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Workflow log</Subheading>
 				{logs.length === 0 ? (
 					<Text className="mt-3">No workflow logs were recorded for this job.</Text>
@@ -95,5 +95,5 @@ function InternalWorkflowDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }

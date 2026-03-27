@@ -80,7 +80,7 @@ const aiSessionSortOptions = [
 	},
 ];
 
-export const Route = createFileRoute("/_chrome/internal/ai-sessions")({
+export const Route = createFileRoute("/_app/internal/ai-sessions")({
 	validateSearch: validateInternalAiSessionSearch,
 	component: InternalAiSessionsRoute,
 });
@@ -88,10 +88,10 @@ export const Route = createFileRoute("/_chrome/internal/ai-sessions")({
 function InternalAiSessionsRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	});
+	})
 	const search = Route.useSearch();
 	const sessionsQuery = useQuery(getInternalAiSessionsQuery(search));
 
@@ -114,7 +114,7 @@ function InternalAiSessionsRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					});
+					})
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -124,13 +124,13 @@ function InternalAiSessionsRoute() {
 								q: q || undefined,
 								sort: (q ? "sessionId" : current.sort) as InternalAiSessionSort,
 							}),
-					});
+					})
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalAiSessionSort>(value, {
 						direction: "desc",
 						sort: "updatedAt",
-					});
+					})
 
 					void navigate({
 						search: (current) =>
@@ -139,7 +139,7 @@ function InternalAiSessionsRoute() {
 								q: next.sort === "sessionId" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					});
+					})
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -170,7 +170,7 @@ function InternalAiSessionsRoute() {
 												current,
 												sessionsQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									});
+									})
 								}
 							: null
 					}
@@ -179,7 +179,7 @@ function InternalAiSessionsRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									});
+									})
 								}
 							: null
 					}
@@ -188,5 +188,5 @@ function InternalAiSessionsRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	);
+	)
 }

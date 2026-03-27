@@ -54,7 +54,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 				<div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
 					{quickLinks.map((item) => (
 						<article
-							className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800"
+							className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800"
 							key={item.href}
 						>
 							<Strong>{item.label}</Strong>
@@ -77,7 +77,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 					<div className="space-y-3">
 						{snapshot.signals.map((signal) => (
 							<article
-								className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800"
+								className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800"
 								key={signal.label}
 							>
 								<div className="flex items-center justify-between gap-3">
@@ -98,7 +98,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 						<ul className="space-y-3">
 							{snapshot.blockers.map((blocker) => (
 								<li
-									className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
+									className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
 									key={blocker}
 								>
 									<Text>{blocker}</Text>

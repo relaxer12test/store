@@ -66,7 +66,7 @@ const auditSortOptions = [
 	},
 ];
 
-export const Route = createFileRoute("/_chrome/internal/audits")({
+export const Route = createFileRoute("/_app/internal/audits")({
 	validateSearch: validateInternalAuditSearch,
 	component: InternalAuditsRoute,
 });
@@ -74,10 +74,10 @@ export const Route = createFileRoute("/_chrome/internal/audits")({
 function InternalAuditsRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	});
+	})
 	const search = Route.useSearch();
 	const auditsQuery = useQuery(getInternalAuditsQuery(search));
 
@@ -100,7 +100,7 @@ function InternalAuditsRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					});
+					})
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -110,13 +110,13 @@ function InternalAuditsRoute() {
 								q: q || undefined,
 								sort: (q ? "action" : current.sort) as InternalAuditSort,
 							}),
-					});
+					})
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalAuditSort>(value, {
 						direction: "desc",
 						sort: "createdAt",
-					});
+					})
 
 					void navigate({
 						search: (current) =>
@@ -125,7 +125,7 @@ function InternalAuditsRoute() {
 								q: next.sort === "action" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					});
+					})
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -156,7 +156,7 @@ function InternalAuditsRoute() {
 												current,
 												auditsQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									});
+									})
 								}
 							: null
 					}
@@ -165,7 +165,7 @@ function InternalAuditsRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									});
+									})
 								}
 							: null
 					}
@@ -174,5 +174,5 @@ function InternalAuditsRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	);
+	)
 }

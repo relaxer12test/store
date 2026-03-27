@@ -6,7 +6,7 @@ import {
 } from "@/features/app-shell/merchant-workspace";
 import { hasMerchantViewer } from "@/shared/contracts/auth";
 
-export const Route = createFileRoute("/_chrome/app/explorer")({
+export const Route = createFileRoute("/_app/app/explorer")({
 	validateSearch: (search: Record<string, unknown>) => ({
 		dataset: typeof search.dataset === "string" ? search.dataset : undefined,
 	}),
@@ -23,13 +23,13 @@ export const Route = createFileRoute("/_chrome/app/explorer")({
 function MerchantExplorerRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const search = Route.useSearch();
 	const { data } = useMerchantExplorer();
 	const activeDatasetKey =
 		data.datasets.find((dataset) => dataset.key === search.dataset)?.key ??
 		data.datasets[0]?.key ??
-		"";
+		""
 
 	return (
 		<MerchantExplorerPage
@@ -41,8 +41,8 @@ function MerchantExplorerRoute() {
 						...current,
 						dataset,
 					}),
-				});
+				})
 			}}
 		/>
-	);
+	)
 }

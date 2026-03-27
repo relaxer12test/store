@@ -15,7 +15,7 @@ import {
 import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalAuditDetailQuery } from "@/features/internal/internal-admin-queries";
 
-export const Route = createFileRoute("/_chrome/internal/audits/$auditId")({
+export const Route = createFileRoute("/_app/internal/audits/$auditId")({
 	component: InternalAuditDetailRoute,
 });
 
@@ -32,7 +32,7 @@ function InternalAuditDetailRoute() {
 			<InternalDetailCard title="Audit detail unavailable">
 				<EmptyState body="The selected audit row could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { record } = detailQuery.data;
@@ -59,7 +59,7 @@ function InternalAuditDetailRoute() {
 				<DescriptionDetails>{record.detail ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-500">
 					Payload JSON
 				</Text>
@@ -72,5 +72,5 @@ function InternalAuditDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }

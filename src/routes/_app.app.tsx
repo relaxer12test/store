@@ -37,7 +37,7 @@ const appNav: SurfaceNavItem[] = [
 	},
 ];
 
-export const Route = createFileRoute("/_chrome/app")({
+export const Route = createFileRoute("/_app/app")({
 	loader: async ({ context }) => {
 		await context.auth.ensureEmbeddedViewer();
 	},
@@ -51,7 +51,7 @@ function MerchantLayoutRoute() {
 
 	useEffect(() => {
 		if (auth.isMerchant) {
-			return;
+			return
 		}
 
 		let cancelled = false;
@@ -60,11 +60,11 @@ function MerchantLayoutRoute() {
 			if (!cancelled && hasMerchantViewer(viewer)) {
 				void router.invalidate();
 			}
-		});
+		})
 
 		return () => {
 			cancelled = true;
-		};
+		}
 	}, [auth.isMerchant, router]);
 
 	return (
@@ -84,5 +84,5 @@ function MerchantLayoutRoute() {
 				<Outlet />
 			</MerchantSessionGate>
 		</SurfaceLayout>
-	);
+	)
 }

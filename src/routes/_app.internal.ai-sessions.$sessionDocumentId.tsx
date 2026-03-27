@@ -24,7 +24,7 @@ import {
 	buildPreviousInternalCursorState,
 } from "@/features/internal/internal-admin-search";
 
-export const Route = createFileRoute("/_chrome/internal/ai-sessions/$sessionDocumentId")({
+export const Route = createFileRoute("/_app/internal/ai-sessions/$sessionDocumentId")({
 	validateSearch: validateInternalAiSessionDetailSearch,
 	component: InternalAiSessionDetailRoute,
 });
@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_chrome/internal/ai-sessions/$sessionDocu
 function InternalAiSessionDetailRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	});
+	})
 	const { sessionDocumentId } = Route.useParams();
 	const search = Route.useSearch();
 	const detailQuery = useQuery(getInternalAiSessionDetailQuery(sessionDocumentId));
@@ -50,7 +50,7 @@ function InternalAiSessionDetailRoute() {
 					title="Unavailable"
 				/>
 			</InternalDetailCard>
-		);
+		)
 	}
 
 	const { session } = detailQuery.data;
@@ -90,7 +90,7 @@ function InternalAiSessionDetailRoute() {
 				<DescriptionDetails>{formatInternalTimestamp(session.lastReplyAt)}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<Subheading>Session state</Subheading>
 				<Text className="mt-3">{session.lastPromptPreview ?? "No prompt preview recorded."}</Text>
 				<Text className="mt-2 text-zinc-600 dark:text-zinc-300">
@@ -106,7 +106,7 @@ function InternalAiSessionDetailRoute() {
 				) : null}
 			</section>
 
-			<section className="rounded-[1.6rem] border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
+			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
 				<div className="flex items-center justify-between gap-3">
 					<Subheading>Transcript</Subheading>
 					<div className="flex items-center gap-2">
@@ -120,7 +120,7 @@ function InternalAiSessionDetailRoute() {
 									limit: search.transcriptLimit,
 									prev: search.transcriptPrev,
 									sort: "updatedAt",
-								});
+								})
 
 								void navigate({
 									search: (current) => ({
@@ -128,7 +128,7 @@ function InternalAiSessionDetailRoute() {
 										transcriptCursor: previous.cursor,
 										transcriptPrev: previous.prev,
 									}),
-								});
+								})
 							}}
 							type="button"
 						>
@@ -147,7 +147,7 @@ function InternalAiSessionDetailRoute() {
 										sort: "updatedAt",
 									},
 									transcriptQuery.data?.pageInfo.continueCursor ?? null,
-								);
+								)
 
 								void navigate({
 									search: (current) => ({
@@ -155,7 +155,7 @@ function InternalAiSessionDetailRoute() {
 										transcriptCursor: next.cursor,
 										transcriptPrev: next.prev,
 									}),
-								});
+								})
 							}}
 							type="button"
 						>
@@ -196,5 +196,5 @@ function InternalAiSessionDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	);
+	)
 }
