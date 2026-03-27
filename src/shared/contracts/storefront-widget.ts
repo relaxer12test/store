@@ -111,6 +111,15 @@ export interface StorefrontWidgetTranscriptMessage {
 	role: "assistant" | "user";
 }
 
+export interface StorefrontWidgetPageContext {
+	canonicalUrl?: string;
+	collectionHandle?: string;
+	collectionTitle?: string;
+	pageType: string;
+	productHandle?: string;
+	productTitle?: string;
+}
+
 export interface StorefrontWidgetSessionDetail {
 	messages: StorefrontWidgetTranscriptMessage[];
 	sessionId: string;
@@ -119,6 +128,7 @@ export interface StorefrontWidgetSessionDetail {
 
 export interface StorefrontWidgetRequest {
 	message: string;
+	pageContext: StorefrontWidgetPageContext;
 	pageTitle?: string;
 	sessionId?: string;
 	shopDomain: string;
@@ -176,8 +186,18 @@ export const cartPlanSchema = z.object({
 	note: z.string().min(1).max(200).optional(),
 });
 
+export const storefrontWidgetPageContextSchema = z.object({
+	canonicalUrl: z.string().url().optional(),
+	collectionHandle: z.string().min(1).max(120).optional(),
+	collectionTitle: z.string().min(1).max(160).optional(),
+	pageType: z.string().min(1).max(80),
+	productHandle: z.string().min(1).max(120).optional(),
+	productTitle: z.string().min(1).max(160).optional(),
+});
+
 export const storefrontWidgetRequestSchema = z.object({
 	message: z.string().min(1).max(500),
+	pageContext: storefrontWidgetPageContextSchema,
 	pageTitle: z.string().min(1).max(200).optional(),
 	sessionId: z.string().min(8).max(120).optional(),
 	shopDomain: z.string().min(3).max(255),

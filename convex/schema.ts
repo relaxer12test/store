@@ -333,6 +333,7 @@ export default defineSchema({
 		lastReply: v.optional(storefrontWidgetReplyValidator),
 		lastReplyAt: v.optional(v.number()),
 		lastReplyOrder: v.optional(v.number()),
+		openaiConversationId: v.optional(v.string()),
 		sessionId: v.string(),
 		shopId: v.id("shops"),
 		threadId: v.string(),

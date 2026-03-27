@@ -301,6 +301,23 @@ function toTranscriptMessage(message: {
 	};
 }
 
+function toSessionTranscriptMessage(
+	message: Doc<"storefrontAiSessionMessages">,
+): InternalAiTranscriptMessage {
+	return {
+		body: message.body,
+		createdAt: new Date(message.createdAt).toISOString(),
+		error: null,
+		id: message._id,
+		model: null,
+		order: message.createdAt,
+		provider: null,
+		role: message.role,
+		status: "success",
+		stepOrder: 1,
+	};
+}
+
 async function readShopMap(ctx: QueryCtx, shopIds: readonly Id<"shops">[]) {
 	const uniqueShopIds = Array.from(new Set(shopIds));
 	const shops = await Promise.all(uniqueShopIds.map((shopId) => ctx.db.get(shopId)));
@@ -912,33 +929,17 @@ export const getAiSessionTranscriptPage = query({
 			};
 		}
 
-		const result = (await ctx.runQuery(components.agent.messages.listMessagesByThreadId, {
-			excludeToolMessages: true,
-			order: "desc" as const,
-			paginationOpts: args.paginationOpts,
-			threadId: record.threadId,
-		})) as {
-			continueCursor: string;
-			isDone: boolean;
-			page: Array<{
-				_creationTime: number;
-				_id: string;
-				error?: string;
-				message?: {
-					role?: string;
-				};
-				model?: string;
-				order: number;
-				provider?: string;
-				status: "failed" | "pending" | "success";
-				stepOrder: number;
-				text?: string;
-			}>;
-		};
+		const result = await ctx.db
+			.query("storefrontAiSessionMessages")
+			.withIndex("by_shop_and_session_id_and_created_at", (query) =>
+				query.eq("shopId", record.shopId).eq("sessionId", record.sessionId),
+			)
+			.order("desc")
+			.paginate(args.paginationOpts);
 
 		return {
 			generatedAt: new Date().toISOString(),
-			messages: result.page.slice().reverse().map(toTranscriptMessage),
+			messages: result.page.slice().reverse().map(toSessionTranscriptMessage),
 			pageInfo: formatPageInfo(result),
 		};
 	},

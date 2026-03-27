@@ -1,7 +1,9 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { Agent, createTool, stepCountIs } from "@convex-dev/agent";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
-import type { StreamTextResult } from "ai";
+import { components, internal } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import type { ActionCtx } from "@convex/_generated/server";
+import { generateText, Output } from "ai";
 import { z } from "zod";
 import type {
 	CartPlan,
@@ -9,6 +11,7 @@ import type {
 	StorefrontProductCard,
 	StorefrontReference,
 	StorefrontWidgetConfig,
+	StorefrontWidgetPageContext,
 	StorefrontWidgetReply,
 } from "@/shared/contracts/storefront-widget";
 import {
@@ -20,18 +23,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_QUICK_PROMPTS,
 	storefrontWidgetReplySchema,
 } from "@/shared/contracts/storefront-widget";
-import { components, internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import type { ActionCtx } from "./_generated/server";
 
-type PromptCategory =
-	| "bundle"
-	| "cart"
-	| "checkout"
-	| "collections"
-	| "compare"
-	| "discovery"
-	| "policy";
 type StreamEvent =
 	| { event: "chunk"; data: { delta: string } }
 	| { event: "done"; data: StorefrontWidgetReply }
@@ -39,24 +31,16 @@ type StreamEvent =
 	| { event: "meta"; data: { threadId: string } }
 	| { event: "tool"; data: { toolName: string } };
 
-type StorefrontAgentCtx = ActionCtx & {
-	clientFingerprint?: string;
-	config: StorefrontWidgetConfig;
-	pageTitle?: string;
-	shopId: Id<"shops">;
-};
-
 type PreparedRequest = {
 	clientFingerprint?: string;
 	config: StorefrontWidgetConfig;
 	effectiveSessionId: string;
 	message: string;
+	pageContext: StorefrontWidgetPageContext;
 	pageTitle?: string;
-	promptCategory: PromptCategory;
 	promptPreview: string;
 	shopDomain: string;
 	shopId: Id<"shops">;
-	userId: string;
 	viewerUserId?: string;
 };
 
@@ -67,21 +51,22 @@ type PolicyToolOutput = {
 	topic: string;
 };
 
-type ToolOutputSnapshot = {
-	collectionCards: StorefrontCollectionCard[];
-	policyOutput: PolicyToolOutput | null;
-	productCards: StorefrontProductCard[];
-	cartPlan: CartPlan | null;
-	toolNames: string[];
-};
-
 type RuntimeRequest = {
 	clientFingerprint?: string;
 	message: string;
+	pageContext: StorefrontWidgetPageContext;
 	pageTitle?: string;
 	sessionId?: string;
 	shopDomain: string;
 	viewerUserId?: string;
+};
+
+type ToolOutputSnapshot = {
+	cartPlan: CartPlan | null;
+	collectionCards: StorefrontCollectionCard[];
+	policyOutput: PolicyToolOutput | null;
+	productCards: StorefrontProductCard[];
+	toolNames: string[];
 };
 
 const DEFAULT_SAFE_SUGGESTIONS = [
@@ -89,6 +74,33 @@ const DEFAULT_SAFE_SUGGESTIONS = [
 	"Compare a few options",
 	"What is the return policy?",
 ];
+
+const OPENAI_CONVERSATIONS_URL = "https://api.openai.com/v1/conversations";
+
+const storefrontTurnHintsSchema = z.object({
+	answer: z.string().min(1).max(1200),
+	collectionHandles: z.array(z.string().min(1).max(120)).max(6),
+	includeCartPlan: z.boolean(),
+	includeCheckoutLink: z.boolean(),
+	productHandles: z.array(z.string().min(1).max(120)).max(6),
+	refusalReason: z.string().min(1).max(200).nullable(),
+	suggestedPrompts: z.array(z.string().min(1).max(120)).max(6),
+	surface: z.enum(["none", "products", "collections", "cart", "checkout"]),
+	tone: z.enum(["answer", "refusal"]),
+	turnKind: z.enum([
+		"social",
+		"discovery",
+		"collections",
+		"policy",
+		"compare",
+		"bundle",
+		"cart",
+		"checkout",
+		"refusal",
+	]),
+});
+
+type StorefrontTurnHints = z.infer<typeof storefrontTurnHintsSchema>;
 
 const storefrontRateLimiter = new RateLimiter(components.rateLimiter, {
 	storefrontClientMessage: {
@@ -131,7 +143,7 @@ function getStorefrontModelId() {
 	return (
 		getEnv("CONVEX_STOREFRONT_CONCIERGE_MODEL") ??
 		getEnv("STOREFRONT_CONCIERGE_MODEL") ??
-		"gpt-5.4-nano"
+		"gpt-5.4-mini"
 	);
 }
 
@@ -160,147 +172,24 @@ function sanitizePromptPreview(prompt: string) {
 		.slice(0, 220);
 }
 
-function usesPageContext(message: string) {
-	return /\b(this|that|these|it)\b/i.test(message) || message.trim().length < 20;
-}
-
-function derivePromptCategory(message: string): PromptCategory {
-	const normalized = message.toLowerCase();
-
-	if (
-		normalized.includes("checkout") ||
-		normalized.includes("place order") ||
-		normalized.includes("complete purchase")
-	) {
-		return "checkout";
-	}
-
-	if (
-		normalized.includes("shipping") ||
-		normalized.includes("delivery") ||
-		normalized.includes("return") ||
-		normalized.includes("refund") ||
-		normalized.includes("exchange") ||
-		normalized.includes("contact") ||
-		normalized.includes("support")
-	) {
-		return "policy";
-	}
-
-	if (normalized.includes("compare") || normalized.includes("difference")) {
-		return "compare";
-	}
-
-	if (normalized.includes("collection")) {
-		return "collections";
-	}
-
-	if (
-		normalized.includes("bundle") ||
-		normalized.includes("complete the look") ||
-		normalized.includes("pair with") ||
-		normalized.includes("goes with")
-	) {
-		return "bundle";
-	}
-
-	if (normalized.includes("cart") || normalized.includes("add these")) {
-		return "cart";
-	}
-
-	return "discovery";
-}
-
-export function reviewPromptSafety(message: string) {
-	const category = derivePromptCategory(message);
-	const normalized = message.toLowerCase();
-
-	if (
-		/\b(free|secret discount|discount code|promo code|coupon|price override|override the price|hidden discount)\b/i.test(
-			normalized,
-		)
-	) {
-		return {
-			allowed: false as const,
-			category,
-			refusalReason: "discount_request" as const,
-		};
-	}
-
-	if (
-		/\b(ignore your rules|bypass|jailbreak|system prompt|pretend you can|override policy)\b/i.test(
-			normalized,
-		)
-	) {
-		return {
-			allowed: false as const,
-			category,
-			refusalReason: "policy_bypass" as const,
-		};
-	}
-
-	if (
-		/\b(unpublished|private data|merchant notes|admin data|order history|customer data|exact inventory|inventory count|warehouse stock|stockroom)\b/i.test(
-			normalized,
-		)
-	) {
-		return {
-			allowed: false as const,
-			category,
-			refusalReason: "private_data_request" as const,
-		};
-	}
-
-	if (
-		/\b(payment|refund an order|cancel an order|log me in|change my address|account action)\b/i.test(
-			normalized,
-		)
-	) {
-		return {
-			allowed: false as const,
-			category,
-			refusalReason: "restricted_action" as const,
-		};
-	}
+function sanitizePageContext(
+	pageContext: StorefrontWidgetPageContext | undefined,
+): StorefrontWidgetPageContext {
+	const canonicalUrl = trimOptionalText(pageContext?.canonicalUrl, 600);
+	const collectionHandle = trimOptionalText(pageContext?.collectionHandle, 120);
+	const collectionTitle = trimOptionalText(pageContext?.collectionTitle, 160);
+	const pageType = trimOptionalText(pageContext?.pageType, 80) ?? "unknown";
+	const productHandle = trimOptionalText(pageContext?.productHandle, 120);
+	const productTitle = trimOptionalText(pageContext?.productTitle, 160);
 
 	return {
-		allowed: true as const,
-		category,
+		...(canonicalUrl ? { canonicalUrl } : {}),
+		...(collectionHandle ? { collectionHandle } : {}),
+		...(collectionTitle ? { collectionTitle } : {}),
+		pageType,
+		...(productHandle ? { productHandle } : {}),
+		...(productTitle ? { productTitle } : {}),
 	};
-}
-
-export function reviewAssistantSafety(message: string) {
-	const normalized = message.toLowerCase();
-
-	if (
-		/\b(secret discount|promo code|coupon code|price override|override the price|exact inventory|stockroom|unpublished product|private merchant)\b/i.test(
-			normalized,
-		)
-	) {
-		return false;
-	}
-
-	if (/\bi can (refund|cancel|change your address|log you in)\b/i.test(normalized)) {
-		return false;
-	}
-
-	if (/\bi can make (this|that|it) free\b/i.test(normalized)) {
-		return false;
-	}
-
-	return true;
-}
-
-function deriveSearchSeed(
-	message: string,
-	pageTitle: string | undefined,
-	category: PromptCategory,
-) {
-	if (pageTitle && (usesPageContext(message) || category === "bundle" || category === "cart")) {
-		return pageTitle;
-	}
-
-	return message;
 }
 
 function createEffectiveSessionId(input: {
@@ -319,6 +208,10 @@ function createEffectiveSessionId(input: {
 	}
 
 	return `ephemeral:${input.shopDomain}:${Date.now()}`;
+}
+
+function buildLegacyThreadId(prepared: PreparedRequest) {
+	return `storefront:${prepared.shopId}:${prepared.effectiveSessionId}`;
 }
 
 function buildDisabledConfig(shopDomain: string): StorefrontWidgetConfig {
@@ -370,7 +263,7 @@ function buildDisabledReply(config: StorefrontWidgetConfig): StorefrontWidgetRep
 function buildRateLimitedReply(): StorefrontWidgetReply {
 	return storefrontWidgetReplySchema.parse({
 		answer:
-			"I need to slow down for a moment. Please wait a few minutes, then ask again and I can keep helping with product discovery or cart planning.",
+			"I need to slow down for a moment. Please wait a few minutes, then ask again and I can keep helping.",
 		cards: [],
 		cartPlan: null,
 		references: [],
@@ -419,175 +312,6 @@ export function buildSafetyRefusalReply(
 	});
 }
 
-function buildPolicyReply(policyOutput: PolicyToolOutput): StorefrontWidgetReply {
-	return storefrontWidgetReplySchema.parse({
-		answer: policyOutput.answer,
-		cards: [],
-		cartPlan: null,
-		references: policyOutput.references,
-		refusalReason: null,
-		suggestedPrompts: policyOutput.suggestedPrompts,
-		tone: "answer",
-	});
-}
-
-function buildCheckoutReply(config: StorefrontWidgetConfig): StorefrontWidgetReply {
-	return storefrontWidgetReplySchema.parse({
-		answer: "Your cart is ready when you are. Use the checkout link to continue.",
-		cards: [],
-		cartPlan: null,
-		references: [
-			{
-				label: "Go to checkout",
-				url: `https://${config.shopDomain}/checkout`,
-			},
-		],
-		refusalReason: null,
-		suggestedPrompts: ["Review my cart", "Add one more item", "What is the return policy?"],
-		tone: "answer",
-	});
-}
-
-function buildDiscoveryReply(
-	config: StorefrontWidgetConfig,
-	cards: StorefrontProductCard[],
-	pageTitle?: string,
-): StorefrontWidgetReply {
-	if (cards.length === 0) {
-		return storefrontWidgetReplySchema.parse({
-			answer:
-				"I couldn't find a close match yet. Try a product type, collection, or who you're shopping for and I'll narrow it down.",
-			cards: [],
-			cartPlan: null,
-			references: [],
-			refusalReason: null,
-			suggestedPrompts: config.quickPrompts,
-			tone: "answer",
-		});
-	}
-
-	const pageContext = pageTitle ? ` for ${pageTitle}` : "";
-
-	return storefrontWidgetReplySchema.parse({
-		answer:
-			cards.length === 1
-				? `${cards[0].title} looks like the closest match${pageContext}. Want more like it or a quick comparison?`
-				: `Here are a few good matches${pageContext}. ${cards
-						.slice(0, 2)
-						.map((card) => `${card.title} (${card.priceLabel})`)
-						.join(" and ")} stand out first.`,
-		cards,
-		cartPlan: null,
-		references: cards.slice(0, 3).map((card) => ({
-			label: card.title,
-			url: card.href,
-		})),
-		refusalReason: null,
-		suggestedPrompts: [
-			`Compare ${cards[0].title}`,
-			"Show me a bundle",
-			"What is the return policy?",
-		],
-		tone: "answer",
-	});
-}
-
-function buildCompareReply(
-	config: StorefrontWidgetConfig,
-	cards: StorefrontProductCard[],
-): StorefrontWidgetReply {
-	if (cards.length < 2) {
-		return buildDiscoveryReply(config, cards);
-	}
-
-	return storefrontWidgetReplySchema.parse({
-		answer: `These are the easiest ones to compare: ${cards
-			.slice(0, 3)
-			.map((card) => `${card.title} (${card.priceLabel}, ${card.availabilityLabel.toLowerCase()})`)
-			.join("; ")}.`,
-		cards,
-		cartPlan: null,
-		references: cards.slice(0, 3).map((card) => ({
-			label: card.title,
-			url: card.href,
-		})),
-		refusalReason: null,
-		suggestedPrompts: [
-			"Which one looks best for gifting?",
-			"Build me a bundle from these",
-			"Show me a collection instead",
-		],
-		tone: "answer",
-	});
-}
-
-function buildCollectionsReply(
-	config: StorefrontWidgetConfig,
-	cards: StorefrontCollectionCard[],
-): StorefrontWidgetReply {
-	if (cards.length === 0) {
-		return storefrontWidgetReplySchema.parse({
-			answer:
-				"I couldn't find a close collection match yet. Try a broader category or tell me what kind of product you want to browse.",
-			cards: [],
-			cartPlan: null,
-			references: [],
-			refusalReason: null,
-			suggestedPrompts: config.quickPrompts,
-			tone: "answer",
-		});
-	}
-
-	return storefrontWidgetReplySchema.parse({
-		answer: `These collections are the best place to start: ${cards
-			.slice(0, 3)
-			.map((card) => card.title)
-			.join(", ")}.`,
-		cards,
-		cartPlan: null,
-		references: cards.slice(0, 3).map((card) => ({
-			label: card.title,
-			url: card.href,
-		})),
-		refusalReason: null,
-		suggestedPrompts: [
-			"Pick a product from one of these",
-			"Compare a few top products",
-			"Build me a bundle",
-		],
-		tone: "answer",
-	});
-}
-
-function buildBundleReply(
-	config: StorefrontWidgetConfig,
-	cards: StorefrontProductCard[],
-	cartPlan: StorefrontWidgetReply["cartPlan"],
-): StorefrontWidgetReply {
-	if (cards.length === 0) {
-		return buildDiscoveryReply(config, []);
-	}
-
-	return storefrontWidgetReplySchema.parse({
-		answer: cartPlan
-			? "I pulled together a starter set for you. Take a look below, and I can swap anything out if you want."
-			: "These work well together. If you want, I can narrow this into a bundle.",
-		cards,
-		cartPlan,
-		references: cards.slice(0, 3).map((card) => ({
-			label: card.title,
-			url: card.href,
-		})),
-		refusalReason: null,
-		suggestedPrompts: [
-			"Swap one item for another option",
-			"Compare these picks",
-			"What is the shipping policy?",
-		],
-		tone: "answer",
-	});
-}
-
 function dedupeByHandle<T extends { handle: string }>(items: T[]) {
 	const seen = new Set<string>();
 	const deduped: T[] = [];
@@ -622,204 +346,369 @@ function dedupeReferences(references: StorefrontReference[]) {
 	return deduped;
 }
 
-function buildAgentInstructions() {
+function normalizeHandleList(handles: string[]) {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+
+	for (const handle of handles) {
+		const value = handle.trim().toLowerCase();
+
+		if (!value || seen.has(value)) {
+			continue;
+		}
+
+		seen.add(value);
+		normalized.push(value);
+	}
+
+	return normalized;
+}
+
+function normalizeSuggestedPrompts(suggestedPrompts: string[], fallbackPrompts: string[]) {
+	const seen = new Set<string>();
+	const normalized: string[] = [];
+
+	for (const prompt of [...suggestedPrompts, ...fallbackPrompts]) {
+		const value = prompt.trim();
+
+		if (!value || seen.has(value)) {
+			continue;
+		}
+
+		seen.add(value);
+		normalized.push(value);
+	}
+
+	return normalized.slice(0, 6);
+}
+
+function extractToolOutputs(
+	toolResults: Array<{ output: unknown; toolName: string }>,
+): ToolOutputSnapshot {
+	const productCards: StorefrontProductCard[] = [];
+	const collectionCards: StorefrontCollectionCard[] = [];
+	let cartPlan: CartPlan | null = null;
+	let policyOutput: PolicyToolOutput | null = null;
+	const toolNames: string[] = [];
+
+	for (const toolResult of toolResults) {
+		toolNames.push(toolResult.toolName);
+
+		if (
+			(toolResult.toolName === "searchCatalog" ||
+				toolResult.toolName === "compareProducts" ||
+				toolResult.toolName === "recommendBundle") &&
+			Array.isArray(toolResult.output)
+		) {
+			productCards.push(...(toolResult.output as StorefrontProductCard[]));
+			continue;
+		}
+
+		if (toolResult.toolName === "getProductDetail" && toolResult.output) {
+			productCards.push(toolResult.output as StorefrontProductCard);
+			continue;
+		}
+
+		if (toolResult.toolName === "searchCollections" && Array.isArray(toolResult.output)) {
+			collectionCards.push(...(toolResult.output as StorefrontCollectionCard[]));
+			continue;
+		}
+
+		if (toolResult.toolName === "getCollectionDetail" && toolResult.output) {
+			collectionCards.push(toolResult.output as StorefrontCollectionCard);
+			continue;
+		}
+
+		if (toolResult.toolName === "answerPolicyQuestion" && toolResult.output) {
+			policyOutput = toolResult.output as PolicyToolOutput;
+			continue;
+		}
+
+		if (toolResult.toolName === "buildCartPlan") {
+			cartPlan = (toolResult.output as CartPlan | null) ?? null;
+		}
+	}
+
+	return {
+		cartPlan,
+		collectionCards: dedupeByHandle(collectionCards).slice(0, 6),
+		policyOutput,
+		productCards: dedupeByHandle(productCards).slice(0, 6),
+		toolNames: Array.from(new Set(toolNames)),
+	};
+}
+
+function toCardReferences(cards: Array<StorefrontProductCard | StorefrontCollectionCard>) {
+	return cards.slice(0, 6).map((card) => ({
+		label: card.title,
+		url: card.href,
+	}));
+}
+
+function buildCheckoutReference(config: StorefrontWidgetConfig) {
+	return {
+		label: "Go to checkout",
+		url: `https://${config.shopDomain}/checkout`,
+	} satisfies StorefrontReference;
+}
+
+function buildSystemInstructions(config: StorefrontWidgetConfig) {
 	return [
-		"You are the public storefront AI concierge for a Shopify storefront.",
-		"Help shoppers with published products, collections, availability, shipping, returns, contact guidance, safe bundles, and cart plans only.",
-		"Always use the provided tools before making claims about products, collections, availability, variants, or policies.",
-		"Never offer discounts, coupons, price overrides, hidden deals, unpublished products, merchant-private data, exact inventory counts, or operational/admin actions.",
-		"You may guide shoppers to checkout or send them to checkout, but do not claim you process payment details, refunds, cancellations, login, or account changes.",
-		"Keep answers concise because the UI renders cards, references, and cart plans separately.",
-		"When showing products or collections, keep the copy warm and shopper-facing. Do not mention public data, storefront data, cards, tools, or internal safety rules.",
-		"If a request crosses the policy boundary, refuse briefly and redirect to safe storefront help.",
+		`You are the public storefront AI concierge for ${config.shopName} (${config.shopDomain}).`,
+		"Your job is to respond naturally to shoppers and decide what storefront surface, if any, should appear.",
+		"Treat greetings, thanks, acknowledgements, and farewells as social turns. For social turns, respond warmly, keep surface as none, and do not surface products or collections.",
+		"Only surface products or collections when the shopper is actually asking for shopping help, browsing, comparison, bundling, cart help, or checkout.",
+		"Never invent product, collection, policy, price, availability, or variant details. Use tools before making claims about catalog or policy facts.",
+		"When the shopper refers to the current page or product, use the explicit page context provided in the current turn instead of display-title guesswork.",
+		"Keep answers concise, natural, and shopper-facing. One to three sentences is usually enough.",
+		"When you surface products or collections, include exact handles from the tool results in productHandles or collectionHandles.",
+		"If you want the UI to show a cart plan, set includeCartPlan to true and provide productHandles for the items to include.",
+		"If you want the UI to show checkout, set includeCheckoutLink to true.",
+		"If you must refuse, keep the refusal short, safe, and redirect back to allowed storefront help.",
+		`Example follow-up prompts the merchant likes: ${config.quickPrompts.join(" | ")}.`,
 	].join(" ");
 }
 
-const searchCatalogTool = createTool<
-	{
-		limit?: number;
-		query?: string;
-	},
-	StorefrontProductCard[],
-	StorefrontAgentCtx
->({
-	description:
-		"Search the shop's public product catalog. Use this before recommending or comparing products.",
-	inputExamples: [{ input: { query: "gift set" } }, { input: { limit: 3, query: "running shoe" } }],
-	inputSchema: z.object({
-		limit: z.number().int().min(1).max(6).optional(),
-		query: z.string().min(1).max(200).optional(),
-	}),
-	execute: async (ctx, input) => {
-		const query = trimOptionalText(input.query, 200) ?? trimOptionalText(ctx.pageTitle, 200);
-
-		return await ctx.runQuery(internal.storefrontConcierge.searchCatalog, {
-			limit: input.limit,
-			query,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const getProductDetailTool = createTool<
-	{
-		handle: string;
-	},
-	StorefrontProductCard | null,
-	StorefrontAgentCtx
->({
-	description: "Get a single public product by handle when the shopper names a specific product.",
-	inputSchema: z.object({
-		handle: z.string().min(1).max(120),
-	}),
-	execute: async (ctx, input) => {
-		return await ctx.runQuery(internal.storefrontConcierge.getProductDetail, {
-			handle: input.handle,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const compareProductsTool = createTool<
-	{
-		handles: string[];
-	},
-	StorefrontProductCard[],
-	StorefrontAgentCtx
->({
-	description: "Compare a few public products by handle.",
-	inputSchema: z.object({
-		handles: z.array(z.string().min(1).max(120)).min(1).max(3),
-	}),
-	execute: async (ctx, input) => {
-		return await ctx.runQuery(internal.storefrontConcierge.compareProducts, {
-			handles: input.handles,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const searchCollectionsTool = createTool<
-	{
-		limit?: number;
-		query?: string;
-	},
-	StorefrontCollectionCard[],
-	StorefrontAgentCtx
->({
-	description: "Search the shop's public collections.",
-	inputSchema: z.object({
-		limit: z.number().int().min(1).max(6).optional(),
-		query: z.string().min(1).max(200).optional(),
-	}),
-	execute: async (ctx, input) => {
-		const query = trimOptionalText(input.query, 200) ?? trimOptionalText(ctx.pageTitle, 200);
-
-		return await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
-			limit: input.limit,
-			query,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const answerPolicyQuestionTool = createTool<
-	{
-		question: string;
-	},
-	PolicyToolOutput,
-	StorefrontAgentCtx
->({
-	description:
-		"Answer public shipping, returns, or contact questions using merchant-authored storefront-safe policy text.",
-	inputSchema: z.object({
-		question: z.string().min(1).max(300),
-	}),
-	execute: async (ctx, input) => {
-		return await ctx.runQuery(internal.storefrontConcierge.answerPolicyQuestion, {
-			question: input.question,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const recommendBundleTool = createTool<
-	{
-		query?: string;
-	},
-	StorefrontProductCard[],
-	StorefrontAgentCtx
->({
-	description:
-		"Recommend a safe starter bundle or complementary products using public storefront catalog data.",
-	inputSchema: z.object({
-		query: z.string().min(1).max(200).optional(),
-	}),
-	execute: async (ctx, input) => {
-		return await ctx.runQuery(internal.storefrontConcierge.recommendBundle, {
-			pageTitle: ctx.pageTitle,
-			query: input.query ?? ctx.pageTitle ?? "",
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-const buildCartPlanTool = createTool<
-	{
-		explanation?: string;
-		handles: string[];
-		note?: string;
-	},
-	CartPlan | null,
-	StorefrontAgentCtx
->({
-	description:
-		"Build a storefront-safe cart plan from public product handles. This never sets price or discount data.",
-	inputSchema: z.object({
-		explanation: z.string().min(1).max(320).optional(),
-		handles: z.array(z.string().min(1).max(120)).min(1).max(4),
-		note: z.string().min(1).max(200).optional(),
-	}),
-	execute: async (ctx, input) => {
-		return await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
-			explanation: input.explanation,
-			handles: input.handles,
-			note: input.note,
-			shopId: ctx.shopId,
-		});
-	},
-});
-
-let storefrontAgentSingleton: Agent<StorefrontAgentCtx> | null = null;
-
-function getStorefrontAgent() {
-	if (!storefrontAgentSingleton) {
-		const openai = createOpenAI({
-			apiKey: getRequiredAiApiKey(),
-		});
-
-		storefrontAgentSingleton = new Agent<StorefrontAgentCtx>(components.agent, {
-			callSettings: {
-				maxOutputTokens: 700,
-				temperature: 0.2,
+function buildUserTurnPrompt(prepared: PreparedRequest) {
+	return JSON.stringify(
+		{
+			currentTurn: {
+				pageContext: prepared.pageContext,
+				pageTitle: prepared.pageTitle ?? null,
+				shopDomain: prepared.shopDomain,
+				shopName: prepared.config.shopName,
+				userMessage: prepared.message,
 			},
-			instructions: buildAgentInstructions(),
-			languageModel: openai(getStorefrontModelId()),
-			name: "storefront_concierge",
-			stopWhen: stepCountIs(5),
-			tools: {
-				answerPolicyQuestion: answerPolicyQuestionTool,
-				buildCartPlan: buildCartPlanTool,
-				compareProducts: compareProductsTool,
-				getProductDetail: getProductDetailTool,
-				recommendBundle: recommendBundleTool,
-				searchCatalog: searchCatalogTool,
-				searchCollections: searchCollectionsTool,
+			storefrontRules: {
+				publishedCatalogOnly: true,
+				safeActionsOnly: true,
 			},
-		});
+		},
+		null,
+		2,
+	);
+}
+
+function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
+	return {
+		answerPolicyQuestion: {
+			description:
+				"Answer public shipping, returns, or contact questions using merchant-authored storefront-safe policy text.",
+			execute: async (input: { question: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.answerPolicyQuestion, {
+					question: input.question,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				question: z
+					.string()
+					.min(1)
+					.max(300)
+					.describe("The shopper's policy question in plain language."),
+			}),
+			strict: true,
+		},
+		buildCartPlan: {
+			description:
+				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts.",
+			execute: async (input: { explanation?: string; handles: string[]; note?: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
+					explanation: input.explanation,
+					handles: input.handles,
+					note: input.note,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				explanation: z.string().min(1).max(320).optional(),
+				handles: z.array(z.string().min(1).max(120)).min(1).max(4),
+				note: z.string().min(1).max(200).optional(),
+			}),
+			strict: true,
+		},
+		compareProducts: {
+			description: "Compare a few public products by exact product handles.",
+			execute: async (input: { handles: string[] }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.compareProducts, {
+					handles: input.handles,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				handles: z.array(z.string().min(1).max(120)).min(1).max(3),
+			}),
+			strict: true,
+		},
+		getCollectionDetail: {
+			description: "Get a single public collection by exact handle.",
+			execute: async (input: { handle: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.getCollectionDetail, {
+					handle: input.handle,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				handle: z.string().min(1).max(120),
+			}),
+			strict: true,
+		},
+		getProductDetail: {
+			description: "Get a single public product by exact handle.",
+			execute: async (input: { handle: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.getProductDetail, {
+					handle: input.handle,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				handle: z.string().min(1).max(120),
+			}),
+			strict: true,
+		},
+		recommendBundle: {
+			description:
+				"Recommend a safe starter bundle or complementary products using public storefront catalog data.",
+			execute: async (input: { query?: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.recommendBundle, {
+					anchorHandle: prepared.pageContext.productHandle,
+					query: input.query ?? "",
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				query: z
+					.string()
+					.min(2)
+					.max(200)
+					.optional()
+					.describe("Optional search phrase when bundling around a category or use case."),
+			}),
+			strict: true,
+		},
+		searchCatalog: {
+			description:
+				"Search the shop's public product catalog with a real shopper query. Do not use this for generic greetings.",
+			execute: async (input: { limit?: number; query: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.searchCatalog, {
+					limit: input.limit,
+					query: input.query,
+					shopId: prepared.shopId,
+				});
+			},
+			inputExamples: [
+				{ input: { query: "gift set" } },
+				{ input: { limit: 3, query: "running shoe" } },
+			],
+			inputSchema: z.object({
+				limit: z.number().int().min(1).max(6).optional(),
+				query: z
+					.string()
+					.min(2)
+					.max(200)
+					.describe("The real product search phrase from the shopper."),
+			}),
+			strict: true,
+		},
+		searchCollections: {
+			description: "Search the shop's public collections with a real shopper query.",
+			execute: async (input: { limit?: number; query: string }) => {
+				return await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
+					limit: input.limit,
+					query: input.query,
+					shopId: prepared.shopId,
+				});
+			},
+			inputSchema: z.object({
+				limit: z.number().int().min(1).max(6).optional(),
+				query: z
+					.string()
+					.min(2)
+					.max(200)
+					.describe("The real collection search phrase from the shopper."),
+			}),
+			strict: true,
+		},
+	} as const;
+}
+
+export function reviewPromptSafety(message: string) {
+	const normalized = message.toLowerCase();
+
+	if (
+		/\b(free|secret discount|discount code|promo code|coupon|price override|override the price|hidden discount)\b/i.test(
+			normalized,
+		)
+	) {
+		return {
+			allowed: false as const,
+			category: "discount_request",
+			refusalReason: "discount_request" as const,
+		};
 	}
 
-	return storefrontAgentSingleton;
+	if (
+		/\b(ignore your rules|bypass|jailbreak|system prompt|pretend you can|override policy)\b/i.test(
+			normalized,
+		)
+	) {
+		return {
+			allowed: false as const,
+			category: "policy_bypass",
+			refusalReason: "policy_bypass" as const,
+		};
+	}
+
+	if (
+		/\b(unpublished|private data|merchant notes|admin data|order history|customer data|exact inventory|inventory count|warehouse stock|stockroom)\b/i.test(
+			normalized,
+		)
+	) {
+		return {
+			allowed: false as const,
+			category: "private_data_request",
+			refusalReason: "private_data_request" as const,
+		};
+	}
+
+	if (
+		/\b(payment|refund an order|cancel an order|log me in|change my address|account action|complete checkout|checkout for me|complete purchase)\b/i.test(
+			normalized,
+		)
+	) {
+		return {
+			allowed: false as const,
+			category: "restricted_action",
+			refusalReason: "restricted_action" as const,
+		};
+	}
+
+	return {
+		allowed: true as const,
+		category: "conversation",
+	};
+}
+
+export function reviewAssistantSafety(message: string) {
+	const normalized = message.toLowerCase();
+
+	if (
+		/\b(secret discount|promo code|coupon code|price override|override the price|exact inventory|stockroom|unpublished product|private merchant)\b/i.test(
+			normalized,
+		)
+	) {
+		return false;
+	}
+
+	if (/\bi can (refund|cancel|change your address|log you in)\b/i.test(normalized)) {
+		return false;
+	}
+
+	if (/\bi can make (this|that|it) free\b/i.test(normalized)) {
+		return false;
+	}
+
+	return true;
 }
 
 async function prepareRequest(
@@ -830,6 +719,7 @@ async function prepareRequest(
 	| { prepared: PreparedRequest }
 > {
 	const message = request.message.trim();
+	const pageContext = sanitizePageContext(request.pageContext);
 	const pageTitle = trimOptionalText(request.pageTitle, 200);
 	const clientFingerprint = trimOptionalText(request.clientFingerprint, 128);
 	const shopDomain = normalizeShopDomain(request.shopDomain);
@@ -838,10 +728,12 @@ async function prepareRequest(
 		sessionId: request.sessionId,
 		shopDomain,
 	});
-	const context: { config: StorefrontWidgetConfig; shopId: Id<"shops"> | null } =
-		await ctx.runQuery(internal.storefrontConcierge.getContext, {
-			shopDomain,
-		});
+	const context: {
+		config: StorefrontWidgetConfig;
+		shopId: Id<"shops"> | null;
+	} = await ctx.runQuery(internal.storefrontConcierge.getContext, {
+		shopDomain,
+	});
 	const config = context.config ?? buildDisabledConfig(shopDomain);
 
 	if (!context.shopId || !config.enabled) {
@@ -870,12 +762,11 @@ async function prepareRequest(
 						config,
 						effectiveSessionId: sessionId,
 						message,
+						pageContext,
 						pageTitle,
-						promptCategory: "discovery",
 						promptPreview: sanitizePromptPreview(message || "widget disabled"),
 						shopDomain,
 						shopId: context.shopId,
-						userId: `${context.shopId}:${sessionId}`,
 						viewerUserId: request.viewerUserId,
 					}
 				: undefined,
@@ -907,20 +798,15 @@ async function prepareRequest(
 				config,
 				effectiveSessionId: sessionId,
 				message,
+				pageContext,
 				pageTitle,
-				promptCategory: "discovery",
 				promptPreview: "greeting",
 				shopDomain,
 				shopId: context.shopId,
-				userId: `${context.shopId}:${sessionId}`,
 				viewerUserId: request.viewerUserId,
 			},
 		};
 	}
-
-	const promptCategory = derivePromptCategory(message);
-	const promptPreview = sanitizePromptPreview(message);
-	const sessionKey = `${context.shopId}:${sessionId}`;
 
 	return {
 		prepared: {
@@ -928,12 +814,11 @@ async function prepareRequest(
 			config,
 			effectiveSessionId: sessionId,
 			message,
+			pageContext,
 			pageTitle,
-			promptCategory,
-			promptPreview,
+			promptPreview: sanitizePromptPreview(message),
 			shopDomain,
 			shopId: context.shopId,
-			userId: sessionKey,
 			viewerUserId: request.viewerUserId,
 		},
 	};
@@ -984,208 +869,213 @@ async function enforceRateLimits(ctx: ActionCtx, prepared: PreparedRequest) {
 	return true;
 }
 
-async function ensureThreadId(ctx: ActionCtx, prepared: PreparedRequest) {
+async function createOpenAIConversationId() {
+	const response = await fetch(OPENAI_CONVERSATIONS_URL, {
+		body: "{}",
+		headers: {
+			Authorization: `Bearer ${getRequiredAiApiKey()}`,
+			"Content-Type": "application/json",
+		},
+		method: "POST",
+	});
+
+	if (!response.ok) {
+		throw new Error("OpenAI conversation creation failed.");
+	}
+
+	const payload = (await response.json()) as {
+		id?: unknown;
+	};
+
+	if (typeof payload.id !== "string" || payload.id.length === 0) {
+		throw new Error("OpenAI conversation creation returned no conversation id.");
+	}
+
+	return payload.id;
+}
+
+async function ensureSessionRuntimeState(ctx: ActionCtx, prepared: PreparedRequest) {
 	const existingSession: {
 		lastReply: StorefrontWidgetReply | null;
 		lastReplyAt: number | null;
 		lastReplyOrder: number | null;
+		openaiConversationId: string | null;
 		threadId: string;
 	} | null = await ctx.runQuery(internal.storefrontConcierge.getSessionState, {
 		sessionId: prepared.effectiveSessionId,
 		shopId: prepared.shopId,
 	});
-	const threadId =
-		existingSession?.threadId ??
-		(
-			await getStorefrontAgent().createThread(ctx, {
-				title: `Storefront concierge ${prepared.shopDomain}`,
-				userId: prepared.userId,
-			})
-		).threadId;
+	const openaiConversationId =
+		existingSession?.openaiConversationId ?? (await createOpenAIConversationId());
+	const threadId = existingSession?.threadId ?? buildLegacyThreadId(prepared);
+	const threadOrder =
+		typeof existingSession?.lastReplyOrder === "number" ? existingSession.lastReplyOrder + 1 : 1;
 
 	await ctx.runMutation(internal.storefrontConcierge.upsertSessionThread, {
 		clientFingerprint: prepared.clientFingerprint,
 		lastPromptPreview: prepared.promptPreview,
+		openaiConversationId,
 		sessionId: prepared.effectiveSessionId,
 		shopId: prepared.shopId,
 		threadId,
 		viewerUserId: prepared.viewerUserId,
 	});
 
-	return threadId;
-}
-
-function extractToolOutputs(
-	toolResults: Array<{ output: unknown; toolName: string }>,
-): ToolOutputSnapshot {
-	const productCards: StorefrontProductCard[] = [];
-	const collectionCards: StorefrontCollectionCard[] = [];
-	let cartPlan: CartPlan | null = null;
-	let policyOutput: PolicyToolOutput | null = null;
-	const toolNames: string[] = [];
-
-	for (const toolResult of toolResults) {
-		toolNames.push(toolResult.toolName);
-
-		if (
-			(toolResult.toolName === "searchCatalog" ||
-				toolResult.toolName === "compareProducts" ||
-				toolResult.toolName === "recommendBundle") &&
-			Array.isArray(toolResult.output)
-		) {
-			productCards.push(...(toolResult.output as StorefrontProductCard[]));
-			continue;
-		}
-
-		if (toolResult.toolName === "getProductDetail" && toolResult.output) {
-			productCards.push(toolResult.output as StorefrontProductCard);
-			continue;
-		}
-
-		if (toolResult.toolName === "searchCollections" && Array.isArray(toolResult.output)) {
-			collectionCards.push(...(toolResult.output as StorefrontCollectionCard[]));
-			continue;
-		}
-
-		if (toolResult.toolName === "answerPolicyQuestion" && toolResult.output) {
-			policyOutput = toolResult.output as PolicyToolOutput;
-			continue;
-		}
-
-		if (toolResult.toolName === "buildCartPlan") {
-			cartPlan = (toolResult.output as CartPlan | null) ?? null;
-		}
-	}
-
 	return {
-		cartPlan,
-		collectionCards: dedupeByHandle(collectionCards).slice(0, 6),
-		policyOutput,
-		productCards: dedupeByHandle(productCards).slice(0, 6),
-		toolNames,
+		openaiConversationId,
+		threadId,
+		threadOrder,
 	};
 }
 
-async function addFallbackToolOutputs(
+async function resolveProductCards(
+	ctx: ActionCtx,
+	shopId: Id<"shops">,
+	handles: string[],
+	initialCards: StorefrontProductCard[],
+) {
+	const normalizedHandles = normalizeHandleList(handles).slice(0, 6);
+	const byHandle = new Map(initialCards.map((card) => [card.handle, card]));
+	const missingHandles = normalizedHandles.filter((handle) => !byHandle.has(handle));
+
+	if (missingHandles.length > 0) {
+		const missingCards = await Promise.all(
+			missingHandles.map((handle) =>
+				ctx.runQuery(internal.storefrontConcierge.getProductDetail, {
+					handle,
+					shopId,
+				}),
+			),
+		);
+
+		for (const card of missingCards) {
+			if (card) {
+				byHandle.set(card.handle, card);
+			}
+		}
+	}
+
+	return normalizedHandles.flatMap((handle) => {
+		const card = byHandle.get(handle);
+		return card ? [card] : [];
+	});
+}
+
+async function resolveCollectionCards(
+	ctx: ActionCtx,
+	shopId: Id<"shops">,
+	handles: string[],
+	initialCards: StorefrontCollectionCard[],
+) {
+	const normalizedHandles = normalizeHandleList(handles).slice(0, 6);
+	const byHandle = new Map(initialCards.map((card) => [card.handle, card]));
+	const missingHandles = normalizedHandles.filter((handle) => !byHandle.has(handle));
+
+	if (missingHandles.length > 0) {
+		const missingCards = await Promise.all(
+			missingHandles.map((handle) =>
+				ctx.runQuery(internal.storefrontConcierge.getCollectionDetail, {
+					handle,
+					shopId,
+				}),
+			),
+		);
+
+		for (const card of missingCards) {
+			if (card) {
+				byHandle.set(card.handle, card);
+			}
+		}
+	}
+
+	return normalizedHandles.flatMap((handle) => {
+		const card = byHandle.get(handle);
+		return card ? [card] : [];
+	});
+}
+
+async function buildReplyFromTurnHints(
 	ctx: ActionCtx,
 	prepared: PreparedRequest,
+	turnHints: StorefrontTurnHints,
 	outputs: ToolOutputSnapshot,
 ) {
-	const searchSeed = deriveSearchSeed(
-		prepared.message,
-		prepared.pageTitle,
-		prepared.promptCategory,
-	);
+	const productHandles = normalizeHandleList([
+		...turnHints.productHandles,
+		...outputs.productCards.map((card) => card.handle),
+	]);
+	const collectionHandles = normalizeHandleList([
+		...turnHints.collectionHandles,
+		...outputs.collectionCards.map((card) => card.handle),
+	]);
+	const productCards =
+		turnHints.surface === "products" ||
+		turnHints.surface === "cart" ||
+		turnHints.surface === "checkout"
+			? await resolveProductCards(ctx, prepared.shopId, productHandles, outputs.productCards)
+			: [];
+	const collectionCards =
+		turnHints.surface === "collections"
+			? await resolveCollectionCards(
+					ctx,
+					prepared.shopId,
+					collectionHandles,
+					outputs.collectionCards,
+				)
+			: [];
+	const cartPlan =
+		turnHints.includeCartPlan && productHandles.length > 0
+			? (outputs.cartPlan ??
+				(await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
+					explanation: undefined,
+					handles: productHandles.slice(0, 4),
+					note: undefined,
+					shopId: prepared.shopId,
+				})))
+			: null;
+	const references = dedupeReferences([
+		...(outputs.policyOutput?.references ?? []),
+		...toCardReferences(productCards),
+		...toCardReferences(collectionCards),
+		...(turnHints.includeCheckoutLink || turnHints.surface === "checkout"
+			? [buildCheckoutReference(prepared.config)]
+			: []),
+	]).slice(0, 6);
+	const cards =
+		turnHints.tone === "refusal"
+			? []
+			: turnHints.surface === "collections"
+				? collectionCards
+				: turnHints.surface === "products" ||
+					  turnHints.surface === "cart" ||
+					  turnHints.surface === "checkout"
+					? productCards
+					: [];
+	const fallbackPrompts =
+		turnHints.tone === "refusal" ? DEFAULT_SAFE_SUGGESTIONS : prepared.config.quickPrompts;
+	const reply = storefrontWidgetReplySchema.parse({
+		answer: turnHints.answer.trim(),
+		cards,
+		cartPlan: turnHints.tone === "refusal" ? null : cartPlan,
+		references,
+		refusalReason: turnHints.tone === "refusal" ? (turnHints.refusalReason ?? "refusal") : null,
+		suggestedPrompts: normalizeSuggestedPrompts(turnHints.suggestedPrompts, fallbackPrompts),
+		tone: turnHints.tone,
+	});
 
-	if (prepared.promptCategory === "policy" && !outputs.policyOutput) {
-		outputs.policyOutput = await ctx.runQuery(internal.storefrontConcierge.answerPolicyQuestion, {
-			question: prepared.message,
-			shopId: prepared.shopId,
-		});
-		outputs.toolNames.push("answerPolicyQuestion");
+	if (!reviewAssistantSafety(reply.answer)) {
+		return {
+			outcome: "refusal" as const,
+			promptCategory: "policy_bypass",
+			reply: buildSafetyRefusalReply(prepared.config, "policy_bypass"),
+			toolNames: outputs.toolNames,
+		};
 	}
-
-	if (prepared.promptCategory === "collections" && outputs.collectionCards.length === 0) {
-		outputs.collectionCards = await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
-			limit: 4,
-			query: searchSeed,
-			shopId: prepared.shopId,
-		});
-		outputs.toolNames.push("searchCollections");
-	}
-
-	if (
-		(prepared.promptCategory === "bundle" || prepared.promptCategory === "cart") &&
-		outputs.productCards.length === 0
-	) {
-		outputs.productCards = await ctx.runQuery(internal.storefrontConcierge.recommendBundle, {
-			pageTitle: prepared.pageTitle,
-			query: searchSeed,
-			shopId: prepared.shopId,
-		});
-		outputs.toolNames.push("recommendBundle");
-	}
-
-	if (
-		prepared.promptCategory !== "policy" &&
-		prepared.promptCategory !== "checkout" &&
-		prepared.promptCategory !== "collections" &&
-		outputs.productCards.length === 0
-	) {
-		outputs.productCards = await ctx.runQuery(internal.storefrontConcierge.searchCatalog, {
-			limit: prepared.promptCategory === "compare" ? 3 : 4,
-			query: searchSeed,
-			shopId: prepared.shopId,
-		});
-		outputs.toolNames.push("searchCatalog");
-	}
-
-	if (
-		(prepared.promptCategory === "bundle" || prepared.promptCategory === "cart") &&
-		!outputs.cartPlan &&
-		outputs.productCards.length > 0
-	) {
-		outputs.cartPlan = await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
-			explanation: "A simple starter set based on the closest matches.",
-			handles: outputs.productCards.map((card) => card.handle).slice(0, 4),
-			note: undefined,
-			shopId: prepared.shopId,
-		});
-		outputs.toolNames.push("buildCartPlan");
-	}
-
-	outputs.collectionCards = dedupeByHandle(outputs.collectionCards).slice(0, 6);
-	outputs.productCards = dedupeByHandle(outputs.productCards).slice(0, 6);
-	outputs.toolNames = Array.from(new Set(outputs.toolNames));
-}
-
-function buildFallbackReply(prepared: PreparedRequest, outputs: ToolOutputSnapshot) {
-	if (outputs.policyOutput) {
-		return buildPolicyReply(outputs.policyOutput);
-	}
-
-	if (prepared.promptCategory === "collections") {
-		return buildCollectionsReply(prepared.config, outputs.collectionCards);
-	}
-
-	if (prepared.promptCategory === "checkout") {
-		return buildCheckoutReply(prepared.config);
-	}
-
-	if (prepared.promptCategory === "compare") {
-		return buildCompareReply(prepared.config, outputs.productCards);
-	}
-
-	if (prepared.promptCategory === "bundle" || prepared.promptCategory === "cart") {
-		return buildBundleReply(prepared.config, outputs.productCards, outputs.cartPlan);
-	}
-
-	return buildDiscoveryReply(prepared.config, outputs.productCards, prepared.pageTitle);
-}
-
-async function buildProjectedReply(
-	ctx: ActionCtx,
-	prepared: PreparedRequest,
-	result: StreamTextResult<any, any> & {
-		order: number;
-	},
-) {
-	const steps = await result.steps;
-	const toolResults = steps.flatMap((step) => step.toolResults) as Array<{
-		output: unknown;
-		toolName: string;
-	}>;
-	const outputs = extractToolOutputs(toolResults);
-	await addFallbackToolOutputs(ctx, prepared, outputs);
-
-	const reply = buildFallbackReply(prepared, outputs);
 
 	return {
 		outcome: reply.tone === "refusal" ? ("refusal" as const) : ("answer" as const),
-		reply: storefrontWidgetReplySchema.parse({
-			...reply,
-			references: dedupeReferences(reply.references).slice(0, 6),
-		}),
+		promptCategory: turnHints.turnKind,
+		reply,
 		toolNames: outputs.toolNames,
 	};
 }
@@ -1312,7 +1202,7 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 
 	return createSseResponse(async (send) => {
 		try {
-			const threadId = await ensureThreadId(ctx, prepared);
+			const sessionRuntimeState = await ensureSessionRuntimeState(ctx, prepared);
 			await ctx.runMutation(internal.storefrontConcierge.appendSessionMessage, {
 				body: prepared.message,
 				role: "user",
@@ -1320,63 +1210,52 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				shopId: prepared.shopId,
 				viewerUserId: prepared.viewerUserId,
 			});
+
 			send({
 				data: {
-					threadId,
+					threadId: sessionRuntimeState.threadId,
 				},
 				event: "meta",
 			});
 
-			const agent = getStorefrontAgent();
-			const toolCtx = {
-				...ctx,
-				clientFingerprint: prepared.clientFingerprint,
-				config: prepared.config,
-				pageTitle: prepared.pageTitle,
-				shopId: prepared.shopId,
-			} as StorefrontAgentCtx;
-			const { thread } = await agent.continueThread(toolCtx, {
-				threadId,
-				userId: prepared.userId,
+			const openai = createOpenAI({
+				apiKey: getRequiredAiApiKey(),
 			});
-			const result = (await thread.streamText(
-				{
-					abortSignal: undefined,
-					prompt: prepared.message,
-				},
-				{
-					contextOptions: {
-						excludeToolMessages: true,
-						recentMessages: 8,
+			const result = await generateText({
+				maxOutputTokens: 700,
+				model: openai.responses(getStorefrontModelId()),
+				output: Output.object({
+					description:
+						"Structured storefront response hints for conversational behavior and UI surfaces.",
+					name: "storefront_turn_hints",
+					schema: storefrontTurnHintsSchema,
+				}),
+				providerOptions: {
+					openai: {
+						conversation: sessionRuntimeState.openaiConversationId,
+						reasoningEffort: "low",
 					},
-					saveStreamDeltas: {
-						returnImmediately: true,
-						throttleMs: 200,
-					},
 				},
-			)) as Awaited<ReturnType<typeof thread.streamText>>;
-
-			for await (const part of result.fullStream) {
-				if (part.type === "tool-call") {
-					send({
-						data: {
-							toolName: part.toolName,
-						},
-						event: "tool",
-					});
-				}
-			}
-
-			const projected = await buildProjectedReply(ctx, prepared, result);
+				prompt: buildUserTurnPrompt(prepared),
+				system: buildSystemInstructions(prepared.config),
+				tools: buildTools(ctx, prepared),
+			});
+			const toolResults = result.steps.flatMap((step) => step.toolResults) as Array<{
+				output: unknown;
+				toolName: string;
+			}>;
+			const outputs = extractToolOutputs(toolResults);
+			const projected = await buildReplyFromTurnHints(ctx, prepared, result.output, outputs);
 
 			await ctx.runMutation(internal.storefrontConcierge.saveSessionReply, {
 				clientFingerprint: prepared.clientFingerprint,
 				lastPromptPreview: prepared.promptPreview,
+				openaiConversationId: sessionRuntimeState.openaiConversationId,
 				reply: projected.reply,
 				sessionId: prepared.effectiveSessionId,
 				shopId: prepared.shopId,
-				threadId,
-				threadOrder: result.order,
+				threadId: sessionRuntimeState.threadId,
+				threadOrder: sessionRuntimeState.threadOrder,
 				viewerUserId: prepared.viewerUserId,
 			});
 
@@ -1386,7 +1265,7 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				clientFingerprint: prepared.clientFingerprint,
 				outcome: projected.outcome,
 				pageTitle: prepared.pageTitle,
-				promptCategory: prepared.promptCategory,
+				promptCategory: projected.promptCategory,
 				promptPreview: prepared.promptPreview,
 				refusalReason: projected.reply.refusalReason ?? undefined,
 				sessionId: prepared.effectiveSessionId,
@@ -1408,7 +1287,7 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				clientFingerprint: prepared.clientFingerprint,
 				outcome: "refusal",
 				pageTitle: prepared.pageTitle,
-				promptCategory: prepared.promptCategory,
+				promptCategory: "generation_failed",
 				promptPreview: prepared.promptPreview,
 				refusalReason: "generation_failed",
 				sessionId: prepared.effectiveSessionId,

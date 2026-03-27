@@ -2,6 +2,13 @@
   class="storefront-ai-embed-root"
   {{ block.shopify_attributes }}
   data-api-base="{{ block.settings.app_base_url | escape }}"
+  data-canonical-url="{{ canonical_url | escape }}"
+  data-collection-handle="{% if collection %}{{ collection.handle | escape }}{% endif %}"
+  data-collection-title="{% if collection %}{{ collection.title | escape }}{% endif %}"
+  data-page-title="{{ page_title | escape }}"
+  data-page-type="{{ request.page_type | default: 'unknown' | escape }}"
+  data-product-handle="{% if product %}{{ product.handle | escape }}{% endif %}"
+  data-product-title="{% if product %}{{ product.title | escape }}{% endif %}"
   data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
   data-theme-editor="{% if request.design_mode %}true{% else %}false{% endif %}"
 ></div>

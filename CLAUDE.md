@@ -17,3 +17,4 @@ agent should never ever run dev server it will be already run or ask me to run i
 
 if we write any tests it must be e2e tests i don't care about any other tests and if thats not possibel skip writing them all to gather
 e2e must only be used on dev server 3000 and dev server must always be run by developer not LLM
+we dont use prettier check npm run format

@@ -10,6 +10,7 @@ import {
 import { resend } from "@convex/mail";
 import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 import { httpRouter } from "convex/server";
+import { storefrontWidgetRequestSchema } from "@/shared/contracts/storefront-widget";
 
 const http = httpRouter();
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
@@ -566,16 +567,10 @@ http.route({
 	path: "/api/shopify/widget/chat",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
-		let payload: {
-			clientFingerprint?: unknown;
-			message?: unknown;
-			pageTitle?: unknown;
-			sessionId?: unknown;
-			shopDomain?: unknown;
-		};
+		let payload: unknown;
 
 		try {
-			payload = (await request.json()) as typeof payload;
+			payload = await request.json();
 		} catch {
 			return Response.json(
 				{
@@ -590,10 +585,13 @@ http.route({
 			);
 		}
 
-		if (typeof payload.shopDomain !== "string" || typeof payload.message !== "string") {
+		const parsedPayload = storefrontWidgetRequestSchema.safeParse(payload);
+
+		if (!parsedPayload.success) {
 			return new Response(
 				JSON.stringify({
-					error: "Widget chat requests require `shopDomain` and `message` string fields.",
+					error:
+						"Widget chat requests must include valid `shopDomain`, `message`, and `pageContext` fields.",
 				}),
 				{
 					status: 400,
@@ -612,11 +610,14 @@ http.route({
 			| undefined;
 		const response = await streamStorefrontWidgetReply(ctx, {
 			clientFingerprint:
-				typeof payload.clientFingerprint === "string" ? payload.clientFingerprint : undefined,
-			message: payload.message,
-			pageTitle: typeof payload.pageTitle === "string" ? payload.pageTitle : undefined,
-			sessionId: typeof payload.sessionId === "string" ? payload.sessionId : undefined,
-			shopDomain: payload.shopDomain,
+				typeof (payload as { clientFingerprint?: unknown }).clientFingerprint === "string"
+					? (payload as { clientFingerprint?: string }).clientFingerprint
+					: undefined,
+			message: parsedPayload.data.message,
+			pageContext: parsedPayload.data.pageContext,
+			pageTitle: parsedPayload.data.pageTitle,
+			sessionId: parsedPayload.data.sessionId,
+			shopDomain: parsedPayload.data.shopDomain,
 			viewerUserId: viewer?.id,
 		});
 

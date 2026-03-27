@@ -19,8 +19,7 @@
 	}
 
 	function fetchEventStream(url, options, handlers) {
-		var abortController =
-			typeof AbortController !== "undefined" ? new AbortController() : null;
+		var abortController = typeof AbortController !== "undefined" ? new AbortController() : null;
 		var mergedOptions = Object.assign({}, options);
 
 		if (abortController) {
@@ -234,12 +233,18 @@
 			image.src = card.imageUrl;
 
 			if (card.href) {
-				media = createElement("a", "storefront-ai-widget-card-media storefront-ai-widget-card-media--loading");
+				media = createElement(
+					"a",
+					"storefront-ai-widget-card-media storefront-ai-widget-card-media--loading",
+				);
 				media.href = card.href;
 				media.rel = "noopener noreferrer";
 				media.target = "_blank";
 			} else {
-				media = createElement("div", "storefront-ai-widget-card-media storefront-ai-widget-card-media--loading");
+				media = createElement(
+					"div",
+					"storefront-ai-widget-card-media storefront-ai-widget-card-media--loading",
+				);
 			}
 
 			image.addEventListener("load", function () {
@@ -573,6 +578,28 @@
 		} catch {}
 	}
 
+	function readOptionalDatasetValue(root, key) {
+		var value = root.dataset[key];
+
+		if (typeof value !== "string") {
+			return undefined;
+		}
+
+		value = value.trim();
+		return value ? value : undefined;
+	}
+
+	function buildPageContext(root) {
+		return {
+			canonicalUrl: readOptionalDatasetValue(root, "canonicalUrl"),
+			collectionHandle: readOptionalDatasetValue(root, "collectionHandle"),
+			collectionTitle: readOptionalDatasetValue(root, "collectionTitle"),
+			pageType: readOptionalDatasetValue(root, "pageType") || "unknown",
+			productHandle: readOptionalDatasetValue(root, "productHandle"),
+			productTitle: readOptionalDatasetValue(root, "productTitle"),
+		};
+	}
+
 	/* ─── Bootstrap ─── */
 
 	function bootstrapRoot(root) {
@@ -585,6 +612,8 @@
 		var apiBase = (root.dataset.apiBase || "").replace(/\/$/, "");
 		var shopDomain = root.dataset.shopDomain || "";
 		var isThemeEditor = root.dataset.themeEditor === "true";
+		var pageContext = buildPageContext(root);
+		var pageTitle = readOptionalDatasetValue(root, "pageTitle") || document.title || undefined;
 
 		if (!apiBase || !shopDomain) {
 			if (isThemeEditor) {
@@ -634,7 +663,11 @@
 		// Header
 		var header = createElement("div", "storefront-ai-widget-header");
 		var title = createElement("div", "storefront-ai-widget-title");
-		var heading = createElement("span", "storefront-ai-widget-heading", "Moonbeam Unicorn Concierge");
+		var heading = createElement(
+			"span",
+			"storefront-ai-widget-heading",
+			"Moonbeam Unicorn Concierge",
+		);
 
 		var headerActions = createElement("div", "storefront-ai-widget-header-actions");
 
@@ -759,7 +792,7 @@
 
 			return Boolean(
 				(cartDrawer && cartDrawer.classList.contains("active")) ||
-					(cartNotification && cartNotification.classList.contains("active")),
+				(cartNotification && cartNotification.classList.contains("active")),
 			);
 		}
 
@@ -951,9 +984,7 @@
 
 				if (session.sessionId === state.sessionId) {
 					button.classList.add("is-active");
-					row.appendChild(
-						createElement("span", "storefront-ai-widget-session-badge", "Current"),
-					);
+					row.appendChild(createElement("span", "storefront-ai-widget-session-badge", "Current"));
 				}
 
 				button.appendChild(row);
@@ -1510,7 +1541,7 @@
 			setCartVisible(detail ? Boolean(detail.open) : isCartUiOpen());
 		});
 
-			/* ─── Send message ─── */
+		/* ─── Send message ─── */
 
 		var activeStream = null;
 
@@ -1552,7 +1583,8 @@
 						{
 							body: JSON.stringify({
 								message: trimmedMessage,
-								pageTitle: document.title || undefined,
+								pageContext: pageContext,
+								pageTitle: pageTitle,
 								sessionId: state.sessionId,
 								shopDomain: shopDomain,
 							}),
@@ -1580,9 +1612,7 @@
 								var safeReply = reply || {};
 								streamingMessage.replace(safeReply);
 								renderSuggestions(
-									Array.isArray(safeReply.suggestedPrompts)
-										? safeReply.suggestedPrompts
-										: [],
+									Array.isArray(safeReply.suggestedPrompts) ? safeReply.suggestedPrompts : [],
 								);
 								scrollFeedToBottom();
 								void loadSessionList();
@@ -1624,9 +1654,7 @@
 					}
 					streamingMessage.remove();
 					addErrorMessage(
-						error instanceof Error
-							? error.message
-							: "Something went wrong. Please try again.",
+						error instanceof Error ? error.message : "Something went wrong. Please try again.",
 					);
 				})
 				.finally(function () {

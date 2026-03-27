@@ -1,3 +1,11 @@
+import { internal } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
+import {
+	internalMutation,
+	internalQuery,
+	type MutationCtx,
+	type QueryCtx,
+} from "@convex/_generated/server";
 import { v } from "convex/values";
 import type {
 	CartPlan,
@@ -16,14 +24,6 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 	DEFAULT_STOREFRONT_WIDGET_QUICK_PROMPTS,
 } from "@/shared/contracts/storefront-widget";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
-import {
-	internalMutation,
-	internalQuery,
-	type MutationCtx,
-	type QueryCtx,
-} from "./_generated/server";
 
 const SESSION_LIMIT = 12;
 const SESSION_WINDOW_MS = 1000 * 60 * 5;
@@ -113,6 +113,7 @@ type SessionRecord = Doc<"storefrontAiSessions"> & {
 		suggestedPrompts: string[];
 		tone: "answer" | "refusal";
 	};
+	openaiConversationId?: string;
 };
 
 type PolicyAnswerResult = {
@@ -322,19 +323,15 @@ async function queryCatalogRows(
 ) {
 	const searchTerm = normalizeSearchTerm(options.query);
 
-	if (searchTerm.length >= 2) {
-		return await ctx.db
-			.query("shopifyCatalogProducts")
-			.withSearchIndex("search_text", (query) =>
-				query.search("searchText", searchTerm).eq("shopId", options.shopId),
-			)
-			.take(options.limit);
+	if (searchTerm.length < 2) {
+		return [];
 	}
 
 	return await ctx.db
 		.query("shopifyCatalogProducts")
-		.withIndex("by_shop_and_source_updated_at", (query) => query.eq("shopId", options.shopId))
-		.order("desc")
+		.withSearchIndex("search_text", (query) =>
+			query.search("searchText", searchTerm).eq("shopId", options.shopId),
+		)
 		.take(options.limit);
 }
 
@@ -348,19 +345,15 @@ async function queryCollectionRows(
 ) {
 	const searchTerm = normalizeSearchTerm(options.query);
 
-	if (searchTerm.length >= 2) {
-		return await ctx.db
-			.query("shopifyCatalogCollections")
-			.withSearchIndex("search_text", (query) =>
-				query.search("searchText", searchTerm).eq("shopId", options.shopId),
-			)
-			.take(options.limit);
+	if (searchTerm.length < 2) {
+		return [];
 	}
 
 	return await ctx.db
 		.query("shopifyCatalogCollections")
-		.withIndex("by_shop_and_source_updated_at", (query) => query.eq("shopId", options.shopId))
-		.order("desc")
+		.withSearchIndex("search_text", (query) =>
+			query.search("searchText", searchTerm).eq("shopId", options.shopId),
+		)
 		.take(options.limit);
 }
 
@@ -484,6 +477,7 @@ export const getSessionState = internalQuery({
 					lastReply: session.lastReply ?? null,
 					lastReplyAt: session.lastReplyAt ?? null,
 					lastReplyOrder: session.lastReplyOrder ?? null,
+					openaiConversationId: session.openaiConversationId ?? null,
 					threadId: session.threadId,
 				}
 			: null;
@@ -494,6 +488,7 @@ export const upsertSessionThread = internalMutation({
 	args: {
 		clientFingerprint: v.optional(v.string()),
 		lastPromptPreview: v.optional(v.string()),
+		openaiConversationId: v.optional(v.string()),
 		sessionId: v.string(),
 		shopId: v.id("shops"),
 		threadId: v.string(),
@@ -513,6 +508,7 @@ export const upsertSessionThread = internalMutation({
 				clientFingerprint: args.clientFingerprint,
 				lastPromptAt: now,
 				lastPromptPreview: args.lastPromptPreview,
+				openaiConversationId: args.openaiConversationId,
 				threadId: args.threadId,
 				updatedAt: now,
 				viewerUserId: args.viewerUserId,
@@ -526,6 +522,7 @@ export const upsertSessionThread = internalMutation({
 			createdAt: now,
 			lastPromptAt: now,
 			lastPromptPreview: args.lastPromptPreview,
+			openaiConversationId: args.openaiConversationId,
 			sessionId: args.sessionId,
 			shopId: args.shopId,
 			threadId: args.threadId,
@@ -539,6 +536,7 @@ export const saveSessionReply = internalMutation({
 	args: {
 		clientFingerprint: v.optional(v.string()),
 		lastPromptPreview: v.optional(v.string()),
+		openaiConversationId: v.optional(v.string()),
 		reply: storefrontReplyValidator,
 		sessionId: v.string(),
 		shopId: v.id("shops"),
@@ -563,6 +561,7 @@ export const saveSessionReply = internalMutation({
 				lastReplyAt: now,
 				lastReplyOrder: args.threadOrder,
 				lastPromptAt: now,
+				openaiConversationId: args.openaiConversationId,
 				threadId: args.threadId,
 				updatedAt: now,
 				viewerUserId: args.viewerUserId,
@@ -576,6 +575,7 @@ export const saveSessionReply = internalMutation({
 				lastReply: args.reply,
 				lastReplyAt: now,
 				lastReplyOrder: args.threadOrder,
+				openaiConversationId: args.openaiConversationId,
 				sessionId: args.sessionId,
 				shopId: args.shopId,
 				threadId: args.threadId,
@@ -640,6 +640,23 @@ export const getProductDetail = internalQuery({
 			.unique()) as CatalogProductRecord | null;
 
 		return row ? toProductCard(row) : null;
+	},
+});
+
+export const getCollectionDetail = internalQuery({
+	args: {
+		handle: v.string(),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		const row = await ctx.db
+			.query("shopifyCatalogCollections")
+			.withIndex("by_shop_and_handle", (query) =>
+				query.eq("shopId", args.shopId).eq("handle", normalizeHandle(args.handle)),
+			)
+			.unique();
+
+		return row ? toCollectionCard(row) : null;
 	},
 });
 
@@ -712,7 +729,11 @@ export const answerPolicyQuestion = internalQuery({
 					})
 				: [];
 		const publicDocumentMatches = hydratedMatches.filter(
-			(row): row is HydratedPublicKnowledgeChunk & { document: Doc<"merchantDocuments"> } => {
+			(
+				row,
+			): row is HydratedPublicKnowledgeChunk & {
+				document: Doc<"merchantDocuments">;
+			} => {
 				const document = row.document;
 				return (
 					document !== null &&
@@ -789,40 +810,56 @@ export const answerPolicyQuestion = internalQuery({
 
 export const recommendBundle = internalQuery({
 	args: {
-		pageTitle: v.optional(v.string()),
+		anchorHandle: v.optional(v.string()),
 		query: v.string(),
 		shopId: v.id("shops"),
 	},
 	handler: async (ctx, args) => {
-		const seed = normalizeSearchTerm(args.query) || normalizeSearchTerm(args.pageTitle);
-		const initialRows = (await queryCatalogRows(ctx, {
-			limit: 4,
-			query: seed,
-			shopId: args.shopId,
-		})) as CatalogProductRecord[];
-		const anchor =
+		const normalizedAnchorHandle = args.anchorHandle ? normalizeHandle(args.anchorHandle) : null;
+		const seed = normalizeSearchTerm(args.query);
+		const anchor = normalizedAnchorHandle
+			? ((await ctx.db
+					.query("shopifyCatalogProducts")
+					.withIndex("by_shop_and_handle", (query) =>
+						query.eq("shopId", args.shopId).eq("handle", normalizedAnchorHandle),
+					)
+					.unique()) as CatalogProductRecord | null)
+			: null;
+		const initialRows =
+			anchor || seed.length >= 2
+				? ((await queryCatalogRows(ctx, {
+						limit: 4,
+						query: seed,
+						shopId: args.shopId,
+					})) as CatalogProductRecord[])
+				: [];
+		const anchorRow =
+			anchor ??
 			initialRows.find((row) => row.availableForSale && Boolean(getPrimaryVariant(row))) ??
 			initialRows.find((row) => Boolean(getPrimaryVariant(row))) ??
 			null;
 
-		if (!anchor) {
+		if (!anchorRow) {
 			return [];
 		}
 
-		const complementSeed = [anchor.vendor, anchor.productType, ...anchor.tags.slice(0, 2)]
+		const complementSeed = [anchorRow.vendor, anchorRow.productType, ...anchorRow.tags.slice(0, 2)]
 			.filter(Boolean)
 			.join(" ");
-		const complementRows = (await queryCatalogRows(ctx, {
-			limit: 6,
-			query: complementSeed || seed,
-			shopId: args.shopId,
-		})) as CatalogProductRecord[];
+		const complementRows =
+			complementSeed || seed
+				? ((await queryCatalogRows(ctx, {
+						limit: 6,
+						query: complementSeed || seed,
+						shopId: args.shopId,
+					})) as CatalogProductRecord[])
+				: [];
 		const bundleRows = dedupeProducts(
-			[anchor, ...complementRows, ...initialRows].filter(
-				(row) => row.handle !== anchor.handle || row === anchor,
+			[anchorRow, ...complementRows, ...initialRows].filter(
+				(row) => row.handle !== anchorRow.handle || row === anchorRow,
 			),
 		)
-			.filter((row) => row.handle === anchor.handle || Boolean(getPrimaryVariant(row)))
+			.filter((row) => row.handle === anchorRow.handle || Boolean(getPrimaryVariant(row)))
 			.slice(0, 3);
 
 		return bundleRows.map(toProductCard);
