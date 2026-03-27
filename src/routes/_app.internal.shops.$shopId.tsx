@@ -6,8 +6,8 @@ import {
 	DescriptionList,
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
-import { Text } from "@/components/ui/cata/text";
+import { Strong, Text } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -77,10 +77,9 @@ function InternalShopDetailRoute() {
 				</DescriptionList>
 			</div>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Installation</Subheading>
+			<Panel title="Installation">
 				{installation ? (
-					<DescriptionList className="mt-3">
+					<DescriptionList>
 						<DescriptionTerm>Status</DescriptionTerm>
 						<DescriptionDetails>{installation.status}</DescriptionDetails>
 						<DescriptionTerm>API version</DescriptionTerm>
@@ -93,15 +92,14 @@ function InternalShopDetailRoute() {
 						</DescriptionDetails>
 					</DescriptionList>
 				) : (
-					<Text className="mt-3">No installation record was found for this shop.</Text>
+					<Text>No installation record was found for this shop.</Text>
 				)}
-			</section>
+			</Panel>
 
-			<section className="grid gap-4">
-				<Subheading>Recent linked records</Subheading>
-
-				<div className="grid gap-3">
+			<Panel title="Recent linked records">
+				<div className="grid gap-3 sm:grid-cols-2">
 					<Button
+						className="justify-start"
 						href={
 							recentCacheStates[0]
 								? `/internal/cache/${recentCacheStates[0].id}`
@@ -109,9 +107,15 @@ function InternalShopDetailRoute() {
 						}
 						outline
 					>
-						{recentCacheStates[0] ? `Latest cache: ${recentCacheStates[0].cacheKey}` : "Open cache"}
+						<div className="min-w-0 text-left">
+							<Strong>Cache</Strong>
+							<Text className="truncate text-xs">
+								{recentCacheStates[0]?.cacheKey ?? "No records"}
+							</Text>
+						</div>
 					</Button>
 					<Button
+						className="justify-start"
 						href={
 							recentWorkflows[0]
 								? `/internal/workflows/${recentWorkflows[0].id}`
@@ -119,9 +123,15 @@ function InternalShopDetailRoute() {
 						}
 						outline
 					>
-						{recentWorkflows[0] ? `Latest workflow: ${recentWorkflows[0].type}` : "Open workflows"}
+						<div className="min-w-0 text-left">
+							<Strong>Workflows</Strong>
+							<Text className="truncate text-xs">
+								{recentWorkflows[0]?.type ?? "No records"}
+							</Text>
+						</div>
 					</Button>
 					<Button
+						className="justify-start"
 						href={
 							recentWebhookDeliveries[0]
 								? `/internal/webhooks/${recentWebhookDeliveries[0].id}`
@@ -129,11 +139,15 @@ function InternalShopDetailRoute() {
 						}
 						outline
 					>
-						{recentWebhookDeliveries[0]
-							? `Latest webhook: ${recentWebhookDeliveries[0].topic}`
-							: "Open webhooks"}
+						<div className="min-w-0 text-left">
+							<Strong>Webhooks</Strong>
+							<Text className="truncate text-xs">
+								{recentWebhookDeliveries[0]?.topic ?? "No records"}
+							</Text>
+						</div>
 					</Button>
 					<Button
+						className="justify-start"
 						href={
 							recentAiSessions[0]
 								? `/internal/ai-sessions/${recentAiSessions[0].id}`
@@ -141,12 +155,15 @@ function InternalShopDetailRoute() {
 						}
 						outline
 					>
-						{recentAiSessions[0]
-							? `Latest AI session: ${recentAiSessions[0].sessionId}`
-							: "Open AI sessions"}
+						<div className="min-w-0 text-left">
+							<Strong>AI sessions</Strong>
+							<Text className="truncate text-xs">
+								{recentAiSessions[0]?.sessionId ?? "No records"}
+							</Text>
+						</div>
 					</Button>
 				</div>
-			</section>
+			</Panel>
 		</ResourceDetailCard>
 	);
 }

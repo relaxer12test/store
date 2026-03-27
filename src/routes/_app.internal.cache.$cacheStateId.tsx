@@ -5,8 +5,9 @@ import {
 	DescriptionList,
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
+import { TextLink } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -65,12 +66,18 @@ function InternalCacheDetailRoute() {
 				<DescriptionDetails>{record.lastError ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Linked activity</Subheading>
-				<Text className="mt-3">
-					{`${recentWorkflows.length} recent workflow${recentWorkflows.length === 1 ? "" : "s"} and ${recentWebhookDeliveries.length} webhook deliver${recentWebhookDeliveries.length === 1 ? "y" : "ies"} for this shop.`}
+			<Panel title="Linked activity">
+				<Text>
+					<TextLink href="/internal/workflows">
+						{`${recentWorkflows.length} recent workflow${recentWorkflows.length === 1 ? "" : "s"}`}
+					</TextLink>
+					{" and "}
+					<TextLink href="/internal/webhooks">
+						{`${recentWebhookDeliveries.length} webhook deliver${recentWebhookDeliveries.length === 1 ? "y" : "ies"}`}
+					</TextLink>
+					{" for this shop."}
 				</Text>
-			</section>
+			</Panel>
 		</ResourceDetailCard>
 	);
 }

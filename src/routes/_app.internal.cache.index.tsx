@@ -4,7 +4,6 @@ import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import {
-	CodeValue,
 	formatTimestampLabel,
 	ResourcePageLayout,
 	ResourceTable,

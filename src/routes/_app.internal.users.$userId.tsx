@@ -6,8 +6,8 @@ import {
 	DescriptionList,
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -55,9 +55,9 @@ function InternalUserDetailRoute() {
 
 	if (!data) {
 		return (
-			<InternalDetailCard title="User detail unavailable">
+			<ResourceDetailCard title="User detail unavailable">
 				<EmptyState body="The selected Better Auth user could not be loaded." title="Unavailable" />
-			</InternalDetailCard>
+			</ResourceDetailCard>
 		);
 	}
 
@@ -65,10 +65,10 @@ function InternalUserDetailRoute() {
 	const nextRole = user.role === "admin" ? "user" : "admin";
 
 	return (
-		<InternalDetailCard title={user.name}>
+		<ResourceDetailCard title={user.name}>
 			<div className="flex flex-wrap items-center gap-2">
-				<InternalStatusValue value={user.role ?? "user"} />
-				<InternalStatusValue value={user.banned ? "banned" : "active"} />
+				<StatusValue value={user.role ?? "user"} />
+				<StatusValue value={user.banned ? "banned" : "active"} />
 			</div>
 
 			<DescriptionList>
@@ -76,15 +76,15 @@ function InternalUserDetailRoute() {
 				<DescriptionDetails>{user.email}</DescriptionDetails>
 				<DescriptionTerm>User id</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={user.id} />
+					<CodeValue value={user.id} />
 				</DescriptionDetails>
 				<DescriptionTerm>Created</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(user.createdAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(user.createdAt)}</DescriptionDetails>
 				<DescriptionTerm>Updated</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(user.updatedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(user.updatedAt)}</DescriptionDetails>
 				<DescriptionTerm>Active org</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={user.activeOrganizationId} />
+					<CodeValue value={user.activeOrganizationId} />
 				</DescriptionDetails>
 				<DescriptionTerm>Recent sessions</DescriptionTerm>
 				<DescriptionDetails>{String(user.sessionCount)}</DescriptionDetails>
@@ -107,46 +107,44 @@ function InternalUserDetailRoute() {
 				) : null}
 			</div>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Memberships</Subheading>
+			<Panel title="Memberships">
 				{user.memberships.length === 0 ? (
-					<Text className="mt-3">No Better Auth memberships were found for this user.</Text>
+					<Text>No Better Auth memberships were found for this user.</Text>
 				) : (
-					<ul className="mt-3 space-y-3">
+					<ul className="space-y-3">
 						{user.memberships.map((membership) => (
 							<li
-								className="rounded-2xl border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
 								key={membership.memberId}
 							>
 								<div className="flex flex-wrap items-center gap-2">
-									<InternalStatusValue value={membership.role ?? "member"} />
+									<StatusValue value={membership.role ?? "member"} />
 								</div>
 								<Text className="mt-2">{membership.shopDomain ?? "No linked shop"}</Text>
-								<InternalCodeValue value={membership.organizationId} />
+								<CodeValue value={membership.organizationId} />
 							</li>
 						))}
 					</ul>
 				)}
-			</section>
+			</Panel>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Recent sessions</Subheading>
+			<Panel title="Recent sessions">
 				{user.recentSessions.length === 0 ? (
-					<Text className="mt-3">No recent sessions were found for this user.</Text>
+					<Text>No recent sessions were found for this user.</Text>
 				) : (
-					<ul className="mt-3 space-y-3">
+					<ul className="space-y-3">
 						{user.recentSessions.map((session) => (
 							<li
-								className="rounded-2xl border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
 								key={session.id}
 							>
-								<Text>{formatInternalTimestamp(session.updatedAt)}</Text>
-								<InternalCodeValue value={session.id} />
+								<Text>{formatTimestampLabel(session.updatedAt)}</Text>
+								<CodeValue value={session.id} />
 							</li>
 						))}
 					</ul>
 				)}
-			</section>
-		</InternalDetailCard>
+			</Panel>
+		</ResourceDetailCard>
 	);
 }

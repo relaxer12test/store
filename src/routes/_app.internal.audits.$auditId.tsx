@@ -6,6 +6,7 @@ import {
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
 import { Text } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -58,18 +59,15 @@ function InternalAuditDetailRoute() {
 				<DescriptionDetails>{record.detail ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-500">
-					Payload JSON
-				</Text>
+			<Panel title="Payload">
 				{record.payloadJson ? (
-					<pre className="mt-3 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-zinc-700 dark:text-zinc-300">
+					<pre className="overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-zinc-700 dark:text-zinc-300">
 						{record.payloadJson}
 					</pre>
 				) : (
-					<Text className="mt-3">No structured payload was stored for this audit row.</Text>
+					<Text>No structured payload was stored for this audit row.</Text>
 				)}
-			</section>
+			</Panel>
 		</ResourceDetailCard>
 	);
 }

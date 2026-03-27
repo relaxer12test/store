@@ -5,8 +5,8 @@ import {
 	DescriptionList,
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -67,15 +67,14 @@ function InternalWorkflowDetailRoute() {
 				<DescriptionDetails>{record.error ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Workflow log</Subheading>
+			<Panel title="Workflow log">
 				{logs.length === 0 ? (
-					<Text className="mt-3">No workflow logs were recorded for this job.</Text>
+					<Text>No workflow logs were recorded for this job.</Text>
 				) : (
-					<ol className="mt-3 space-y-3">
+					<ol className="space-y-3">
 						{logs.map((log) => (
 							<li
-								className="rounded-2xl border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
 								key={`${log.createdAt}-${log.message}`}
 							>
 								<div className="flex flex-wrap items-center gap-2">
@@ -92,7 +91,7 @@ function InternalWorkflowDetailRoute() {
 						))}
 					</ol>
 				)}
-			</section>
+			</Panel>
 		</ResourceDetailCard>
 	);
 }

@@ -5,8 +5,8 @@ import {
 	DescriptionList,
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
-import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
+import { Panel } from "@/components/ui/layout";
 import { EmptyState } from "@/components/ui/feedback";
 import {
 	CodeValue,
@@ -65,15 +65,14 @@ function InternalWebhookDetailRoute() {
 				<DescriptionDetails>{record.error ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
 
-			<section className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-4 dark:border-white/10 dark:bg-zinc-800">
-				<Subheading>Payload previews</Subheading>
+			<Panel title="Payload previews">
 				{payloads.length === 0 ? (
-					<Text className="mt-3">No payload previews were stored for this delivery.</Text>
+					<Text>No payload previews were stored for this delivery.</Text>
 				) : (
-					<div className="mt-3 space-y-3">
+					<div className="space-y-3">
 						{payloads.map((payload) => (
 							<article
-								className="rounded-2xl border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
 								key={payload.id}
 							>
 								<Text className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -86,7 +85,7 @@ function InternalWebhookDetailRoute() {
 						))}
 					</div>
 				)}
-			</section>
+			</Panel>
 		</ResourceDetailCard>
 	);
 }

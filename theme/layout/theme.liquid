@@ -32,6 +32,46 @@
     <script src="{{ 'constants.js' | asset_url }}" defer="defer"></script>
     <script src="{{ 'pubsub.js' | asset_url }}" defer="defer"></script>
     <script src="{{ 'global.js' | asset_url }}" defer="defer"></script>
+    <script>
+      (function () {
+        if (typeof window.fetch !== 'function' || typeof window.Response !== 'function') return;
+
+        var nativeFetch = window.fetch;
+
+        function resolveUrl(input) {
+          if (typeof input === 'string') return input;
+          if (input && typeof input.url === 'string') return input.url;
+          return null;
+        }
+
+        window.fetch = function (input, init) {
+          var rawUrl = resolveUrl(input);
+
+          if (rawUrl) {
+            try {
+              var requestUrl = new URL(rawUrl, window.location.href);
+
+              if (
+                requestUrl.pathname === '/api/collect' &&
+                requestUrl.hostname === window.location.hostname
+              ) {
+                var method =
+                  (init && init.method) ||
+                  (input && typeof input.method === 'string' ? input.method : 'GET');
+
+                return Promise.resolve(
+                  new Response('', {
+                    status: method && method.toUpperCase() === 'OPTIONS' ? 204 : 200,
+                  })
+                );
+              }
+            } catch {}
+          }
+
+          return nativeFetch.apply(this, arguments);
+        };
+      })();
+    </script>
     {{ content_for_header }}
 
     {%- liquid
