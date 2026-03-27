@@ -19,7 +19,15 @@
 	}
 
 	function fetchEventStream(url, options, handlers) {
-		return fetch(url, options).then(function (response) {
+		var abortController =
+			typeof AbortController !== "undefined" ? new AbortController() : null;
+		var mergedOptions = Object.assign({}, options);
+
+		if (abortController) {
+			mergedOptions.signal = abortController.signal;
+		}
+
+		var promise = fetch(url, mergedOptions).then(function (response) {
 			if (!response.ok) {
 				return response.text().then(function (text) {
 					var data = null;
@@ -31,13 +39,13 @@
 					var message =
 						data && typeof data.error === "string"
 							? data.error
-							: "The storefront assistant could not respond.";
+							: "Something went wrong. Please try again.";
 					throw new Error(message);
 				});
 			}
 
 			if (!response.body) {
-				throw new Error("The storefront assistant did not return a stream.");
+				throw new Error("Something went wrong. Please try again.");
 			}
 
 			var reader = response.body.getReader();
@@ -102,6 +110,14 @@
 
 			return pump();
 		});
+
+		promise.abort = abortController
+			? function () {
+					abortController.abort();
+				}
+			: function () {};
+
+		return promise;
 	}
 
 	/* ─── DOM helpers ─── */
@@ -645,6 +661,7 @@
 		header.appendChild(headerActions);
 
 		// Sessions drawer
+		var sessionBackdrop = createElement("div", "storefront-ai-widget-session-backdrop");
 		var sessionPage = createElement("div", "storefront-ai-widget-session-page");
 		var sessionHandle = createElement("div", "storefront-ai-widget-session-handle");
 		var sessionHeader = createElement("div", "storefront-ai-widget-session-header");
@@ -701,6 +718,7 @@
 		panel.appendChild(header);
 		panel.appendChild(feed);
 		panel.appendChild(form);
+		panel.appendChild(sessionBackdrop);
 		panel.appendChild(sessionPage);
 		panel.appendChild(liveRegion);
 
@@ -788,8 +806,10 @@
 
 			if (showingSessions) {
 				sessionPage.classList.add("storefront-ai-widget-session-page--open");
+				sessionBackdrop.classList.add("storefront-ai-widget-session-backdrop--visible");
 			} else {
 				sessionPage.classList.remove("storefront-ai-widget-session-page--open");
+				sessionBackdrop.classList.remove("storefront-ai-widget-session-backdrop--visible");
 			}
 
 			suggestions.hidden = showingSessions || state.suggestionCount === 0;
@@ -973,6 +993,10 @@
 		/* ─── Auth ─── */
 
 		function ensureWidgetAuth() {
+			if (state.authToken) {
+				return Promise.resolve(state.authToken);
+			}
+
 			if (state.authPromise) {
 				return state.authPromise;
 			}
@@ -988,7 +1012,7 @@
 			})
 				.then(function (payload) {
 					if (!payload || typeof payload.token !== "string" || !payload.token) {
-						throw new Error("The storefront assistant could not establish an anonymous session.");
+						throw new Error("Could not connect. Please refresh the page and try again.");
 					}
 
 					state.authToken = payload.token;
@@ -1001,6 +1025,11 @@
 			return state.authPromise;
 		}
 
+		function clearAuthToken() {
+			state.authToken = null;
+			state.authPromise = null;
+		}
+
 		function fetchWidgetJson(path) {
 			return ensureWidgetAuth().then(function (token) {
 				return fetchJson(apiBase + path, {
@@ -1010,6 +1039,22 @@
 						Authorization: "Bearer " + token,
 					},
 					method: "GET",
+				}).catch(function (error) {
+					// Retry once on auth failure (token may have expired)
+					if (error && error.message && /401|unauthorized|expired/i.test(error.message)) {
+						clearAuthToken();
+						return ensureWidgetAuth().then(function (freshToken) {
+							return fetchJson(apiBase + path, {
+								credentials: "include",
+								headers: {
+									Accept: "application/json",
+									Authorization: "Bearer " + freshToken,
+								},
+								method: "GET",
+							});
+						});
+					}
+					throw error;
 				});
 			});
 		}
@@ -1380,6 +1425,9 @@
 			toggle.setAttribute("aria-label", "Open store assistant");
 			toggle.classList.remove("storefront-ai-widget-toggle--open");
 
+			// Abort any in-flight stream
+			abortActiveStream();
+
 			// Close sessions drawer if open
 			if (state.view === "sessions") {
 				setView("chat");
@@ -1462,7 +1510,16 @@
 			setCartVisible(detail ? Boolean(detail.open) : isCartUiOpen());
 		});
 
-		/* ─── Send message ─── */
+			/* ─── Send message ─── */
+
+		var activeStream = null;
+
+		function abortActiveStream() {
+			if (activeStream && typeof activeStream.abort === "function") {
+				activeStream.abort();
+				activeStream = null;
+			}
+		}
 
 		function sendMessage(messageText) {
 			var trimmedMessage = (messageText || input.value || "").trim();
@@ -1490,7 +1547,7 @@
 
 			return ensureWidgetAuth()
 				.then(function (token) {
-					return fetchEventStream(
+					var stream = fetchEventStream(
 						apiBase + "/api/shopify/widget/chat",
 						{
 							body: JSON.stringify({
@@ -1518,15 +1575,21 @@
 								scrollFeedToBottom();
 							},
 							done: function (reply) {
+								activeStream = null;
 								state.loadedSessionId = state.sessionId;
-								streamingMessage.replace(reply || {});
-								renderSuggestions((reply && reply.suggestedPrompts) || []);
+								var safeReply = reply || {};
+								streamingMessage.replace(safeReply);
+								renderSuggestions(
+									Array.isArray(safeReply.suggestedPrompts)
+										? safeReply.suggestedPrompts
+										: [],
+								);
 								scrollFeedToBottom();
 								void loadSessionList();
 
 								// Update ARIA live region
-								if (reply && reply.answer) {
-									liveRegion.textContent = reply.answer;
+								if (safeReply.answer) {
+									liveRegion.textContent = safeReply.answer;
 								}
 							},
 							tool: function (payload) {
@@ -1538,22 +1601,32 @@
 								scrollFeedToBottom();
 							},
 							error: function (payload) {
+								activeStream = null;
 								streamingMessage.remove();
 								addErrorMessage(
 									payload && typeof payload.message === "string"
 										? payload.message
-										: "The storefront assistant could not respond.",
+										: "Something went wrong. Please try again.",
 								);
 							},
 						},
 					);
+
+					activeStream = stream;
+					return stream;
 				})
 				.catch(function (error) {
+					activeStream = null;
+					// Silently ignore abort errors
+					if (error && error.name === "AbortError") {
+						streamingMessage.remove();
+						return;
+					}
 					streamingMessage.remove();
 					addErrorMessage(
 						error instanceof Error
 							? error.message
-							: "The storefront assistant could not respond.",
+							: "Something went wrong. Please try again.",
 					);
 				})
 				.finally(function () {
@@ -1596,6 +1669,13 @@
 		newChatButton.addEventListener("click", startNewChat);
 		sessionStartButton.addEventListener("click", startNewChat);
 
+		sessionBackdrop.addEventListener("click", function () {
+			setView("chat");
+			window.setTimeout(function () {
+				input.focus();
+			}, 0);
+		});
+
 		input.addEventListener("keydown", function (event) {
 			if (event.key !== "Enter" || event.isComposing) {
 				return;
@@ -1617,7 +1697,16 @@
 		/* ─── Initialize ─── */
 
 		fetchJson(apiBase + "/api/shopify/widget?shop=" + encodeURIComponent(shopDomain))
-			.then(function (config) {
+			.then(function (rawConfig) {
+				var config = rawConfig || {};
+				config.greeting = config.greeting || "Hi! How can I help you today?";
+				config.quickPrompts = Array.isArray(config.quickPrompts) ? config.quickPrompts : [];
+				config.knowledgeSources = Array.isArray(config.knowledgeSources)
+					? config.knowledgeSources
+					: [];
+				config.accentColor = config.accentColor || "#1a1a1a";
+				config.position = config.position || "bottom-right";
+				config.shopName = config.shopName || "";
 				state.config = config;
 
 				shell.classList.add(
