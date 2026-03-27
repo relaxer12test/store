@@ -103,28 +103,32 @@ function toCookieHeader(setCookieHeaders: string[]) {
 	return setCookieHeaders.map((cookie) => cookie.split(";", 1)[0]).join("; ");
 }
 
-function buildMerchantBridgeHeaders(request: Request, requestId: string) {
-	const headers = new Headers({
-		"content-type": "application/json",
-		[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
-		[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getAuthSecret(),
-	});
+function buildAuthPassthroughHeaders(request: Request, headers?: HeadersInit) {
+	const forwardedHeaders = new Headers(headers);
 
 	for (const headerName of BETTER_AUTH_IP_HEADERS) {
 		const headerValue = request.headers.get(headerName);
 
 		if (headerValue) {
-			headers.set(headerName, headerValue);
+			forwardedHeaders.set(headerName, headerValue);
 		}
 	}
 
 	const userAgent = request.headers.get("user-agent");
 
 	if (userAgent) {
-		headers.set("user-agent", userAgent);
+		forwardedHeaders.set("user-agent", userAgent);
 	}
 
-	return headers;
+	return forwardedHeaders;
+}
+
+function buildMerchantBridgeHeaders(request: Request, requestId: string) {
+	return buildAuthPassthroughHeaders(request, {
+		"content-type": "application/json",
+		[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
+		[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getAuthSecret(),
+	});
 }
 
 async function readResponseError(response: Response, fallbackMessage: string) {
@@ -233,9 +237,9 @@ http.route({
 		const tokenUrl = new URL("/api/auth/convex/token", request.url);
 		const tokenResponse = await auth.handler(
 			new Request(tokenUrl.toString(), {
-				headers: {
+				headers: buildAuthPassthroughHeaders(request, {
 					cookie: bridgeCookieHeader,
-				},
+				}),
 				method: "GET",
 			}),
 		);
