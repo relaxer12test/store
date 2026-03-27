@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
-import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
 import { Input } from "@/components/ui/cata/input";
 import { Text } from "@/components/ui/cata/text";
@@ -45,7 +45,10 @@ function ResetPasswordRoute() {
 			newPassword: "",
 		},
 		onSubmit: async ({ value }) => {
-			await resetMutation.mutateAsync(value);
+			await resetMutation
+				.mutateAsync(value)
+				.then(() => true)
+				.catch(() => false);
 		},
 	});
 
@@ -136,7 +139,9 @@ function ResetPasswordRoute() {
 
 				{resetMutation.error ? (
 					<div className="mt-4">
-						<ErrorMessage>{resetMutation.error.message}</ErrorMessage>
+						<Text className="text-red-600 dark:text-red-500" role="alert">
+							{resetMutation.error.message}
+						</Text>
 					</div>
 				) : null}
 			</form>

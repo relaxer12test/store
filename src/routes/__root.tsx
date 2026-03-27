@@ -10,10 +10,54 @@ import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
 import { resolveRequestSessionEnvelope } from "@/lib/auth-server";
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
+import type { SessionEnvelope } from "@/shared/contracts/session";
 import appCss from "@/styles.css?url";
 
-const shopifyApiKey = getOptionalShopifyApiKey();
 const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
+
+interface ShopifyAppBridgeDocumentConfig {
+	apiKey: string | null;
+	host: string | null;
+	shop: string | null;
+	shouldLoad: boolean;
+}
+
+function normalizeMyshopifyDomain(value: string | null) {
+	const trimmed = value?.trim().toLowerCase();
+
+	if (!trimmed || !/^[a-z0-9-]+\.myshopify\.com$/.test(trimmed)) {
+		return null;
+	}
+
+	return trimmed;
+}
+
+function resolveShopifyAppBridgeDocumentConfig({
+	searchStr,
+	session,
+}: {
+	searchStr: string;
+	session: SessionEnvelope;
+}): ShopifyAppBridgeDocumentConfig {
+	const apiKey = getOptionalShopifyApiKey() ?? null;
+	const searchParams = new URLSearchParams(searchStr);
+	const host = searchParams.get("host");
+	const shop =
+		normalizeMyshopifyDomain(searchParams.get("shop")) ??
+		normalizeMyshopifyDomain(session.activeShop?.domain ?? null);
+	const isEmbeddedRequest =
+		session.authMode === "embedded" ||
+		searchParams.get("embedded") === "1" ||
+		Boolean(host) ||
+		Boolean(shop);
+
+	return {
+		apiKey,
+		host,
+		shop,
+		shouldLoad: Boolean(apiKey && isEmbeddedRequest && shop),
+	};
+}
 
 function serializeInlineScript(value: unknown) {
 	return JSON.stringify(value)
@@ -23,7 +67,7 @@ function serializeInlineScript(value: unknown) {
 }
 
 export const Route = createRootRouteWithContext<AppRouterContext>()({
-	beforeLoad: async ({ context }) => {
+	beforeLoad: async ({ context, location }) => {
 		const currentSession = context.sessionManager.getState();
 		const session = isServer ? await resolveRequestSessionEnvelope() : currentSession;
 		context.setSession(session);
@@ -32,6 +76,10 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 			activeShop: session.activeShop,
 			roles: session.roles,
 			session,
+			shopifyAppBridge: resolveShopifyAppBridgeDocumentConfig({
+				searchStr: location.searchStr,
+				session,
+			}),
 			viewer: session.viewer,
 		};
 	},
@@ -47,14 +95,6 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 			{
 				title: "Growth Capital Shopify AI",
 			},
-			...(shopifyApiKey
-				? [
-						{
-							name: "shopify-api-key",
-							content: shopifyApiKey,
-						},
-					]
-				: []),
 		],
 		links: [
 			{
@@ -68,15 +108,27 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 
 function RootDocument({ children }: { children: React.ReactNode }) {
 	const context = Route.useRouteContext();
+	const { shopifyAppBridge } = context;
 
 	return (
 		<html lang="en">
 			<head>
 				<HeadContent />
+				{shopifyAppBridge.apiKey ? (
+					<meta content={shopifyAppBridge.apiKey} name="shopify-api-key" />
+				) : null}
+				{shopifyAppBridge.host ? (
+					<meta content={shopifyAppBridge.host} name="shopify-host" />
+				) : null}
+				{shopifyAppBridge.shop ? (
+					<meta content={shopifyAppBridge.shop} name="shopify-shop" />
+				) : null}
+				{shopifyAppBridge.shouldLoad ? (
+					<script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" />
+				) : null}
 				<ScriptOnce
 					children={`window.${INITIAL_SESSION_WINDOW_KEY} = ${serializeInlineScript(context.session)};`}
 				/>
-				{shopifyApiKey ? <script src="https://cdn.shopify.com/shopifycloud/app-bridge.js" /> : null}
 			</head>
 			<body className="antialiased">
 				<AppProviders

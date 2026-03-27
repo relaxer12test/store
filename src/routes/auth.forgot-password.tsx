@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
-import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
 import { Input } from "@/components/ui/cata/input";
 import { Text } from "@/components/ui/cata/text";
@@ -33,7 +33,15 @@ function ForgotPasswordRoute() {
 		},
 		onSubmit: async ({ value }) => {
 			const normalizedEmail = value.email.trim();
-			await resetMutation.mutateAsync(normalizedEmail);
+			const didRequestReset = await resetMutation
+				.mutateAsync(normalizedEmail)
+				.then(() => true)
+				.catch(() => false);
+
+			if (!didRequestReset) {
+				return;
+			}
+
 			void navigate({
 				to: "/auth/reset-sent",
 				search: { email: normalizedEmail },
@@ -86,7 +94,9 @@ function ForgotPasswordRoute() {
 
 				{resetMutation.error ? (
 					<div className="mt-4">
-						<ErrorMessage>{resetMutation.error.message}</ErrorMessage>
+						<Text className="text-red-600 dark:text-red-500" role="alert">
+							{resetMutation.error.message}
+						</Text>
 					</div>
 				) : null}
 			</form>

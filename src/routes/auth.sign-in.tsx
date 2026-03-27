@@ -2,7 +2,7 @@ import { useForm } from "@tanstack/react-form";
 import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
-import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
 import { Input } from "@/components/ui/cata/input";
 import { Text } from "@/components/ui/cata/text";
@@ -39,10 +39,18 @@ function SignInRoute() {
 			password: "",
 		},
 		onSubmit: async ({ value }) => {
-			await signInMutation.mutateAsync({
-				email: value.email.trim(),
-				password: value.password,
-			});
+			const didSignIn = await signInMutation
+				.mutateAsync({
+					email: value.email.trim(),
+					password: value.password,
+				})
+				.then(() => true)
+				.catch(() => false);
+
+			if (!didSignIn) {
+				return;
+			}
+
 			window.location.assign("/internal");
 		},
 	});
@@ -112,7 +120,9 @@ function SignInRoute() {
 
 				{signInMutation.error ? (
 					<div className="mt-4">
-						<ErrorMessage>{signInMutation.error.message}</ErrorMessage>
+						<Text className="text-red-600 dark:text-red-500" role="alert">
+							{signInMutation.error.message}
+						</Text>
 					</div>
 				) : null}
 			</form>
