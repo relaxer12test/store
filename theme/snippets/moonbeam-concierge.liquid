@@ -6,7 +6,8 @@
 {% unless request.design_mode %}
 <div
   class="storefront-ai-embed-root"
-  data-api-base="https://storeai.ldev.cloud"
+  data-api-base="{{ settings.storefront_ai_app_base_url | escape }}"
+  data-convex-base="{{ settings.storefront_ai_convex_base_url | escape }}"
   data-shop-domain="{{ shop.permanent_domain | default: shop.domain | escape }}"
   data-theme-editor="false"
 ></div>

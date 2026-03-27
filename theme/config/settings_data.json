@@ -1,12 +1,3 @@
-/*
- * ------------------------------------------------------------
- * IMPORTANT: The contents of this file are auto-generated.
- *
- * This file may be updated by the Shopify admin theme editor
- * or related systems. Please exercise caution as any changes
- * made to this file may be overwritten.
- * ------------------------------------------------------------
- */
 {
 	"current": {
 		"logo_width": 180,
@@ -154,9 +145,14 @@
 			"16337881580169983900": {
 				"type": "shopify://apps/ldevstore/blocks/storefront-ai-embed/019d2659-935e-77c2-8e8a-cfe09025a0cb",
 				"disabled": true,
-				"settings": {}
+				"settings": {
+					"app_base_url": "https://storeai.ldev.cloud",
+					"convex_base_url": "https://robust-bulldog-269.convex.site"
+				}
 			}
-		}
+		},
+		"storefront_ai_app_base_url": "https://storeai.ldev.cloud",
+		"storefront_ai_convex_base_url": "https://robust-bulldog-269.convex.site"
 	},
 	"presets": {
 		"Default": {

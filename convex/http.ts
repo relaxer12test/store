@@ -1,6 +1,6 @@
 import { api } from "@convex/_generated/api";
 import { httpAction } from "@convex/_generated/server";
-import { authComponent, createAuth, getAuthSecret } from "@convex/auth";
+import { authComponent, createAuth, getAuthSecret, getTrustedAuthOrigins } from "@convex/auth";
 import { resend } from "@convex/mail";
 import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 import { httpRouter } from "convex/server";
@@ -14,6 +14,11 @@ const PUBLIC_CORS_HEADERS = {
 	"Access-Control-Allow-Headers": "Content-Type",
 	"Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 	"Access-Control-Allow-Origin": "*",
+};
+const PRIVATE_CORS_ALLOWED_ORIGINS = new Set(getTrustedAuthOrigins());
+const PRIVATE_CORS_HEADERS = {
+	"Access-Control-Allow-Headers": "Authorization, Content-Type",
+	"Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 const SECONDS_TO_MS = 1000;
 
@@ -36,6 +41,22 @@ function withPublicCorsHeaders(headers?: HeadersInit) {
 
 	for (const [key, value] of Object.entries(PUBLIC_CORS_HEADERS)) {
 		mergedHeaders.set(key, value);
+	}
+
+	return mergedHeaders;
+}
+
+function withPrivateCorsHeaders(request: Request, headers?: HeadersInit) {
+	const mergedHeaders = new Headers(headers);
+	const origin = request.headers.get("origin");
+
+	for (const [key, value] of Object.entries(PRIVATE_CORS_HEADERS)) {
+		mergedHeaders.set(key, value);
+	}
+
+	if (origin && PRIVATE_CORS_ALLOWED_ORIGINS.has(origin)) {
+		mergedHeaders.set("Access-Control-Allow-Origin", origin);
+		mergedHeaders.append("Vary", "Origin");
 	}
 
 	return mergedHeaders;
@@ -116,6 +137,17 @@ authComponent.registerRoutes(http, createAuth, {
 
 http.route({
 	path: "/shopify/bootstrap",
+	method: "OPTIONS",
+	handler: httpAction(async (_ctx, request) => {
+		return new Response(null, {
+			headers: withPrivateCorsHeaders(request),
+			status: 204,
+		});
+	}),
+});
+
+http.route({
+	path: "/shopify/bootstrap",
 	method: "POST",
 	handler: httpAction(async (ctx, request) => {
 		const sessionToken = getBearerToken(request);
@@ -126,9 +158,9 @@ http.route({
 					error: "Missing Shopify session token.",
 				},
 				{
-					headers: {
+					headers: withPrivateCorsHeaders(request, {
 						"Cache-Control": "no-store",
-					},
+					}),
 					status: 401,
 				},
 			);
@@ -164,9 +196,9 @@ http.route({
 					),
 				},
 				{
-					headers: {
+					headers: withPrivateCorsHeaders(request, {
 						"Cache-Control": "no-store",
-					},
+					}),
 					status: bridgeResponse.status,
 				},
 			);
@@ -181,9 +213,9 @@ http.route({
 					error: "Merchant bootstrap completed without issuing a Better Auth session cookie.",
 				},
 				{
-					headers: {
+					headers: withPrivateCorsHeaders(request, {
 						"Cache-Control": "no-store",
-					},
+					}),
 					status: 500,
 				},
 			);
@@ -208,9 +240,9 @@ http.route({
 					),
 				},
 				{
-					headers: {
+					headers: withPrivateCorsHeaders(request, {
 						"Cache-Control": "no-store",
-					},
+					}),
 					status: tokenResponse.status,
 				},
 			);
@@ -227,9 +259,9 @@ http.route({
 					error: "Merchant bootstrap completed without issuing a Convex JWT.",
 				},
 				{
-					headers: {
+					headers: withPrivateCorsHeaders(request, {
 						"Cache-Control": "no-store",
-					},
+					}),
 					status: 500,
 				},
 			);
@@ -265,7 +297,7 @@ http.route({
 				roles,
 			},
 		};
-		const headers = new Headers({
+		const headers = withPrivateCorsHeaders(request, {
 			"Cache-Control": "no-store",
 			"Content-Type": "application/json",
 		});

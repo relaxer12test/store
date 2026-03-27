@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
@@ -12,15 +11,15 @@ function formatDatasetTimestamp(value: string) {
 	return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : value;
 }
 
-export function MerchantExplorerPage({ data }: { data: MerchantExplorerData }) {
-	const [activeDatasetKey, setActiveDatasetKey] = useState(data.datasets[0]?.key ?? "");
-
-	useEffect(() => {
-		if (!data.datasets.some((dataset) => dataset.key === activeDatasetKey)) {
-			setActiveDatasetKey(data.datasets[0]?.key ?? "");
-		}
-	}, [activeDatasetKey, data.datasets]);
-
+export function MerchantExplorerPage({
+	activeDatasetKey,
+	data,
+	onDatasetChange,
+}: {
+	activeDatasetKey: MerchantExplorerData["datasets"][number]["key"] | "";
+	data: MerchantExplorerData;
+	onDatasetChange: (dataset: MerchantExplorerData["datasets"][number]["key"]) => void;
+}) {
 	const activeDataset =
 		data.datasets.find((dataset) => dataset.key === activeDatasetKey) ?? data.datasets[0] ?? null;
 
@@ -42,7 +41,7 @@ export function MerchantExplorerPage({ data }: { data: MerchantExplorerData }) {
 							{...(dataset.key === activeDataset?.key
 								? { color: "dark/zinc" as const }
 								: { outline: true as const })}
-							onClick={() => setActiveDatasetKey(dataset.key)}
+							onClick={() => onDatasetChange(dataset.key)}
 						>
 							{dataset.title}
 						</Button>

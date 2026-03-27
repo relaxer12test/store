@@ -9,6 +9,8 @@ import {
 	NavbarSpacer,
 } from "@/components/ui/cata/navbar";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
+import { guestSession } from "@/lib/session-envelope";
 import { hasAdminSession } from "@/shared/contracts/session";
 
 export function AppNavbar() {
@@ -47,6 +49,7 @@ export function AppNavbar() {
 							startTransition(() => {
 								void (async () => {
 									await authClient.signOut();
+									persistAppConvexTokenCookie(guestSession);
 									window.location.assign("/");
 								})();
 							});

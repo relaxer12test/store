@@ -8,7 +8,7 @@ import {
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
-import { getSessionEnvelope } from "@/lib/auth-server";
+import { resolveRequestSessionEnvelope } from "@/lib/auth-server";
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
 import appCss from "@/styles.css?url";
 
@@ -25,8 +25,7 @@ function serializeInlineScript(value: unknown) {
 export const Route = createRootRouteWithContext<AppRouterContext>()({
 	beforeLoad: async ({ context }) => {
 		const currentSession = context.sessionManager.getState();
-		const session =
-			isServer || currentSession.authMode === "none" ? await getSessionEnvelope() : currentSession;
+		const session = isServer ? await resolveRequestSessionEnvelope() : currentSession;
 		context.setSession(session);
 
 		return {
@@ -83,8 +82,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<AppProviders
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
-					enableEmbeddedSessionBootstrap={context.sessionApi.enableEmbeddedSessionBootstrap}
-					ensureEmbeddedSession={context.sessionApi.ensureEmbeddedSession}
 					queryClient={context.queryClient}
 					sessionManager={context.sessionManager}
 				>

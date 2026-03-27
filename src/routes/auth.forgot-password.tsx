@@ -1,5 +1,6 @@
+import { useForm } from "@tanstack/react-form";
+import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
@@ -14,9 +15,31 @@ export const Route = createFileRoute("/auth/forgot-password")({
 
 function ForgotPasswordRoute() {
 	const navigate = useNavigate();
-	const [email, setEmail] = useState("");
-	const [error, setError] = useState<string | null>(null);
-	const [isPending, setIsPending] = useState(false);
+	const resetMutation = useMutation({
+		mutationFn: async (email: string) => {
+			const result = await authClient.requestPasswordReset({
+				email,
+				redirectTo: `${window.location.origin}/auth/reset-password`,
+			});
+
+			if (result.error) {
+				throw new Error(getAuthClientErrorMessage(result.error, "Failed to send reset link."));
+			}
+		},
+	});
+	const form = useForm({
+		defaultValues: {
+			email: "",
+		},
+		onSubmit: async ({ value }) => {
+			const normalizedEmail = value.email.trim();
+			await resetMutation.mutateAsync(normalizedEmail);
+			void navigate({
+				to: "/auth/reset-sent",
+				search: { email: normalizedEmail },
+			});
+		},
+	});
 
 	return (
 		<div className="w-full max-w-sm">
@@ -27,66 +50,43 @@ function ForgotPasswordRoute() {
 				className="mt-8"
 				onSubmit={async (event) => {
 					event.preventDefault();
-					if (isPending) return;
-					setError(null);
-					setIsPending(true);
-
-					const normalizedEmail = email.trim();
-
-					try {
-						const result = await authClient.requestPasswordReset({
-							email: normalizedEmail,
-							redirectTo: `${window.location.origin}/auth/reset-password`,
-						});
-
-						if (result.error) {
-							throw new Error(
-								getAuthClientErrorMessage(result.error, "Failed to send reset link."),
-							);
-						}
-
-						void navigate({
-							to: "/auth/reset-sent",
-							search: { email: normalizedEmail },
-						});
-					} catch (resetError) {
-						setError(
-							resetError instanceof Error ? resetError.message : "Failed to send reset link.",
-						);
-					} finally {
-						setIsPending(false);
-					}
+					await form.handleSubmit();
 				}}
 			>
 				<Fieldset>
 					<FieldGroup>
-						<Field>
-							<Label>Email address</Label>
-							<Input
-								autoComplete="email"
-								name="email"
-								placeholder="admin@example.com"
-								required
-								type="email"
-								value={email}
-								onChange={(event) => setEmail(event.currentTarget.value)}
-							/>
-						</Field>
+						<form.Field name="email">
+							{(field) => (
+								<Field>
+									<Label>Email address</Label>
+									<Input
+										autoComplete="email"
+										name={field.name}
+										onBlur={field.handleBlur}
+										onChange={(event) => field.handleChange(event.currentTarget.value)}
+										placeholder="admin@example.com"
+										required
+										type="email"
+										value={field.state.value}
+									/>
+								</Field>
+							)}
+						</form.Field>
 					</FieldGroup>
 				</Fieldset>
 
 				<div className="mt-6 flex items-center gap-3">
-					<Button color="dark/zinc" disabled={isPending} type="submit">
-						{isPending ? "Sending\u2026" : "Send reset link"}
+					<Button color="dark/zinc" disabled={resetMutation.isPending} type="submit">
+						{resetMutation.isPending ? "Sending\u2026" : "Send reset link"}
 					</Button>
 					<Button plain onClick={() => void navigate({ to: "/auth/sign-in" })} type="button">
 						Back to sign in
 					</Button>
 				</div>
 
-				{error ? (
+				{resetMutation.error ? (
 					<div className="mt-4">
-						<ErrorMessage>{error}</ErrorMessage>
+						<ErrorMessage>{resetMutation.error.message}</ErrorMessage>
 					</div>
 				) : null}
 			</form>

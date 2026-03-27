@@ -2,7 +2,9 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
 import { useSessionEnvelope } from "@/lib/auth-client";
-import { getSessionEnvelope } from "@/lib/auth-server";
+import { resolveRequestSessionEnvelope } from "@/lib/auth-server";
+import { refreshInternalSessionEnvelope } from "@/lib/direct-convex-auth";
+import { isServer } from "@/lib/env";
 import { hasAdminSession } from "@/shared/contracts/session";
 
 const internalNav: SurfaceNavItem[] = [
@@ -48,14 +50,18 @@ export const Route = createFileRoute("/_chrome/internal")({
 	beforeLoad: async ({ context }) => {
 		const currentSession = context.sessionManager.getState();
 		const session =
-			currentSession.authMode === "none" ? await getSessionEnvelope() : currentSession;
+			currentSession.authMode !== "none"
+				? currentSession
+				: isServer
+					? await resolveRequestSessionEnvelope()
+					: await refreshInternalSessionEnvelope();
 
 		context.setSession(session);
 
 		if (!hasAdminSession(session)) {
 			throw redirect({
 				to: "/auth/sign-in",
-			})
+			});
 		}
 	},
 	component: InternalLayoutRoute,
@@ -72,5 +78,5 @@ function InternalLayoutRoute() {
 			statusLabel={session.viewer?.name ?? (import.meta.env.DEV ? "Local dev" : "Admin shell")}
 			title="Internal diagnostics"
 		/>
-	)
+	);
 }

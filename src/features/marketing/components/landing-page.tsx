@@ -1,5 +1,4 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { Link, Navigate } from "@tanstack/react-router";
 import { Heading } from "@/components/ui/cata/heading";
 import { Strong, Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
@@ -8,21 +7,13 @@ import { useSessionEnvelope } from "@/lib/auth-client";
 import { hasEmbeddedMerchantSession } from "@/shared/contracts/session";
 
 export function LandingPage() {
-	const navigate = useNavigate();
 	const embeddedApp = useEmbeddedAppBootstrap();
 	const session = useSessionEnvelope();
 	const hasMerchantSession = hasEmbeddedMerchantSession(session);
 
-	useEffect(() => {
-		if (!embeddedApp.isEmbedded || !hasMerchantSession) {
-			return;
-		}
-
-		void navigate({
-			replace: true,
-			to: "/app",
-		});
-	}, [embeddedApp.isEmbedded, hasMerchantSession, navigate]);
+	if (embeddedApp.isEmbedded && hasMerchantSession) {
+		return <Navigate replace to="/app" />;
+	}
 
 	return (
 		<div className="mx-auto max-w-3xl px-5 py-16 lg:px-8 lg:py-24">

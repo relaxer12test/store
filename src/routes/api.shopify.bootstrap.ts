@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { buildConvexHttpActionUrl } from "@/lib/env";
+import { requestEmbeddedBootstrapSession } from "@/lib/direct-convex-auth";
 
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
@@ -133,17 +133,13 @@ export async function bootstrapShopifyMerchantSession(
 	}
 
 	try {
-		const fetchImpl = options?.fetchImpl ?? fetch;
-		const convexResponse = await fetchImpl(
-			buildConvexHttpActionUrl("/shopify/bootstrap", {
-				search: new URL(request.url).search,
-			}),
-			{
-				headers: request.headers,
-				method: "POST",
-				redirect: "manual",
-			},
-		);
+		const convexResponse = await requestEmbeddedBootstrapSession({
+			fetchImpl: options?.fetchImpl,
+			requestUrl: request.url,
+			referer: request.headers.get("referer"),
+			sessionToken,
+			userAgent: request.headers.get("user-agent"),
+		});
 
 		return new Response(convexResponse.body, {
 			headers: new Headers(convexResponse.headers),

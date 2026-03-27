@@ -1,25 +1,20 @@
 import { ConvexQueryClient } from "@convex-dev/react-query";
 import { QueryClient } from "@tanstack/react-query";
 import { createEmbeddedAppManager, type EmbeddedAppManager } from "@/integrations/app/embedded";
-import { getSessionEnvelope } from "@/lib/auth-server";
 import { hasFreshConvexToken } from "@/lib/convex-auth";
+import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
+import {
+	refreshInternalSessionEnvelope,
+	requestEmbeddedBootstrapSession,
+} from "@/lib/direct-convex-auth";
 import { getRequiredConvexDeploymentUrl, isServer } from "@/lib/env";
+import { guestSession } from "@/lib/session-envelope";
 import { hasEmbeddedMerchantSession, type SessionEnvelope } from "@/shared/contracts/session";
 
 type Listener = () => void;
 const CONVEX_TOKEN_REFRESH_BUFFER_MS = 1000 * 60;
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 const INITIAL_SESSION_WINDOW_KEY = "__GC_INITIAL_SESSION__";
-
-const guestSession: SessionEnvelope = {
-	authMode: "none",
-	state: "ready",
-	viewer: null,
-	activeShop: null,
-	roles: [],
-	convexToken: null,
-	convexTokenExpiresAt: null,
-};
 
 export interface SessionManager {
 	getState: () => SessionEnvelope;
@@ -38,7 +33,6 @@ export interface AppRouterContext {
 		getEmbeddedHeaders: () => Promise<Headers>;
 	};
 	sessionApi: {
-		enableEmbeddedSessionBootstrap: () => void;
 		ensureEmbeddedSession: (options?: { forceRefresh?: boolean }) => Promise<SessionEnvelope>;
 	};
 	sessionManager: SessionManager;
@@ -158,14 +152,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 	convexQueryClient.connect(queryClient);
 
 	let bootstrapPromise: Promise<SessionEnvelope> | null = null;
-	let canBootstrapEmbeddedSession = isServer;
-	let resolveBootstrapEnabled: (() => void) | null = null;
-	// Hold the first Convex auth lookup until the provider enables embedded bootstrap after mount.
-	const bootstrapEnabledPromise = isServer
-		? Promise.resolve()
-		: new Promise<void>((resolve) => {
-				resolveBootstrapEnabled = resolve;
-			});
+	const canBootstrapEmbeddedSession = true;
 	let sessionFingerprint: string | null = isServer ? null : getSessionFingerprint(initialSession);
 	const sessionManager = createSessionManager(initialSession);
 
@@ -178,6 +165,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		}
 
 		sessionFingerprint = nextFingerprint;
+		persistAppConvexTokenCookie(session);
 
 		if (isServer) {
 			if (!convexQueryClient.serverHttpClient) {
@@ -238,12 +226,9 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			}
 
 			try {
-				const response = await fetch("/api/shopify/bootstrap", {
-					method: "POST",
-					headers: mergeHeaders({
-						Accept: "application/json",
-						Authorization: `Bearer ${sessionToken}`,
-					}),
+				const response = await requestEmbeddedBootstrapSession({
+					requestUrl: window.location.href,
+					sessionToken,
 				});
 
 				if (!response.ok) {
@@ -299,16 +284,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 		return bootstrapPromise;
 	};
 
-	const enableEmbeddedSessionBootstrap = () => {
-		if (isServer || canBootstrapEmbeddedSession) {
-			return;
-		}
-
-		canBootstrapEmbeddedSession = true;
-		resolveBootstrapEnabled?.();
-		resolveBootstrapEnabled = null;
-	};
-
 	if (!isServer) {
 		convexQueryClient.convexClient.setAuth(async ({ forceRefreshToken }) => {
 			const currentSession = sessionManager.getState();
@@ -320,10 +295,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 				})
 			) {
 				return currentSession.convexToken;
-			}
-
-			if (!canBootstrapEmbeddedSession) {
-				await bootstrapEnabledPromise;
 			}
 
 			const refreshedSession = sessionManager.getState();
@@ -342,7 +313,7 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			});
 
 			if (session.authMode === "internal") {
-				const refreshedSession = await getSessionEnvelope();
+				const refreshedSession = await refreshInternalSessionEnvelope();
 				setSession(refreshedSession);
 
 				return refreshedSession.convexToken;
@@ -371,7 +342,6 @@ function createManagedAppRouterContext(): ManagedAppRouterContext {
 			getEmbeddedHeaders,
 		},
 		sessionApi: {
-			enableEmbeddedSessionBootstrap,
 			ensureEmbeddedSession,
 		},
 		sessionManager,

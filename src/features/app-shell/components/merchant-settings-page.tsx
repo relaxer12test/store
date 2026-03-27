@@ -1,6 +1,8 @@
 import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
+import type { Id } from "@convex/_generated/dataModel";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
 import { Description, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
@@ -22,7 +24,6 @@ import type {
 	ThemeAppEmbedStatus,
 } from "@/shared/contracts/merchant-settings";
 import type { MerchantKnowledgeDocumentsData } from "@/shared/contracts/merchant-workspace";
-import type { Id } from "../../../../convex/_generated/dataModel";
 
 function embedStatusTone(status: ThemeAppEmbedStatus) {
 	switch (status) {
@@ -106,23 +107,6 @@ export function MerchantSettingsPage({
 	);
 	const reprocessDocument = useConvexMutation(api.merchantDocuments.reprocessDocument);
 	const reprocessDocuments = useConvexMutation(api.merchantDocuments.reprocessDocuments);
-	const [enabled, setEnabled] = useState(data.widgetSettings.enabled);
-	const [greeting, setGreeting] = useState(data.widgetSettings.greeting);
-	const [position, setPosition] = useState(data.widgetSettings.position);
-	const [accentColor, setAccentColor] = useState(data.widgetSettings.accentColor);
-	const [knowledgeSources, setKnowledgeSources] = useState(
-		knowledgeSourcesToText(data.widgetSettings.knowledgeSources),
-	);
-	const [shippingPolicy, setShippingPolicy] = useState(data.widgetSettings.policyAnswers.shipping);
-	const [returnsPolicy, setReturnsPolicy] = useState(data.widgetSettings.policyAnswers.returns);
-	const [contactPolicy, setContactPolicy] = useState(data.widgetSettings.policyAnswers.contact);
-	const [documentTitle, setDocumentTitle] = useState("");
-	const [documentFileName, setDocumentFileName] = useState("");
-	const [documentVisibility, setDocumentVisibility] = useState<"public" | "shop_private">(
-		"shop_private",
-	);
-	const [documentContent, setDocumentContent] = useState("");
-	const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
 	const documentFileInputRef = useRef<HTMLInputElement | null>(null);
 	async function invalidateSettingsQueries() {
 		await Promise.all([
@@ -144,19 +128,51 @@ export function MerchantSettingsPage({
 			});
 		},
 	});
+	const widgetForm = useForm({
+		defaultValues: {
+			accentColor: data.widgetSettings.accentColor,
+			contactPolicy: data.widgetSettings.policyAnswers.contact,
+			enabled: data.widgetSettings.enabled,
+			greeting: data.widgetSettings.greeting,
+			knowledgeSources: knowledgeSourcesToText(data.widgetSettings.knowledgeSources),
+			position: data.widgetSettings.position,
+			returnsPolicy: data.widgetSettings.policyAnswers.returns,
+			shippingPolicy: data.widgetSettings.policyAnswers.shipping,
+		},
+		onSubmit: async ({ value }) => {
+			await saveMutation.mutateAsync({
+				accentColor: value.accentColor,
+				enabled: value.enabled,
+				greeting: value.greeting,
+				knowledgeSources: textToKnowledgeSources(value.knowledgeSources),
+				policyAnswers: {
+					contact: value.contactPolicy,
+					returns: value.returnsPolicy,
+					shipping: value.shippingPolicy,
+				},
+				position: value.position,
+			});
+		},
+	});
 	const uploadDocumentMutation = useMutation({
-		mutationFn: async () => {
-			if (selectedDocumentFile) {
+		mutationFn: async (value: {
+			content: string;
+			file: File | null;
+			fileName: string;
+			title: string;
+			visibility: "public" | "shop_private";
+		}) => {
+			if (value.file) {
 				const upload = await beginDocumentUpload({
-					fileName: selectedDocumentFile.name,
-					mimeType: selectedDocumentFile.type || undefined,
-					size: selectedDocumentFile.size,
+					fileName: value.file.name,
+					mimeType: value.file.type || undefined,
+					size: value.file.size,
 				});
 				const response = await fetch(upload.url, {
-					body: selectedDocumentFile,
-					headers: selectedDocumentFile.type
+					body: value.file,
+					headers: value.file.type
 						? {
-								"Content-Type": selectedDocumentFile.type,
+								"Content-Type": value.file.type,
 							}
 						: undefined,
 					method: "PUT",
@@ -167,32 +183,40 @@ export function MerchantSettingsPage({
 				}
 
 				return await finalizeDocumentUpload({
-					fileName: selectedDocumentFile.name,
+					fileName: value.file.name,
 					key: upload.key,
-					mimeType: selectedDocumentFile.type || undefined,
-					size: selectedDocumentFile.size,
-					title: documentTitle,
-					visibility: documentVisibility,
+					mimeType: value.file.type || undefined,
+					size: value.file.size,
+					title: value.title,
+					visibility: value.visibility,
 				});
 			}
 
 			return await uploadInlineDocument({
-				content: documentContent,
-				fileName: documentFileName || undefined,
-				title: documentTitle,
-				visibility: documentVisibility,
+				content: value.content,
+				fileName: value.fileName || undefined,
+				title: value.title,
+				visibility: value.visibility,
 			});
 		},
 		onSuccess: async () => {
-			setDocumentContent("");
-			setDocumentFileName("");
-			setDocumentTitle("");
-			setDocumentVisibility("shop_private");
-			setSelectedDocumentFile(null);
+			documentForm.reset();
 			if (documentFileInputRef.current) {
 				documentFileInputRef.current.value = "";
 			}
 			await invalidateSettingsQueries();
+		},
+	});
+	const documentForm = useForm({
+		defaultValues: {
+			content: "",
+			file: null as File | null,
+			fileName: "",
+			title: "",
+			visibility: "shop_private" as "public" | "shop_private",
+		},
+		onSubmit: async ({ value }) => {
+			await uploadDocumentMutation.mutateAsync(value);
 		},
 	});
 	const deleteDocumentMutation = useMutation({
@@ -219,17 +243,6 @@ export function MerchantSettingsPage({
 			await invalidateSettingsQueries();
 		},
 	});
-
-	useEffect(() => {
-		setEnabled(data.widgetSettings.enabled);
-		setGreeting(data.widgetSettings.greeting);
-		setPosition(data.widgetSettings.position);
-		setAccentColor(data.widgetSettings.accentColor);
-		setKnowledgeSources(knowledgeSourcesToText(data.widgetSettings.knowledgeSources));
-		setShippingPolicy(data.widgetSettings.policyAnswers.shipping);
-		setReturnsPolicy(data.widgetSettings.policyAnswers.returns);
-		setContactPolicy(data.widgetSettings.policyAnswers.contact);
-	}, [data]);
 
 	return (
 		<div className="grid gap-5">
@@ -340,19 +353,11 @@ export function MerchantSettingsPage({
 
 					<div className="mt-5 flex flex-wrap gap-3">
 						{data.extensionStatus.activationUrl ? (
-							<Button
-								color="dark/zinc"
-								href={data.extensionStatus.activationUrl}
-							>
+							<Button color="dark/zinc" href={data.extensionStatus.activationUrl}>
 								Open theme editor
 							</Button>
 						) : null}
-						<Button
-							outline
-							disabled={isRefreshing}
-							onClick={onRefresh}
-							type="button"
-						>
+						<Button outline disabled={isRefreshing} onClick={onRefresh} type="button">
 							{isRefreshing ? "Refreshing..." : "Refresh diagnostics"}
 						</Button>
 					</div>
@@ -365,11 +370,12 @@ export function MerchantSettingsPage({
 			>
 				<div className="grid gap-4 md:grid-cols-2">
 					{data.cacheHealth.caches.map((cache) => (
-						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800" key={cache.cacheKey}>
+						<div
+							className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800"
+							key={cache.cacheKey}
+						>
 							<div className="flex flex-wrap items-center gap-2">
-								<Subheading level={3}>
-									{cache.cacheKey.replaceAll("_", " ")}
-								</Subheading>
+								<Subheading level={3}>{cache.cacheKey.replaceAll("_", " ")}</Subheading>
 								<StatusPill tone={cacheStatusTone(cache.status)}>{cache.status}</StatusPill>
 							</div>
 							<Text>
@@ -377,20 +383,10 @@ export function MerchantSettingsPage({
 									? `${cache.recordCount} cached record(s) tracked.`
 									: "No record count has been written for this cache yet."}
 							</Text>
-							<Text>
-								Requested: {cache.lastRequestedAt ?? "n/a"}
-							</Text>
-							<Text>
-								Completed: {cache.lastCompletedAt ?? "n/a"}
-							</Text>
-							<Text>
-								Last webhook: {cache.lastWebhookAt ?? "n/a"}
-							</Text>
-							{cache.pendingReason ? (
-								<Text>
-									Reason: {cache.pendingReason}
-								</Text>
-							) : null}
+							<Text>Requested: {cache.lastRequestedAt ?? "n/a"}</Text>
+							<Text>Completed: {cache.lastCompletedAt ?? "n/a"}</Text>
+							<Text>Last webhook: {cache.lastWebhookAt ?? "n/a"}</Text>
+							{cache.pendingReason ? <Text>Reason: {cache.pendingReason}</Text> : null}
 							{cache.lastError ? (
 								<Text className="text-rose-700">Error: {cache.lastError}</Text>
 							) : null}
@@ -438,104 +434,137 @@ export function MerchantSettingsPage({
 					className="grid gap-5"
 					onSubmit={(event) => {
 						event.preventDefault();
-						saveMutation.mutate({
-							accentColor,
-							enabled,
-							greeting,
-							knowledgeSources: textToKnowledgeSources(knowledgeSources),
-							policyAnswers: {
-								contact: contactPolicy,
-								returns: returnsPolicy,
-								shipping: shippingPolicy,
-							},
-							position,
-						});
+						void widgetForm.handleSubmit();
 					}}
 				>
 					<Fieldset>
 						<FieldGroup>
-							<CheckboxField>
-								<Checkbox
-									checked={enabled}
-									onChange={setEnabled}
-								/>
-								<Label>{enabled ? "Widget enabled" : "Widget disabled"}</Label>
-								<Description>
-									Disable this if the app embed should stay installed but the storefront assistant
-									should stop rendering.
-								</Description>
-							</CheckboxField>
+							<widgetForm.Field name="enabled">
+								{(field) => (
+									<CheckboxField>
+										<Checkbox checked={field.state.value} onChange={field.handleChange} />
+										<Label>{field.state.value ? "Widget enabled" : "Widget disabled"}</Label>
+										<Description>
+											Disable this if the app embed should stay installed but the storefront
+											assistant should stop rendering.
+										</Description>
+									</CheckboxField>
+								)}
+							</widgetForm.Field>
 
 							<div className="grid gap-5 lg:grid-cols-2">
-								<Field>
-									<Label>Greeting</Label>
-									<Textarea
-										onChange={(event) => setGreeting(event.target.value)}
-										rows={4}
-										value={greeting}
-									/>
-								</Field>
-								<Field>
-									<Label>Public knowledge sources</Label>
-									<Textarea
-										onChange={(event) => setKnowledgeSources(event.target.value)}
-										placeholder={"Shipping policy\nReturns page\nCollections overview"}
-										rows={4}
-										value={knowledgeSources}
-									/>
-								</Field>
+								<widgetForm.Field name="greeting">
+									{(field) => (
+										<Field>
+											<Label>Greeting</Label>
+											<Textarea
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												rows={4}
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
+								<widgetForm.Field name="knowledgeSources">
+									{(field) => (
+										<Field>
+											<Label>Public knowledge sources</Label>
+											<Textarea
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder={"Shipping policy\nReturns page\nCollections overview"}
+												rows={4}
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
 							</div>
 
 							<div className="grid gap-5 lg:grid-cols-3">
-								<Field>
-									<Label>Shipping policy answer</Label>
-									<Textarea
-										onChange={(event) => setShippingPolicy(event.target.value)}
-										rows={4}
-										value={shippingPolicy}
-									/>
-								</Field>
-								<Field>
-									<Label>Returns policy answer</Label>
-									<Textarea
-										onChange={(event) => setReturnsPolicy(event.target.value)}
-										rows={4}
-										value={returnsPolicy}
-									/>
-								</Field>
-								<Field>
-									<Label>Contact policy answer</Label>
-									<Textarea
-										onChange={(event) => setContactPolicy(event.target.value)}
-										rows={4}
-										value={contactPolicy}
-									/>
-								</Field>
+								<widgetForm.Field name="shippingPolicy">
+									{(field) => (
+										<Field>
+											<Label>Shipping policy answer</Label>
+											<Textarea
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												rows={4}
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
+								<widgetForm.Field name="returnsPolicy">
+									{(field) => (
+										<Field>
+											<Label>Returns policy answer</Label>
+											<Textarea
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												rows={4}
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
+								<widgetForm.Field name="contactPolicy">
+									{(field) => (
+										<Field>
+											<Label>Contact policy answer</Label>
+											<Textarea
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												rows={4}
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
 							</div>
 
 							<div className="grid gap-5 md:grid-cols-2">
-								<Field>
-									<Label>Widget position</Label>
-									<Select
-										onChange={(event) =>
-											setPosition(
-												event.target.value as MerchantSettingsData["widgetSettings"]["position"],
-											)
-										}
-										value={position}
-									>
-										<option value="bottom-right">Bottom right</option>
-										<option value="bottom-left">Bottom left</option>
-									</Select>
-								</Field>
-								<Field>
-									<Label>Accent color</Label>
-									<Input
-										onChange={(event) => setAccentColor(event.target.value)}
-										placeholder="#0f172a"
-										value={accentColor}
-									/>
-								</Field>
+								<widgetForm.Field name="position">
+									{(field) => (
+										<Field>
+											<Label>Widget position</Label>
+											<Select
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) =>
+													field.handleChange(
+														event.target
+															.value as MerchantSettingsData["widgetSettings"]["position"],
+													)
+												}
+												value={field.state.value}
+											>
+												<option value="bottom-right">Bottom right</option>
+												<option value="bottom-left">Bottom left</option>
+											</Select>
+										</Field>
+									)}
+								</widgetForm.Field>
+								<widgetForm.Field name="accentColor">
+									{(field) => (
+										<Field>
+											<Label>Accent color</Label>
+											<Input
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder="#0f172a"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</widgetForm.Field>
 							</div>
 						</FieldGroup>
 					</Fieldset>
@@ -572,78 +601,102 @@ export function MerchantSettingsPage({
 					className="mt-6 grid gap-5"
 					onSubmit={(event) => {
 						event.preventDefault();
-						uploadDocumentMutation.mutate();
+						void documentForm.handleSubmit();
 					}}
 				>
 					<Fieldset>
 						<FieldGroup>
 							<div className="grid gap-5 lg:grid-cols-3">
-								<Field>
-									<Label>Document title</Label>
-									<Input
-										onChange={(event) => setDocumentTitle(event.target.value)}
-										placeholder="Returns SOP"
-										value={documentTitle}
-									/>
-								</Field>
-								<Field>
-									<Label>Inline file name</Label>
-									<Input
-										onChange={(event) => setDocumentFileName(event.target.value)}
-										placeholder="returns-sop.md"
-										value={documentFileName}
-									/>
-								</Field>
-								<Field>
-									<Label>Visibility</Label>
-									<Select
-										onChange={(event) =>
-											setDocumentVisibility(event.target.value as "public" | "shop_private")
-										}
-										value={documentVisibility}
-									>
-										<option value="shop_private">Shop private</option>
-										<option value="public">Public</option>
-									</Select>
-								</Field>
+								<documentForm.Field name="title">
+									{(field) => (
+										<Field>
+											<Label>Document title</Label>
+											<Input
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder="Returns SOP"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</documentForm.Field>
+								<documentForm.Field name="fileName">
+									{(field) => (
+										<Field>
+											<Label>Inline file name</Label>
+											<Input
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) => field.handleChange(event.target.value)}
+												placeholder="returns-sop.md"
+												value={field.state.value}
+											/>
+										</Field>
+									)}
+								</documentForm.Field>
+								<documentForm.Field name="visibility">
+									{(field) => (
+										<Field>
+											<Label>Visibility</Label>
+											<Select
+												name={field.name}
+												onBlur={field.handleBlur}
+												onChange={(event) =>
+													field.handleChange(event.target.value as "public" | "shop_private")
+												}
+												value={field.state.value}
+											>
+												<option value="shop_private">Shop private</option>
+												<option value="public">Public</option>
+											</Select>
+										</Field>
+									)}
+								</documentForm.Field>
 							</div>
 
-							<Field>
-								<Label>Upload a file</Label>
-								<input
-									accept=".pdf,.txt,.md,.markdown,.docx,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-									onChange={(event) => setSelectedDocumentFile(event.target.files?.[0] ?? null)}
-									ref={documentFileInputRef}
-									type="file"
-								/>
-								<Description>
-									If a file is selected, the pasted text field below is ignored.
-								</Description>
-								{selectedDocumentFile ? (
-									<StatusPill tone="accent">
-										{selectedDocumentFile.name} · {(selectedDocumentFile.size / 1024).toFixed(1)} KB
-									</StatusPill>
-								) : null}
-							</Field>
+							<documentForm.Field name="file">
+								{(field) => (
+									<Field>
+										<Label>Upload a file</Label>
+										<input
+											accept=".pdf,.txt,.md,.markdown,.docx,.csv,text/plain,text/markdown,text/csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+											onChange={(event) => field.handleChange(event.target.files?.[0] ?? null)}
+											ref={documentFileInputRef}
+											type="file"
+										/>
+										<Description>
+											If a file is selected, the pasted text field below is ignored.
+										</Description>
+										{field.state.value ? (
+											<StatusPill tone="accent">
+												{field.state.value.name} · {(field.state.value.size / 1024).toFixed(1)} KB
+											</StatusPill>
+										) : null}
+									</Field>
+								)}
+							</documentForm.Field>
 
-							<Field>
-								<Label>Inline document content</Label>
-								<Textarea
-									onChange={(event) => setDocumentContent(event.target.value)}
-									placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
-									rows={6}
-									value={documentContent}
-								/>
-							</Field>
+							<documentForm.Field name="content">
+								{(field) => (
+									<Field>
+										<Label>Inline document content</Label>
+										<Textarea
+											name={field.name}
+											onBlur={field.handleBlur}
+											onChange={(event) => field.handleChange(event.target.value)}
+											placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
+											rows={6}
+											value={field.state.value}
+										/>
+									</Field>
+								)}
+							</documentForm.Field>
 						</FieldGroup>
 					</Fieldset>
 
 					<div className="flex flex-wrap items-center gap-3">
-						<Button
-							color="dark/zinc"
-							disabled={uploadDocumentMutation.isPending}
-							type="submit"
-						>
+						<Button color="dark/zinc" disabled={uploadDocumentMutation.isPending} type="submit">
 							{uploadDocumentMutation.isPending ? "Uploading..." : "Upload or index document"}
 						</Button>
 						{uploadDocumentMutation.error ? (

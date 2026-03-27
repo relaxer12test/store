@@ -9,6 +9,8 @@ import {
 	SidebarSection,
 } from "@/components/ui/cata/sidebar";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { persistAppConvexTokenCookie } from "@/lib/convex-session-bridge";
+import { guestSession } from "@/lib/session-envelope";
 import { hasAdminSession } from "@/shared/contracts/session";
 
 export function AppSidebar() {
@@ -54,6 +56,7 @@ export function AppSidebar() {
 									startTransition(() => {
 										void (async () => {
 											await authClient.signOut();
+											persistAppConvexTokenCookie(guestSession);
 											window.location.assign("/");
 										})();
 									});

@@ -1,6 +1,6 @@
 import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
+import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { Field, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Text } from "@/components/ui/cata/text";
@@ -35,64 +35,72 @@ async function refreshConversationState(queryClient: ReturnType<typeof useQueryC
 }
 
 export function MerchantCopilotPage({
-	initialConversation,
+	conversation,
 }: {
-	initialConversation: MerchantCopilotConversation;
+	conversation: MerchantCopilotConversation;
 }) {
 	const queryClient = useQueryClient();
 	const requestCopilot = useConvexAction(api.merchantWorkspace.askCopilot);
 	const approveAction = useConvexAction(api.merchantWorkspace.approveAction);
 	const rejectAction = useConvexMutation(api.merchantWorkspace.rejectAction);
-	const [conversation, setConversation] = useState(initialConversation);
-	const [prompt, setPrompt] = useState("");
-	const [activeApprovalId, setActiveApprovalId] = useState<string | null>(null);
+	const form = useForm({
+		defaultValues: {
+			prompt: "",
+		},
+		onSubmit: async ({ value }) => {
+			const normalizedPrompt = value.prompt.trim();
+
+			if (normalizedPrompt.length < 4) {
+				return;
+			}
+
+			await askMutation.mutateAsync({
+				conversationId:
+					(conversation.conversationId as Id<"merchantCopilotConversations"> | null) ?? undefined,
+				prompt: normalizedPrompt,
+			});
+			form.reset();
+		},
+	});
 	const askMutation = useMutation({
 		mutationFn: requestCopilot,
 		onSuccess: async (nextConversation) => {
-			setConversation(nextConversation);
 			queryClient.setQueryData(merchantCopilotStateQuery.queryKey, nextConversation);
 			await invalidateMerchantWorkspaceQueries(queryClient);
 		},
 	});
 	const approveMutation = useMutation({
 		mutationFn: approveAction,
-		onMutate: ({ approvalId }) => {
-			setActiveApprovalId(approvalId);
-		},
 		onSuccess: async () => {
 			await invalidateMerchantWorkspaceQueries(queryClient);
-			setConversation(await refreshConversationState(queryClient));
-		},
-		onSettled: () => {
-			setActiveApprovalId(null);
+			queryClient.setQueryData(
+				merchantCopilotStateQuery.queryKey,
+				await refreshConversationState(queryClient),
+			);
 		},
 	});
 	const rejectMutation = useMutation({
 		mutationFn: rejectAction,
-		onMutate: ({ approvalId }) => {
-			setActiveApprovalId(approvalId);
-		},
 		onSuccess: async () => {
 			await invalidateMerchantWorkspaceQueries(queryClient);
-			setConversation(await refreshConversationState(queryClient));
-		},
-		onSettled: () => {
-			setActiveApprovalId(null);
+			queryClient.setQueryData(
+				merchantCopilotStateQuery.queryKey,
+				await refreshConversationState(queryClient),
+			);
 		},
 	});
-
-	useEffect(() => {
-		setConversation(initialConversation);
-	}, [initialConversation]);
-
-	function submitPrompt(nextPrompt = prompt) {
+	const activeApprovalId = approveMutation.isPending
+		? (approveMutation.variables?.approvalId ?? null)
+		: rejectMutation.isPending
+			? (rejectMutation.variables?.approvalId ?? null)
+			: null;
+	function submitPrompt(nextPrompt: string) {
 		const normalizedPrompt = nextPrompt.trim();
 
 		if (normalizedPrompt.length < 4) {
 			return;
 		}
 
-		setPrompt("");
 		askMutation.mutate({
 			conversationId:
 				(conversation.conversationId as Id<"merchantCopilotConversations"> | null) ?? undefined,
@@ -120,18 +128,24 @@ export function MerchantCopilotPage({
 						<form
 							onSubmit={(event) => {
 								event.preventDefault();
-								submitPrompt();
+								void form.handleSubmit();
 							}}
 						>
-							<Field>
-								<Label>Ask an operational question</Label>
-								<Textarea
-									onChange={(event) => setPrompt(event.target.value)}
-									placeholder='Show me low-stock items, summarize the returns SOP, or draft an approval to pause "Unicorn Sparkle Backpack".'
-									rows={4}
-									value={prompt}
-								/>
-							</Field>
+							<form.Field name="prompt">
+								{(field) => (
+									<Field>
+										<Label>Ask an operational question</Label>
+										<Textarea
+											name={field.name}
+											onBlur={field.handleBlur}
+											onChange={(event) => field.handleChange(event.target.value)}
+											placeholder='Show me low-stock items, summarize the returns SOP, or draft an approval to pause "Unicorn Sparkle Backpack".'
+											rows={4}
+											value={field.state.value}
+										/>
+									</Field>
+								)}
+							</form.Field>
 
 							<div className="mt-4 flex flex-wrap items-center gap-3">
 								<Button color="dark/zinc" disabled={isWorking} type="submit">

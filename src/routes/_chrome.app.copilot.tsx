@@ -20,5 +20,5 @@ export const Route = createFileRoute("/_chrome/app/copilot")({
 function MerchantCopilotRoute() {
 	const { data } = useMerchantCopilotState();
 
-	return <MerchantCopilotPage initialConversation={data} />;
+	return <MerchantCopilotPage conversation={data} />;
 }

@@ -9,7 +9,8 @@ Embedded Shopify app and storefront AI assistant built with TanStack Start, Conv
 - `extensions/storefront-ai/`: theme app embed that mounts the shopper-facing assistant on the Online Store.
 - `theme/`: custom Shopify theme source that is pushed directly to the live theme.
 - `wrangler.jsonc`: Cloudflare Workers deployment for `storeai.ldev.cloud`.
-- `shopify.app.toml`: embedded Shopify app config and webhook subscriptions.
+- `shopify.app.toml`: template Shopify app config. Real deploy values are rendered from env before `shopify app deploy`.
+- `scripts/render-shopify-deploy-config.mjs`: renders a deploy-specific Shopify config from env so webhook and app URLs are not committed as fixed hosts.
 
 ### Runtime shape
 
@@ -91,6 +92,7 @@ npm run convex:dev
 ### Convex / server-only
 
 - `SHOPIFY_APP_URL`
+- `SHOPIFY_WEBHOOK_URI` (optional explicit webhook target; otherwise derived from `CONVEX_SITE_URL` or `VITE_CONVEX_SITE_URL`)
 - `SHOPIFY_API_KEY`
 - `SHOPIFY_API_SECRET`
 - `BETTER_AUTH_SECRET`
@@ -128,6 +130,10 @@ Shopify app configuration plus theme app extension with
 `shopify app deploy --force`, and then pushes the custom `/theme` directory to the live theme with
 `shopify theme push --path theme --live --allow-live`.
 
+`npm run shopify:deploy` first renders `shopify.app.deploy.toml` from the current environment so
+`SHOPIFY_APP_URL` and the Shopify webhook target stay configurable per deployment. The checked-in
+`shopify.app.toml` is only a template and intentionally does not contain a real environment URL.
+
 If you only need to push the Worker runtime without releasing a Shopify app version,
 use:
 
@@ -144,6 +150,9 @@ npm run theme:deploy
 After `shopify app deploy`, open the embedded app in Shopify admin, go to
 `/app/settings`, use the `Open theme editor` action in the `Storefront embed status`
 panel, enable the `storefront-ai` app embed on the live theme, and save the theme.
+Set the storefront widget hosts through configuration, not source edits:
+- `App base URL` / `storefront_ai_app_base_url`: app host that serves `storefront-ai-widget-runtime.js`
+- `Convex base URL` / `storefront_ai_convex_base_url`: Convex site URL for direct widget config/chat requests
 
 ## Quality and security posture
 

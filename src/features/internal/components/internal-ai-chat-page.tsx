@@ -1,5 +1,5 @@
 import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue } from "react";
 import {
 	DescriptionDetails,
 	DescriptionList,
@@ -70,11 +70,19 @@ function getReplyTone(tone: "answer" | "refusal" | null) {
 	}
 }
 
-export function InternalAiChatPage() {
+export function InternalAiChatPage({
+	onSearchChange,
+	onSessionChange,
+	searchQuery,
+	selectedSessionId,
+}: {
+	onSearchChange: (query: string) => void;
+	onSessionChange: (sessionId: string) => void;
+	searchQuery: string;
+	selectedSessionId: string | null;
+}) {
 	const { data: sessionsData } = useSuspenseQuery(internalStorefrontAiSessionsQuery);
-	const [searchValue, setSearchValue] = useState("");
-	const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
-	const deferredSearchValue = useDeferredValue(searchValue);
+	const deferredSearchValue = useDeferredValue(searchQuery);
 	const normalizedSearch = deferredSearchValue.trim().toLowerCase();
 	const filteredSessions = sessionsData.sessions.filter((session) => {
 		if (normalizedSearch.length === 0) {
@@ -102,17 +110,6 @@ export function InternalAiChatPage() {
 		placeholderData: (previousData) => previousData ?? null,
 	});
 
-	useEffect(() => {
-		if (
-			selectedSessionId &&
-			sessionsData.sessions.some((session) => session.id === selectedSessionId)
-		) {
-			return;
-		}
-
-		setSelectedSessionId(sessionsData.sessions[0]?.id ?? null);
-	}, [selectedSessionId, sessionsData.sessions]);
-
 	return (
 		<div className="grid gap-5 xl:grid-cols-[22rem_minmax(0,1fr)]">
 			<Panel
@@ -126,9 +123,9 @@ export function InternalAiChatPage() {
 
 				<div className="mt-5">
 					<Input
-						onChange={(event) => setSearchValue(event.target.value)}
+						onChange={(event) => onSearchChange(event.target.value)}
 						placeholder="Search sessions"
-						value={searchValue}
+						value={searchQuery}
 					/>
 				</div>
 
@@ -152,7 +149,7 @@ export function InternalAiChatPage() {
 											: "border-zinc-950/5 bg-zinc-50 text-zinc-900 hover:border-zinc-300 hover:bg-white dark:border-white/10 dark:bg-zinc-800 dark:text-zinc-100 dark:hover:border-white/20"
 									}`}
 									key={session.id}
-									onClick={() => setSelectedSessionId(session.id)}
+									onClick={() => onSessionChange(session.id)}
 									type="button"
 								>
 									<div className="flex flex-wrap items-center gap-2">
@@ -176,18 +173,32 @@ export function InternalAiChatPage() {
 
 									<div className="mt-3">
 										<p className="font-semibold">{session.shopName}</p>
-										<p className={`text-sm ${isSelected ? "text-white/70" : "text-zinc-500 dark:text-zinc-400"}`}>
+										<p
+											className={`text-sm ${isSelected ? "text-white/70" : "text-zinc-500 dark:text-zinc-400"}`}
+										>
 											{session.shopDomain}
 										</p>
 									</div>
 
 									<div className="mt-4 space-y-3 text-sm leading-6">
 										<div>
-											<p className={isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"}>Prompt</p>
+											<p
+												className={
+													isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"
+												}
+											>
+												Prompt
+											</p>
 											<p>{session.lastPromptPreview ?? "No prompt preview recorded."}</p>
 										</div>
 										<div>
-											<p className={isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"}>Reply</p>
+											<p
+												className={
+													isSelected ? "text-white/60" : "text-zinc-500 dark:text-zinc-400"
+												}
+											>
+												Reply
+											</p>
 											<p>{session.lastReplyPreview ?? "No assistant reply recorded yet."}</p>
 										</div>
 									</div>
@@ -249,9 +260,13 @@ export function InternalAiChatPage() {
 								<DescriptionTerm>Shop</DescriptionTerm>
 								<DescriptionDetails>{`${transcript.data.shopName} (${transcript.data.shopDomain})`}</DescriptionDetails>
 								<DescriptionTerm>Session id</DescriptionTerm>
-								<DescriptionDetails className="break-all font-mono text-xs">{transcript.data.sessionId}</DescriptionDetails>
+								<DescriptionDetails className="break-all font-mono text-xs">
+									{transcript.data.sessionId}
+								</DescriptionDetails>
 								<DescriptionTerm>Thread id</DescriptionTerm>
-								<DescriptionDetails className="break-all font-mono text-xs">{transcript.data.threadId}</DescriptionDetails>
+								<DescriptionDetails className="break-all font-mono text-xs">
+									{transcript.data.threadId}
+								</DescriptionDetails>
 								<DescriptionTerm>Thread title</DescriptionTerm>
 								<DescriptionDetails>{transcript.data.threadTitle ?? "n/a"}</DescriptionDetails>
 								<DescriptionTerm>Thread user key</DescriptionTerm>
@@ -263,13 +278,21 @@ export function InternalAiChatPage() {
 									{transcript.data.clientFingerprint ?? "n/a"}
 								</DescriptionDetails>
 								<DescriptionTerm>Created</DescriptionTerm>
-								<DescriptionDetails>{formatTimestampLabel(transcript.data.createdAt)}</DescriptionDetails>
+								<DescriptionDetails>
+									{formatTimestampLabel(transcript.data.createdAt)}
+								</DescriptionDetails>
 								<DescriptionTerm>Updated</DescriptionTerm>
-								<DescriptionDetails>{formatTimestampLabel(transcript.data.updatedAt)}</DescriptionDetails>
+								<DescriptionDetails>
+									{formatTimestampLabel(transcript.data.updatedAt)}
+								</DescriptionDetails>
 								<DescriptionTerm>Last prompt</DescriptionTerm>
-								<DescriptionDetails>{formatTimestampLabel(transcript.data.lastPromptAt)}</DescriptionDetails>
+								<DescriptionDetails>
+									{formatTimestampLabel(transcript.data.lastPromptAt)}
+								</DescriptionDetails>
 								<DescriptionTerm>Last reply</DescriptionTerm>
-								<DescriptionDetails>{formatTimestampLabel(transcript.data.lastReplyAt)}</DescriptionDetails>
+								<DescriptionDetails>
+									{formatTimestampLabel(transcript.data.lastReplyAt)}
+								</DescriptionDetails>
 								<DescriptionTerm>Cards in last reply</DescriptionTerm>
 								<DescriptionDetails>{transcript.data.lastCardCount}</DescriptionDetails>
 								<DescriptionTerm>Cart items in last plan</DescriptionTerm>
@@ -349,9 +372,7 @@ export function InternalAiChatPage() {
 										{message.model ? <StatusPill tone="neutral">{message.model}</StatusPill> : null}
 									</div>
 
-									<Text className="mt-4 whitespace-pre-wrap">
-										{message.body}
-									</Text>
+									<Text className="mt-4 whitespace-pre-wrap">{message.body}</Text>
 
 									{message.error ? (
 										<Text className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-800">

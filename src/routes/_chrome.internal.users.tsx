@@ -1,5 +1,5 @@
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState, useTransition } from "react";
 import { Button } from "@/components/ui/cata/button";
 import {
 	DescriptionDetails,
@@ -37,16 +37,10 @@ export const Route = createFileRoute("/_chrome/internal/users")({
 
 function InternalUsersRoute() {
 	const session = useSessionEnvelope();
-	const [users, setUsers] = useState<ManagedUser[]>([]);
-	const [error, setError] = useState<string | null>(null);
-	const [isLoading, setIsLoading] = useState(true);
-	const [isPending, startTransition] = useTransition();
-
-	const loadUsers = async () => {
-		setError(null);
-		setIsLoading(true);
-
-		try {
+	const queryClient = useQueryClient();
+	const usersQuery = useQuery({
+		queryKey: ["better-auth", "users"],
+		queryFn: async (): Promise<ManagedUser[]> => {
 			const result = await authClient.admin.listUsers({
 				query: {
 					limit: 100,
@@ -61,23 +55,26 @@ function InternalUsersRoute() {
 				);
 			}
 
-			const nextUsers = Array.isArray(result.data)
+			return Array.isArray(result.data)
 				? result.data
 				: ((result.data?.users ?? []) as ManagedUser[]);
+		},
+	});
+	const setRoleMutation = useMutation({
+		mutationFn: async (args: { role: "admin" | "user"; userId: string }) => {
+			const result = await authClient.admin.setRole(args);
 
-			setUsers(nextUsers);
-		} catch (loadError) {
-			setError(
-				loadError instanceof Error ? loadError.message : "Failed to load Better Auth users.",
-			);
-		} finally {
-			setIsLoading(false);
-		}
-	};
-
-	useEffect(() => {
-		void loadUsers();
-	}, []);
+			if (result.error) {
+				throw new Error(getAuthClientErrorMessage(result.error, "Failed to update the user role."));
+			}
+		},
+		onSuccess: async () => {
+			await queryClient.invalidateQueries({
+				queryKey: ["better-auth", "users"],
+			});
+		},
+	});
+	const users = usersQuery.data ?? [];
 
 	const adminCount = users.filter((user) => user.role === "admin").length;
 
@@ -91,25 +88,29 @@ function InternalUsersRoute() {
 					<StatusPill tone="accent">{`${adminCount} admin${adminCount === 1 ? "" : "s"}`}</StatusPill>
 					<StatusPill tone="neutral">{`${users.length} total user${users.length === 1 ? "" : "s"}`}</StatusPill>
 					<Button
-						disabled={isLoading || isPending}
+						disabled={usersQuery.isFetching || setRoleMutation.isPending}
 						outline
 						onClick={() => {
-							startTransition(() => {
-								void loadUsers();
+							void queryClient.invalidateQueries({
+								queryKey: ["better-auth", "users"],
 							});
 						}}
 					>
-						{isLoading || isPending ? "Refreshing" : "Refresh"}
+						{usersQuery.isFetching || setRoleMutation.isPending ? "Refreshing" : "Refresh"}
 					</Button>
 				</div>
-				{error ? <Text className="mt-4 text-red-700">{error}</Text> : null}
+				{usersQuery.error ? (
+					<Text className="mt-4 text-red-700">{usersQuery.error.message}</Text>
+				) : setRoleMutation.error ? (
+					<Text className="mt-4 text-red-700">{setRoleMutation.error.message}</Text>
+				) : null}
 			</Panel>
 
 			<Panel
 				description="Users are resolved directly from Better Auth. Merchant tenancy now lives in Better Auth organizations and members rather than a separate Convex actor table."
 				title="Users"
 			>
-				{isLoading ? (
+				{usersQuery.isLoading ? (
 					<Text>Loading Better Auth users…</Text>
 				) : users.length === 0 ? (
 					<Text>No Better Auth users exist yet.</Text>
@@ -153,43 +154,17 @@ function InternalUsersRoute() {
 										<div className="flex flex-wrap items-center gap-3">
 											<Button
 												color="dark/zinc"
-												disabled={isPending || isLastAdmin}
+												disabled={setRoleMutation.isPending || isLastAdmin}
 												onClick={() => {
-													setError(null);
-													startTransition(() => {
-														void (async () => {
-															try {
-																const result = await authClient.admin.setRole({
-																	role: nextRole,
-																	userId: user.id,
-																});
-
-																if (result.error) {
-																	throw new Error(
-																		getAuthClientErrorMessage(
-																			result.error,
-																			"Failed to update the user role.",
-																		),
-																	);
-																}
-
-																await loadUsers();
-															} catch (roleError) {
-																setError(
-																	roleError instanceof Error
-																		? roleError.message
-																		: "Failed to update the user role.",
-																);
-															}
-														})();
+													setRoleMutation.mutate({
+														role: nextRole,
+														userId: user.id,
 													});
 												}}
 											>
 												{user.role === "admin" ? "Revoke admin" : "Make admin"}
 											</Button>
-											{isLastAdmin ? (
-												<Text>At least one admin must remain.</Text>
-											) : null}
+											{isLastAdmin ? <Text>At least one admin must remain.</Text> : null}
 										</div>
 									</div>
 								</article>

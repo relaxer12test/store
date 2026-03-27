@@ -1,20 +1,15 @@
-import { createServerFn } from "@tanstack/react-start";
 import { getRequestHeader, getRequestUrl, setResponseHeader } from "@tanstack/react-start/server";
 import { betterAuthServer } from "@/lib/better-auth-server";
-import { api } from "@/lib/convex-api";
-import { getConvexTokenExpiresAt } from "@/lib/convex-auth";
-import { bootstrapShopifyMerchantSession } from "@/routes/api.shopify.bootstrap";
-import { deriveViewerRoles, type SessionEnvelope } from "@/shared/contracts/session";
-
-const guestSession: SessionEnvelope = {
-	authMode: "none",
-	state: "ready",
-	viewer: null,
-	activeShop: null,
-	roles: [],
-	convexToken: null,
-	convexTokenExpiresAt: null,
-};
+import {
+	buildAppConvexTokenCookie,
+	readAppConvexTokenFromCookieHeader,
+} from "@/lib/convex-session-bridge";
+import {
+	requestEmbeddedBootstrapSession,
+	resolveSessionFromConvexToken,
+} from "@/lib/direct-convex-auth";
+import { guestSession } from "@/lib/session-envelope";
+import type { SessionEnvelope } from "@/shared/contracts/session";
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
 function serializeSessionEnvelopeError(error: unknown) {
@@ -95,16 +90,6 @@ function isEmbeddedEntryPath(pathname: string) {
 	return pathname === "/" || pathname === "/app" || pathname.startsWith("/app/");
 }
 
-function getInitials(name: string) {
-	const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
-
-	if (words.length === 0) {
-		return "IS";
-	}
-
-	return words.map((word) => word.charAt(0).toUpperCase()).join("");
-}
-
 async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 	const token = await betterAuthServer.getToken();
 
@@ -112,66 +97,7 @@ async function getBetterAuthSessionEnvelope(): Promise<SessionEnvelope | null> {
 		return null;
 	}
 
-	const viewer = await betterAuthServer.fetchAuthQuery(api.auth.getCurrentViewer, {});
-
-	if (!viewer) {
-		return null;
-	}
-
-	const roles = deriveViewerRoles({
-		betterAuthRole: viewer.betterAuthRole,
-		merchantRole: viewer.merchantRole,
-	});
-
-	if (
-		viewer.authKind === "merchant" &&
-		typeof viewer.shopId === "string" &&
-		typeof viewer.shopDomain === "string"
-	) {
-		const shopDomain = viewer.shopDomain;
-		const shopName = viewer.shopName ?? shopDomain;
-
-		return {
-			authMode: "embedded",
-			state: "ready",
-			viewer: {
-				email: viewer.contactEmail ?? viewer.email,
-				id: String(viewer.userId),
-				initials: getInitials(viewer.name),
-				name: viewer.name,
-				roles,
-			},
-			activeShop: {
-				domain: shopDomain,
-				id: viewer.shopId,
-				installStatus: "connected",
-				name: shopName,
-			},
-			roles,
-			convexToken: token,
-			convexTokenExpiresAt: getConvexTokenExpiresAt(token),
-		} satisfies SessionEnvelope;
-	}
-
-	if (viewer.authKind === "admin") {
-		return {
-			authMode: "internal",
-			state: "ready",
-			viewer: {
-				email: viewer.contactEmail ?? viewer.email,
-				id: String(viewer.userId ?? viewer.email),
-				initials: getInitials(viewer.name),
-				name: viewer.name,
-				roles,
-			},
-			activeShop: null,
-			roles,
-			convexToken: token,
-			convexTokenExpiresAt: getConvexTokenExpiresAt(token),
-		} satisfies SessionEnvelope;
-	}
-
-	return null;
+	return await resolveSessionFromConvexToken(token);
 }
 
 async function getEmbeddedBootstrapSessionEnvelope(
@@ -183,26 +109,12 @@ async function getEmbeddedBootstrapSessionEnvelope(
 		return null;
 	}
 
-	const headers = new Headers({
-		Authorization: `Bearer ${sessionToken}`,
+	const response = await requestEmbeddedBootstrapSession({
+		requestUrl: requestUrl.toString(),
+		referer: getRequestHeader("referer") ?? null,
+		sessionToken,
+		userAgent: getRequestHeader("user-agent") ?? null,
 	});
-	const referer = getRequestHeader("referer");
-	const userAgent = getRequestHeader("user-agent");
-
-	if (referer) {
-		headers.set("referer", referer);
-	}
-
-	if (userAgent) {
-		headers.set("user-agent", userAgent);
-	}
-
-	const response = await bootstrapShopifyMerchantSession(
-		new Request(requestUrl.toString(), {
-			headers,
-			method: "POST",
-		}),
-	);
 
 	if (!response.ok) {
 		const errorPayload = await response
@@ -219,12 +131,6 @@ async function getEmbeddedBootstrapSessionEnvelope(
 		});
 
 		return null;
-	}
-
-	const setCookie = response.headers.get("set-cookie");
-
-	if (setCookie) {
-		setResponseHeader("Set-Cookie", setCookie);
 	}
 
 	return (await response.json()) as SessionEnvelope;
@@ -276,7 +182,17 @@ export function buildEmbeddedAppContentSecurityPolicy(
 	return `frame-ancestors ${getEmbeddedFrameAncestors(requestUrl, options).join(" ")};`;
 }
 
-export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(async () => {
+async function getSessionEnvelopeFromRequestToken(cookieHeader: string) {
+	const token = readAppConvexTokenFromCookieHeader(cookieHeader);
+
+	if (!token) {
+		return null;
+	}
+
+	return await resolveSessionFromConvexToken(token).catch(() => null);
+}
+
+export async function resolveRequestSessionEnvelope() {
 	const requestUrl = getRequestUrl({
 		xForwardedHost: true,
 		xForwardedProto: true,
@@ -291,11 +207,15 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 	);
 
 	try {
-		return (
+		const session =
+			(await getSessionEnvelopeFromRequestToken(cookieHeader)) ??
 			(await getBetterAuthSessionEnvelope()) ??
 			(await getEmbeddedBootstrapSessionEnvelope(requestUrl)) ??
-			guestSession
-		);
+			guestSession;
+
+		setResponseHeader("Set-Cookie", buildAppConvexTokenCookie(session));
+
+		return session;
 	} catch (error) {
 		console.error(`${SHOPIFY_MERCHANT_AUTH_LOG_PREFIX} session_envelope_resolution_failed`, {
 			embedded: requestUrl.searchParams.get("embedded") ?? null,
@@ -308,4 +228,4 @@ export const getSessionEnvelope = createServerFn({ method: "GET" }).handler(asyn
 
 		return guestSession;
 	}
-});
+}

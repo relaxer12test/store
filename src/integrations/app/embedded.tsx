@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useSyncExternalStore } from "react";
+import { createContext, useContext, useSyncExternalStore } from "react";
 import { getOptionalShopifyApiKey, isServer } from "@/lib/env";
 
 export type EmbeddedBootstrapStatus = "idle" | "booting" | "ready" | "error";
@@ -75,6 +75,25 @@ async function waitForShopifyGlobal() {
 }
 
 function createInitialState(): EmbeddedBootstrapState {
+	if (!isServer) {
+		const bootstrapState = readUrlBootstrapState();
+
+		if (bootstrapState.hostFromUrl) {
+			persistHost(bootstrapState.hostFromUrl);
+		}
+
+		return {
+			apiKey: getOptionalShopifyApiKey() ?? null,
+			error: null,
+			host: bootstrapState.host,
+			isEmbedded: bootstrapState.isEmbedded,
+			sessionToken: bootstrapState.fallbackToken,
+			shop: bootstrapState.shop,
+			source: bootstrapState.fallbackToken ? "url" : "none",
+			status: "idle",
+		};
+	}
+
 	return {
 		apiKey: getOptionalShopifyApiKey() ?? null,
 		error: null,
@@ -283,10 +302,6 @@ export function EmbeddedAppProvider({
 	children: React.ReactNode;
 	manager: EmbeddedAppManager;
 }) {
-	useEffect(() => {
-		void manager.ensureReady();
-	}, [manager]);
-
 	return <EmbeddedAppContext.Provider value={manager}>{children}</EmbeddedAppContext.Provider>;
 }
 

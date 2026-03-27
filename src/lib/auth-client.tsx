@@ -1,4 +1,5 @@
 import { convexClient } from "@convex-dev/better-auth/client/plugins";
+import { crossDomainClient } from "@convex-dev/better-auth/client/plugins";
 import {
 	adminClient,
 	inferOrgAdditionalFields,
@@ -6,6 +7,7 @@ import {
 } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { createContext, useContext, useSyncExternalStore } from "react";
+import { getRequiredConvexHttpUrl } from "@/lib/env";
 import { merchantOrganizationSchema } from "@/shared/contracts/better-auth-tenancy";
 import type { SessionEnvelope } from "@/shared/contracts/session";
 
@@ -19,11 +21,15 @@ export interface SessionManager {
 const SessionContext = createContext<SessionManager | null>(null);
 
 export const authClient = createAuthClient({
+	baseURL: getRequiredConvexHttpUrl(),
 	basePath: "/api/auth",
 	plugins: [
 		adminClient(),
 		organizationClient({
 			schema: inferOrgAdditionalFields(merchantOrganizationSchema),
+		}),
+		crossDomainClient({
+			storagePrefix: "gc-auth",
 		}),
 		convexClient(),
 	],

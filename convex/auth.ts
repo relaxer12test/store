@@ -1,6 +1,7 @@
 import { createClient } from "@convex-dev/better-auth";
 import { getAuthConfigProvider } from "@convex-dev/better-auth/auth-config";
 import { convex as betterAuthConvexPlugin } from "@convex-dev/better-auth/plugins";
+import { crossDomain } from "@convex-dev/better-auth/plugins";
 import { components, internal } from "@convex/_generated/api";
 import type { DataModel, Doc, Id } from "@convex/_generated/dataModel";
 import {
@@ -917,6 +918,9 @@ export function createAuthOptions(ctx: AuthCtx) {
 		plugins: [
 			admin(),
 			organization(merchantOrganizationOptions),
+			crossDomain({
+				siteUrl: getAuthBaseUrl(),
+			}),
 			shopifyMerchantBridgePlugin(),
 			betterAuthConvexPlugin({
 				authConfig: {
