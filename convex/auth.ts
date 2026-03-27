@@ -26,7 +26,6 @@ import {
 } from "@/shared/contracts/better-auth-tenancy";
 
 type AuthCtx = ActionCtx | MutationCtx | QueryCtx;
-type AdminAuthCtx = Pick<AuthCtx, "auth">;
 type MerchantDbCtx = QueryCtx | MutationCtx;
 
 const merchantOrganizationOptions = {
@@ -951,14 +950,20 @@ export function hasAdminIdentity(identity: UserIdentity | null) {
 	return getIdentityRole(identity) === "admin" || getIdentityRoles(identity).includes("admin");
 }
 
-export async function requireAdmin(ctx: AdminAuthCtx) {
+export async function requireAdmin(ctx: AuthCtx) {
 	const identity = await ctx.auth.getUserIdentity();
 
-	if (!hasAdminIdentity(identity)) {
-		throw new Error("Internal diagnostics require an authenticated admin session.");
+	if (hasAdminIdentity(identity)) {
+		return identity;
 	}
 
-	return identity;
+	const user = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
+
+	if (user?.role === "admin") {
+		return identity;
+	}
+
+	throw new Error("Internal diagnostics require an authenticated admin session.");
 }
 
 export const readMerchantContext = internalQuery({

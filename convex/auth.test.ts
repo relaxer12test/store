@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+	authComponent,
 	buildPasswordResetLink,
 	getTrustedAuthOrigins,
 	hasAdminIdentity,
@@ -31,10 +32,30 @@ describe("auth", () => {
 					}) as any,
 			},
 		} as any;
+		const safeGetAuthUserSpy = vi
+			.spyOn(authComponent, "safeGetAuthUser")
+			.mockResolvedValue(undefined as any);
 
 		await expect(requireAdmin(ctx)).rejects.toThrow(
 			"Internal diagnostics require an authenticated admin session.",
 		);
+		safeGetAuthUserSpy.mockRestore();
+	});
+
+	it("accepts native Better Auth admin users without a Convex identity role", async () => {
+		const ctx = {
+			auth: {
+				getUserIdentity: async () => null,
+			},
+		} as any;
+		const safeGetAuthUserSpy = vi
+			.spyOn(authComponent, "safeGetAuthUser")
+			.mockResolvedValue({
+				role: "admin",
+			} as any);
+
+		await expect(requireAdmin(ctx)).resolves.toBeNull();
+		safeGetAuthUserSpy.mockRestore();
 	});
 
 	it("uses the callback URL directly for password reset emails", () => {

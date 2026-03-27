@@ -17,6 +17,7 @@ export const Route = createFileRoute("/auth/sign-in")({
 
 function SignInRoute() {
 	const navigate = useNavigate();
+	const routeContext = Route.useRouteContext();
 	const signInMutation = useMutation({
 		mutationFn: async (values: { email: string; password: string }) => {
 			const result = await authClient.signIn.email(values);
@@ -31,6 +32,8 @@ function SignInRoute() {
 				await authClient.signOut();
 				throw new Error("This Better Auth account is not an admin.");
 			}
+
+			return session;
 		},
 	});
 	const form = useForm({
@@ -39,18 +42,18 @@ function SignInRoute() {
 			password: "",
 		},
 		onSubmit: async ({ value }) => {
-			const didSignIn = await signInMutation
+			const session = await signInMutation
 				.mutateAsync({
 					email: value.email.trim(),
 					password: value.password,
 				})
-				.then(() => true)
-				.catch(() => false);
+				.catch(() => null);
 
-			if (!didSignIn) {
+			if (!session) {
 				return;
 			}
 
+			routeContext.setSession(session);
 			window.location.assign("/internal");
 		},
 	});

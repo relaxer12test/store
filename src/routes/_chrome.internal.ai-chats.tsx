@@ -7,9 +7,6 @@ export const Route = createFileRoute("/_chrome/internal/ai-chats")({
 		q: typeof search.q === "string" ? search.q : undefined,
 		sessionId: typeof search.sessionId === "string" ? search.sessionId : undefined,
 	}),
-	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(internalStorefrontAiSessionsQuery);
-	},
 	component: InternalAiChatsRoute,
 });
 

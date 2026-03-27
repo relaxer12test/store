@@ -1,4 +1,4 @@
-import { useSuspenseQuery, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useDeferredValue } from "react";
 import {
 	DescriptionDetails,
@@ -81,9 +81,23 @@ export function InternalAiChatPage({
 	searchQuery: string;
 	selectedSessionId: string | null;
 }) {
-	const { data: sessionsData } = useSuspenseQuery(internalStorefrontAiSessionsQuery);
+	const sessionsQuery = useQuery(internalStorefrontAiSessionsQuery);
 	const deferredSearchValue = useDeferredValue(searchQuery);
 	const normalizedSearch = deferredSearchValue.trim().toLowerCase();
+	const sessionsData = sessionsQuery.data;
+
+	if (sessionsQuery.isPending) {
+		return <Text>Loading storefront AI sessions…</Text>;
+	}
+
+	if (sessionsQuery.isError || !sessionsData) {
+		return (
+			<Text className="text-red-600 dark:text-red-500">
+				Failed to load storefront AI sessions.
+			</Text>
+		);
+	}
+
 	const filteredSessions = sessionsData.sessions.filter((session) => {
 		if (normalizedSearch.length === 0) {
 			return true;
