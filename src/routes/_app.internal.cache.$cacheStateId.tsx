@@ -9,11 +9,11 @@ import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
+	CodeValue,
+	formatTimestampLabel,
+	ResourceDetailCard,
+	StatusValue,
 } from "@/components/ui/resource";
-import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalCacheStateDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/cache/$cacheStateId")({
@@ -29,19 +29,19 @@ function InternalCacheDetailRoute() {
 
 	if (!data) {
 		return (
-			<InternalDetailCard title="Cache detail unavailable">
+			<ResourceDetailCard title="Cache detail unavailable">
 				<EmptyState body="The selected cache state could not be loaded." title="Unavailable" />
-			</InternalDetailCard>
+			</ResourceDetailCard>
 		);
 	}
 
 	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = data;
 
 	return (
-		<InternalDetailCard title={record.cacheKey}>
+		<ResourceDetailCard title={record.cacheKey}>
 			<div className="flex flex-wrap items-center gap-2">
-				<InternalStatusValue value={record.status} />
-				<InternalStatusValue value={record.enabled ? "enabled" : "disabled"} />
+				<StatusValue value={record.status} />
+				<StatusValue value={record.enabled ? "enabled" : "disabled"} />
 			</div>
 
 			<DescriptionList>
@@ -49,14 +49,14 @@ function InternalCacheDetailRoute() {
 				<DescriptionDetails>{shopName}</DescriptionDetails>
 				<DescriptionTerm>Domain</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={record.domain} />
+					<CodeValue value={record.domain} />
 				</DescriptionDetails>
 				<DescriptionTerm>Updated</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.updatedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.updatedAt)}</DescriptionDetails>
 				<DescriptionTerm>Last requested</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.lastRequestedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.lastRequestedAt)}</DescriptionDetails>
 				<DescriptionTerm>Last completed</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.lastCompletedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.lastCompletedAt)}</DescriptionDetails>
 				<DescriptionTerm>Rows</DescriptionTerm>
 				<DescriptionDetails>{String(record.recordCount)}</DescriptionDetails>
 				<DescriptionTerm>Pending reason</DescriptionTerm>
@@ -71,6 +71,6 @@ function InternalCacheDetailRoute() {
 					{`${recentWorkflows.length} recent workflow${recentWorkflows.length === 1 ? "" : "s"} and ${recentWebhookDeliveries.length} webhook deliver${recentWebhookDeliveries.length === 1 ? "y" : "ies"} for this shop.`}
 				</Text>
 			</section>
-		</InternalDetailCard>
+		</ResourceDetailCard>
 	);
 }

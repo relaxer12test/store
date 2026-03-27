@@ -3,12 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
 import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalWebhookDeliveriesQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalWebhookSort } from "@/features/internal/internal-admin-route-state";
@@ -24,7 +25,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.webhooks";
 import type { InternalWebhookDeliverySummary } from "@/shared/contracts/internal-admin";
 
-const webhookColumns: InternalTableColumn<InternalWebhookDeliverySummary>[] = [
+const webhookColumns: ResourceTableColumn<InternalWebhookDeliverySummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -35,7 +36,7 @@ const webhookColumns: InternalTableColumn<InternalWebhookDeliverySummary>[] = [
 		header: "Topic",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.status} />,
+		cell: (row) => <StatusValue value={row.status} />,
 		header: "Status",
 	},
 	{
@@ -45,9 +46,9 @@ const webhookColumns: InternalTableColumn<InternalWebhookDeliverySummary>[] = [
 	{
 		cell: (row) => (
 			<div className="space-y-1">
-				<Text>{formatInternalTimestamp(row.receivedAt)}</Text>
+				<Text>{formatTimestampLabel(row.receivedAt)}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-					processed {formatInternalTimestamp(row.processedAt)}
+					processed {formatTimestampLabel(row.processedAt)}
 				</Text>
 			</div>
 		),
@@ -86,7 +87,7 @@ function InternalWebhooksIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalWebhookDeliveriesQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Inbound events</StatusPill>
@@ -96,7 +97,7 @@ function InternalWebhooksIndexRoute() {
 			description="Inbound Shopify webhook deliveries with stored payload previews. Search is topic-driven, while delivery state remains filterable."
 			title="Webhooks"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -152,9 +153,9 @@ function InternalWebhooksIndexRoute() {
 					<option value="processed">Processed</option>
 					<option value="failed">Failed</option>
 				</Select>
-			</InternalResourceToolbar>
+			</ResourceToolbar>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={webhookColumns}
 				emptyBody="No webhook deliveries matched the current filters."
 				emptyTitle="No webhook deliveries"
@@ -182,6 +183,6 @@ function InternalWebhooksIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }

@@ -9,11 +9,11 @@ import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
+	CodeValue,
+	formatTimestampLabel,
+	ResourceDetailCard,
+	StatusValue,
 } from "@/components/ui/resource";
-import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWorkflowDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/workflows/$jobId")({
@@ -29,19 +29,19 @@ function InternalWorkflowDetailRoute() {
 
 	if (!data) {
 		return (
-			<InternalDetailCard title="Workflow detail unavailable">
+			<ResourceDetailCard title="Workflow detail unavailable">
 				<EmptyState body="The selected workflow could not be loaded." title="Unavailable" />
-			</InternalDetailCard>
+			</ResourceDetailCard>
 		);
 	}
 
 	const { logs, record } = data;
 
 	return (
-		<InternalDetailCard title={record.type}>
+		<ResourceDetailCard title={record.type}>
 			<div className="flex flex-wrap items-center gap-2">
-				<InternalStatusValue value={record.status} />
-				{record.source ? <InternalStatusValue value={record.source} /> : null}
+				<StatusValue value={record.status} />
+				{record.source ? <StatusValue value={record.source} /> : null}
 			</div>
 
 			<DescriptionList>
@@ -49,14 +49,14 @@ function InternalWorkflowDetailRoute() {
 				<DescriptionDetails>{record.shopName}</DescriptionDetails>
 				<DescriptionTerm>Domain</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={record.domain} />
+					<CodeValue value={record.domain} />
 				</DescriptionDetails>
 				<DescriptionTerm>Requested</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.requestedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.requestedAt)}</DescriptionDetails>
 				<DescriptionTerm>Started</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.startedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.startedAt)}</DescriptionDetails>
 				<DescriptionTerm>Completed</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.completedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.completedAt)}</DescriptionDetails>
 				<DescriptionTerm>Retry</DescriptionTerm>
 				<DescriptionDetails>{String(record.retryCount)}</DescriptionDetails>
 				<DescriptionTerm>Cache key</DescriptionTerm>
@@ -79,9 +79,9 @@ function InternalWorkflowDetailRoute() {
 								key={`${log.createdAt}-${log.message}`}
 							>
 								<div className="flex flex-wrap items-center gap-2">
-									<InternalStatusValue value={log.level} />
+									<StatusValue value={log.level} />
 									<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-										{formatInternalTimestamp(log.createdAt)}
+										{formatTimestampLabel(log.createdAt)}
 									</Text>
 								</div>
 								<Text className="mt-2 font-semibold text-zinc-950 dark:text-white">
@@ -93,6 +93,6 @@ function InternalWorkflowDetailRoute() {
 					</ol>
 				)}
 			</section>
-		</InternalDetailCard>
+		</ResourceDetailCard>
 	);
 }

@@ -3,12 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
 import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalUsersQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalUsersSort } from "@/features/internal/internal-admin-route-state";
@@ -24,7 +25,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.users";
 import type { InternalUserSummary } from "@/shared/contracts/internal-admin";
 
-const userColumns: InternalTableColumn<InternalUserSummary>[] = [
+const userColumns: ResourceTableColumn<InternalUserSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -35,15 +36,15 @@ const userColumns: InternalTableColumn<InternalUserSummary>[] = [
 		header: "User",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.role ?? "user"} />,
+		cell: (row) => <StatusValue value={row.role ?? "user"} />,
 		header: "Role",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.banned ? "banned" : "active"} />,
+		cell: (row) => <StatusValue value={row.banned ? "banned" : "active"} />,
 		header: "State",
 	},
 	{
-		cell: (row) => <Text>{formatInternalTimestamp(row.createdAt)}</Text>,
+		cell: (row) => <Text>{formatTimestampLabel(row.createdAt)}</Text>,
 		header: "Created",
 	},
 ];
@@ -79,7 +80,7 @@ function InternalUsersIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalUsersQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Better Auth</StatusPill>
@@ -89,7 +90,7 @@ function InternalUsersIndexRoute() {
 			description="Better Auth users with role, membership, and recent-session drill-in. Search is name/email driven; role filtering stays explicit."
 			title="Users"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -141,9 +142,9 @@ function InternalUsersIndexRoute() {
 					<option value="admin">Admin</option>
 					<option value="user">User</option>
 				</Select>
-			</InternalResourceToolbar>
+			</ResourceToolbar>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={userColumns}
 				emptyBody="No users matched the current filters."
 				emptyTitle="No users"
@@ -171,6 +172,6 @@ function InternalUsersIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }

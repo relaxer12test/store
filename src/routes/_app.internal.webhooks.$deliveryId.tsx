@@ -9,11 +9,11 @@ import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
+	CodeValue,
+	formatTimestampLabel,
+	ResourceDetailCard,
+	StatusValue,
 } from "@/components/ui/resource";
-import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalWebhookDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/webhooks/$deliveryId")({
@@ -29,19 +29,19 @@ function InternalWebhookDetailRoute() {
 
 	if (!data) {
 		return (
-			<InternalDetailCard title="Webhook detail unavailable">
+			<ResourceDetailCard title="Webhook detail unavailable">
 				<EmptyState body="The selected webhook delivery could not be loaded." title="Unavailable" />
-			</InternalDetailCard>
+			</ResourceDetailCard>
 		);
 	}
 
 	const { payloads, record } = data;
 
 	return (
-		<InternalDetailCard title={record.topic}>
+		<ResourceDetailCard title={record.topic}>
 			<div className="flex flex-wrap items-center gap-2">
-				<InternalStatusValue value={record.status} />
-				{record.apiVersion ? <InternalStatusValue value={record.apiVersion} /> : null}
+				<StatusValue value={record.status} />
+				{record.apiVersion ? <StatusValue value={record.apiVersion} /> : null}
 			</div>
 
 			<DescriptionList>
@@ -49,7 +49,7 @@ function InternalWebhookDetailRoute() {
 				<DescriptionDetails>{record.shopName ?? "n/a"}</DescriptionDetails>
 				<DescriptionTerm>Domain</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={record.domain} />
+					<CodeValue value={record.domain} />
 				</DescriptionDetails>
 				<DescriptionTerm>Delivery key</DescriptionTerm>
 				<DescriptionDetails>{record.deliveryKey ?? "n/a"}</DescriptionDetails>
@@ -58,9 +58,9 @@ function InternalWebhookDetailRoute() {
 				<DescriptionTerm>Webhook id</DescriptionTerm>
 				<DescriptionDetails>{record.webhookId ?? "n/a"}</DescriptionDetails>
 				<DescriptionTerm>Received</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.receivedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.receivedAt)}</DescriptionDetails>
 				<DescriptionTerm>Processed</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.processedAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.processedAt)}</DescriptionDetails>
 				<DescriptionTerm>Error</DescriptionTerm>
 				<DescriptionDetails>{record.error ?? "n/a"}</DescriptionDetails>
 			</DescriptionList>
@@ -77,7 +77,7 @@ function InternalWebhookDetailRoute() {
 								key={payload.id}
 							>
 								<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-									{formatInternalTimestamp(payload.createdAt)}
+									{formatTimestampLabel(payload.createdAt)}
 								</Text>
 								<pre className="mt-2 overflow-x-auto whitespace-pre-wrap break-words text-xs leading-6 text-zinc-700 dark:text-zinc-300">
 									{payload.payloadPreview}
@@ -87,6 +87,6 @@ function InternalWebhookDetailRoute() {
 					</div>
 				)}
 			</section>
-		</InternalDetailCard>
+		</ResourceDetailCard>
 	);
 }

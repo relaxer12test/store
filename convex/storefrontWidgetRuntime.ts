@@ -1311,22 +1311,22 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 	}
 
 	return createSseResponse(async (send) => {
-		const threadId = await ensureThreadId(ctx, prepared);
-		await ctx.runMutation(internal.storefrontConcierge.appendSessionMessage, {
-			body: prepared.message,
-			role: "user",
-			sessionId: prepared.effectiveSessionId,
-			shopId: prepared.shopId,
-			viewerUserId: prepared.viewerUserId,
-		});
-		send({
-			data: {
-				threadId,
-			},
-			event: "meta",
-		});
-
 		try {
+			const threadId = await ensureThreadId(ctx, prepared);
+			await ctx.runMutation(internal.storefrontConcierge.appendSessionMessage, {
+				body: prepared.message,
+				role: "user",
+				sessionId: prepared.effectiveSessionId,
+				shopId: prepared.shopId,
+				viewerUserId: prepared.viewerUserId,
+			});
+			send({
+				data: {
+					threadId,
+				},
+				event: "meta",
+			});
+
 			const agent = getStorefrontAgent();
 			const toolCtx = {
 				...ctx,

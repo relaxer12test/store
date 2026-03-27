@@ -10,11 +10,11 @@ import { Subheading } from "@/components/ui/cata/heading";
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
+	CodeValue,
+	formatTimestampLabel,
+	ResourceDetailCard,
+	StatusValue,
 } from "@/components/ui/resource";
-import { InternalDetailCard } from "@/components/ui/resource";
 import {
 	getInternalUserDetailQuery,
 	invalidateInternalUserQueries,

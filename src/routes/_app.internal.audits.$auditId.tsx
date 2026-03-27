@@ -8,11 +8,11 @@ import {
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
+	CodeValue,
+	formatTimestampLabel,
+	ResourceDetailCard,
+	StatusValue,
 } from "@/components/ui/resource";
-import { InternalDetailCard } from "@/components/ui/resource";
 import { getInternalAuditDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/audits/$auditId")({
@@ -28,31 +28,31 @@ function InternalAuditDetailRoute() {
 
 	if (!data) {
 		return (
-			<InternalDetailCard title="Audit detail unavailable">
+			<ResourceDetailCard title="Audit detail unavailable">
 				<EmptyState body="The selected audit row could not be loaded." title="Unavailable" />
-			</InternalDetailCard>
+			</ResourceDetailCard>
 		);
 	}
 
 	const { record } = data;
 
 	return (
-		<InternalDetailCard title={record.action}>
+		<ResourceDetailCard title={record.action}>
 			<div className="flex flex-wrap items-center gap-2">
-				<InternalStatusValue value={record.status} />
-				{record.actorId ? <InternalStatusValue value={record.actorId} /> : null}
+				<StatusValue value={record.status} />
+				{record.actorId ? <StatusValue value={record.actorId} /> : null}
 			</div>
 
 			<DescriptionList>
 				<DescriptionTerm>Created</DescriptionTerm>
-				<DescriptionDetails>{formatInternalTimestamp(record.createdAt)}</DescriptionDetails>
+				<DescriptionDetails>{formatTimestampLabel(record.createdAt)}</DescriptionDetails>
 				<DescriptionTerm>Actor</DescriptionTerm>
 				<DescriptionDetails>{record.actorId ?? "system"}</DescriptionDetails>
 				<DescriptionTerm>Shop</DescriptionTerm>
 				<DescriptionDetails>{record.shopName ?? "n/a"}</DescriptionDetails>
 				<DescriptionTerm>Shop domain</DescriptionTerm>
 				<DescriptionDetails>
-					<InternalCodeValue value={record.shopDomain} />
+					<CodeValue value={record.shopDomain} />
 				</DescriptionDetails>
 				<DescriptionTerm>Detail</DescriptionTerm>
 				<DescriptionDetails>{record.detail ?? "n/a"}</DescriptionDetails>
@@ -70,6 +70,6 @@ function InternalAuditDetailRoute() {
 					<Text className="mt-3">No structured payload was stored for this audit row.</Text>
 				)}
 			</section>
-		</InternalDetailCard>
+		</ResourceDetailCard>
 	);
 }

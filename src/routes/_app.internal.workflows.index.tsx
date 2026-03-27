@@ -3,12 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
 import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalWorkflowsQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalWorkflowSort } from "@/features/internal/internal-admin-route-state";
@@ -24,7 +25,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.workflows";
 import type { InternalWorkflowSummary } from "@/shared/contracts/internal-admin";
 
-const workflowColumns: InternalTableColumn<InternalWorkflowSummary>[] = [
+const workflowColumns: ResourceTableColumn<InternalWorkflowSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -35,7 +36,7 @@ const workflowColumns: InternalTableColumn<InternalWorkflowSummary>[] = [
 		header: "Workflow",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.status} />,
+		cell: (row) => <StatusValue value={row.status} />,
 		header: "Status",
 	},
 	{
@@ -45,7 +46,7 @@ const workflowColumns: InternalTableColumn<InternalWorkflowSummary>[] = [
 	{
 		cell: (row) => (
 			<div className="space-y-1">
-				<Text>{formatInternalTimestamp(row.lastUpdatedAt)}</Text>
+				<Text>{formatTimestampLabel(row.lastUpdatedAt)}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">
 					{row.payloadPreview ?? "No payload preview"}
 				</Text>
@@ -86,7 +87,7 @@ function InternalWorkflowsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalWorkflowsQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Queue state</StatusPill>
@@ -96,7 +97,7 @@ function InternalWorkflowsIndexRoute() {
 			description="Async workflow rows with retry posture and recent payload previews. Search is type-driven, while status stays index-backed."
 			title="Workflows"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -153,9 +154,9 @@ function InternalWorkflowsIndexRoute() {
 					<option value="completed">Completed</option>
 					<option value="failed">Failed</option>
 				</Select>
-			</InternalResourceToolbar>
+			</ResourceToolbar>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={workflowColumns}
 				emptyBody="No workflows matched the current filters."
 				emptyTitle="No workflows"
@@ -183,6 +184,6 @@ function InternalWorkflowsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }

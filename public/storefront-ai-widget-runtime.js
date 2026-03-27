@@ -361,12 +361,12 @@
 		return item;
 	}
 
-	function createStreamingAssistantMessage(onApplyCartPlan) {
+	function createStreamingAssistantMessage(onApplyCartPlan, onCheckoutCart) {
 		var current = createMessage("assistant", {
 			cards: [],
 			cartPlan: null,
 			onApplyCartPlan: onApplyCartPlan,
-			onCheckoutCart: checkoutCart,
+			onCheckoutCart: onCheckoutCart,
 			references: [],
 			text: "Working on it...",
 		});
@@ -386,7 +386,7 @@
 				cards: reply.cards || [],
 				cartPlan: reply.cartPlan || null,
 				onApplyCartPlan: onApplyCartPlan,
-				onCheckoutCart: checkoutCart,
+				onCheckoutCart: onCheckoutCart,
 				references: reply.references || [],
 				text: reply.answer || "",
 			});
@@ -1216,7 +1216,7 @@
 			input.value = "";
 			renderSuggestions([]);
 			setPending(true);
-			var streamingMessage = createStreamingAssistantMessage(applyCartPlan);
+			var streamingMessage = createStreamingAssistantMessage(applyCartPlan, checkoutCart);
 			var streamedText = "";
 
 			feed.appendChild(streamingMessage.element);
@@ -1265,6 +1265,14 @@
 
 								streamingMessage.setText(getToolStatusText(payload.toolName));
 								scrollFeedToBottom();
+							},
+							error: function (payload) {
+								streamingMessage.remove();
+								addErrorMessage(
+									payload && typeof payload.message === "string"
+										? payload.message
+										: "The storefront assistant could not respond.",
+								);
 							},
 						},
 					);

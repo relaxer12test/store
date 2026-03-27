@@ -3,15 +3,13 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import {
-	InternalCodeValue,
-	InternalStatusValue,
-	formatInternalTimestamp,
-} from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
-import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	CodeValue,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalAiSessionsQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalAiSessionSort } from "@/features/internal/internal-admin-route-state";
@@ -27,7 +25,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.ai-sessions";
 import type { InternalAiSessionSummary } from "@/shared/contracts/internal-admin";
 
-const aiSessionColumns: InternalTableColumn<InternalAiSessionSummary>[] = [
+const aiSessionColumns: ResourceTableColumn<InternalAiSessionSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -40,14 +38,14 @@ const aiSessionColumns: InternalTableColumn<InternalAiSessionSummary>[] = [
 	{
 		cell: (row) => (
 			<div className="space-y-1">
-				<InternalCodeValue value={row.sessionId} />
+				<CodeValue value={row.sessionId} />
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">{row.threadId}</Text>
 			</div>
 		),
 		header: "Session",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.lastReplyTone ?? "no reply"} />,
+		cell: (row) => <StatusValue value={row.lastReplyTone ?? "no reply"} />,
 		header: "Reply",
 	},
 	{
@@ -55,7 +53,7 @@ const aiSessionColumns: InternalTableColumn<InternalAiSessionSummary>[] = [
 			<div className="space-y-1">
 				<Text>{row.lastPromptPreview ?? "No prompt preview"}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-					updated {formatInternalTimestamp(row.updatedAt)}
+					updated {formatTimestampLabel(row.updatedAt)}
 				</Text>
 			</div>
 		),
@@ -94,7 +92,7 @@ function InternalAiSessionsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalAiSessionsQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Live shopper sessions</StatusPill>
@@ -104,7 +102,7 @@ function InternalAiSessionsIndexRoute() {
 			description="Storefront shopper sessions with dedicated session routes. Search is session-id driven and detail pages stay reactive to incoming thread updates."
 			title="AI sessions"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -143,7 +141,7 @@ function InternalAiSessionsIndexRoute() {
 				sortValue={formatInternalSortValue(search.sort, search.dir)}
 			/>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={aiSessionColumns}
 				emptyBody="No storefront sessions matched the current filters."
 				emptyTitle="No sessions"
@@ -171,6 +169,6 @@ function InternalAiSessionsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }

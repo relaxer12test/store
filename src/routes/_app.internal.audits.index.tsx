@@ -2,12 +2,13 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
 import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalAuditsQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalAuditSort } from "@/features/internal/internal-admin-route-state";
@@ -23,7 +24,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.audits";
 import type { InternalAuditSummary } from "@/shared/contracts/internal-admin";
 
-const auditColumns: InternalTableColumn<InternalAuditSummary>[] = [
+const auditColumns: ResourceTableColumn<InternalAuditSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -36,7 +37,7 @@ const auditColumns: InternalTableColumn<InternalAuditSummary>[] = [
 		header: "Action",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.status} />,
+		cell: (row) => <StatusValue value={row.status} />,
 		header: "Status",
 	},
 	{
@@ -44,7 +45,7 @@ const auditColumns: InternalTableColumn<InternalAuditSummary>[] = [
 		header: "Actor",
 	},
 	{
-		cell: (row) => <Text>{formatInternalTimestamp(row.createdAt)}</Text>,
+		cell: (row) => <Text>{formatTimestampLabel(row.createdAt)}</Text>,
 		header: "Created",
 	},
 ];
@@ -80,7 +81,7 @@ function InternalAuditsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalAuditsQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Audit trail</StatusPill>
@@ -90,7 +91,7 @@ function InternalAuditsIndexRoute() {
 			description="Recorded audit entries and approval-adjacent side effects. Search is action-driven and the detail pane exposes stored payload metadata."
 			title="Audits"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -129,7 +130,7 @@ function InternalAuditsIndexRoute() {
 				sortValue={formatInternalSortValue(search.sort, search.dir)}
 			/>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={auditColumns}
 				emptyBody="No audit rows matched the current filters."
 				emptyTitle="No audit rows"
@@ -157,6 +158,6 @@ function InternalAuditsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }

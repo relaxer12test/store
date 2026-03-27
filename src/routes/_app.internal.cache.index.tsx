@@ -3,12 +3,14 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
-import { InternalStatusValue, formatInternalTimestamp } from "@/components/ui/resource";
-import { InternalResourceLayout } from "@/components/ui/resource";
 import {
-	InternalResourceTable,
-	InternalResourceToolbar,
-	type InternalTableColumn,
+	CodeValue,
+	formatTimestampLabel,
+	ResourcePageLayout,
+	ResourceTable,
+	ResourceToolbar,
+	StatusValue,
+	type ResourceTableColumn,
 } from "@/components/ui/resource";
 import { getInternalCacheStatesQuery } from "@/features/internal/internal-admin-queries";
 import { type InternalCacheSort } from "@/features/internal/internal-admin-route-state";
@@ -24,7 +26,7 @@ import { INTERNAL_PAGE_SIZE_OPTIONS } from "@/features/internal/internal-admin-s
 import { Route as ParentRoute } from "@/routes/_app.internal.cache";
 import type { InternalCacheStateSummary } from "@/shared/contracts/internal-admin";
 
-const cacheColumns: InternalTableColumn<InternalCacheStateSummary>[] = [
+const cacheColumns: ResourceTableColumn<InternalCacheStateSummary>[] = [
 	{
 		cell: (row) => (
 			<div>
@@ -35,7 +37,7 @@ const cacheColumns: InternalTableColumn<InternalCacheStateSummary>[] = [
 		header: "Cache key",
 	},
 	{
-		cell: (row) => <InternalStatusValue value={row.status} />,
+		cell: (row) => <StatusValue value={row.status} />,
 		header: "Status",
 	},
 	{
@@ -45,9 +47,9 @@ const cacheColumns: InternalTableColumn<InternalCacheStateSummary>[] = [
 	{
 		cell: (row) => (
 			<div className="space-y-1">
-				<Text>{formatInternalTimestamp(row.updatedAt)}</Text>
+				<Text>{formatTimestampLabel(row.updatedAt)}</Text>
 				<Text className="text-xs text-zinc-500 dark:text-zinc-400">
-					webhook {formatInternalTimestamp(row.lastWebhookAt)}
+					webhook {formatTimestampLabel(row.lastWebhookAt)}
 				</Text>
 			</div>
 		),
@@ -86,7 +88,7 @@ function InternalCacheIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalCacheStatesQuery(search));
 
 	return (
-		<InternalResourceLayout
+		<ResourcePageLayout
 			badges={
 				<>
 					<StatusPill tone="accent">Projection freshness</StatusPill>
@@ -96,7 +98,7 @@ function InternalCacheIndexRoute() {
 			description="Cache state rows for Shopify-backed projections. Search is cache-key driven, while status filtering stays index-backed."
 			title="Cache"
 		>
-			<InternalResourceToolbar
+			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
@@ -153,9 +155,9 @@ function InternalCacheIndexRoute() {
 					<option value="failed">Failed</option>
 					<option value="disabled">Disabled</option>
 				</Select>
-			</InternalResourceToolbar>
+			</ResourceToolbar>
 
-			<InternalResourceTable
+			<ResourceTable
 				columns={cacheColumns}
 				emptyBody="No cache rows matched the current filters."
 				emptyTitle="No cache rows"
@@ -183,6 +185,6 @@ function InternalCacheIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</InternalResourceLayout>
+		</ResourcePageLayout>
 	);
 }
