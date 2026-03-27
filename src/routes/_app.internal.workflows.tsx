@@ -80,10 +80,10 @@ export const Route = createFileRoute("/_app/internal/workflows")({
 function InternalWorkflowsRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	})
+	});
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	})
+	});
 	const search = Route.useSearch();
 	const workflowsQuery = useQuery(getInternalWorkflowsQuery(search));
 
@@ -106,7 +106,7 @@ function InternalWorkflowsRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					})
+					});
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -117,13 +117,13 @@ function InternalWorkflowsRoute() {
 								sort: (q ? "type" : current.sort) as InternalWorkflowSort,
 								status: q ? undefined : current.status,
 							}),
-					})
+					});
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalWorkflowSort>(value, {
 						direction: "desc",
 						sort: "lastUpdatedAt",
-					})
+					});
 
 					void navigate({
 						search: (current) =>
@@ -132,7 +132,7 @@ function InternalWorkflowsRoute() {
 								q: next.sort === "type" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					})
+					});
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -149,7 +149,7 @@ function InternalWorkflowsRoute() {
 									q: undefined,
 									status: event.target.value || undefined,
 								}),
-						})
+						});
 					}}
 					value={search.status ?? ""}
 				>
@@ -182,7 +182,7 @@ function InternalWorkflowsRoute() {
 												current,
 												workflowsQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									})
+									});
 								}
 							: null
 					}
@@ -191,7 +191,7 @@ function InternalWorkflowsRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									})
+									});
 								}
 							: null
 					}
@@ -200,5 +200,5 @@ function InternalWorkflowsRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	)
+	);
 }

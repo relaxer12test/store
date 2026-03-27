@@ -33,7 +33,7 @@ function InternalWebhookDetailRoute() {
 			<InternalDetailCard title="Webhook detail unavailable">
 				<EmptyState body="The selected webhook delivery could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { payloads, record } = detailQuery.data;
@@ -89,5 +89,5 @@ function InternalWebhookDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

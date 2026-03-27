@@ -32,7 +32,7 @@ function InternalAuditDetailRoute() {
 			<InternalDetailCard title="Audit detail unavailable">
 				<EmptyState body="The selected audit row could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { record } = detailQuery.data;
@@ -72,5 +72,5 @@ function InternalAuditDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

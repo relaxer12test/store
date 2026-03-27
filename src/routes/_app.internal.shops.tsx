@@ -82,10 +82,10 @@ export const Route = createFileRoute("/_app/internal/shops")({
 function InternalShopsRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	})
+	});
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	})
+	});
 	const search = Route.useSearch();
 	const shopsQuery = useQuery(getInternalShopsQuery(search));
 
@@ -108,7 +108,7 @@ function InternalShopsRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					})
+					});
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -119,13 +119,13 @@ function InternalShopsRoute() {
 								sort: (q ? "domain" : current.sort) as InternalShopsSort,
 								status: q ? undefined : current.status,
 							}),
-					})
+					});
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalShopsSort>(value, {
 						direction: "desc",
 						sort: "createdAt",
-					})
+					});
 
 					void navigate({
 						search: (current) =>
@@ -134,7 +134,7 @@ function InternalShopsRoute() {
 								q: next.sort === "domain" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					})
+					});
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -152,7 +152,7 @@ function InternalShopsRoute() {
 									status:
 										(event.target.value as "connected" | "inactive" | "pending" | "") || undefined,
 								}),
-						})
+						});
 					}}
 					value={search.status ?? ""}
 				>
@@ -184,7 +184,7 @@ function InternalShopsRoute() {
 												current,
 												shopsQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									})
+									});
 								}
 							: null
 					}
@@ -193,7 +193,7 @@ function InternalShopsRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									})
+									});
 								}
 							: null
 					}
@@ -202,5 +202,5 @@ function InternalShopsRoute() {
 				/>
 			)}
 		</ResourcePageLayout>
-	)
+	);
 }

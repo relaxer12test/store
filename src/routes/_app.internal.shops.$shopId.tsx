@@ -34,7 +34,7 @@ function InternalShopDetailRoute() {
 			<ResourceDetailCard title="Shop unavailable">
 				<EmptyState body="The selected shop could not be loaded." title="Detail unavailable" />
 			</ResourceDetailCard>
-		)
+		);
 	}
 
 	const {
@@ -149,5 +149,5 @@ function InternalShopDetailRoute() {
 				</div>
 			</section>
 		</ResourceDetailCard>
-	)
+	);
 }

@@ -33,7 +33,7 @@ function InternalCacheDetailRoute() {
 			<InternalDetailCard title="Cache detail unavailable">
 				<EmptyState body="The selected cache state could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = detailQuery.data;
@@ -73,5 +73,5 @@ function InternalCacheDetailRoute() {
 				</Text>
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

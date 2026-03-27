@@ -33,7 +33,7 @@ function InternalWorkflowDetailRoute() {
 			<InternalDetailCard title="Workflow detail unavailable">
 				<EmptyState body="The selected workflow could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { logs, record } = detailQuery.data;
@@ -95,5 +95,5 @@ function InternalWorkflowDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

@@ -15,7 +15,7 @@ export const Route = createFileRoute("/_app/app/settings")({
 			await Promise.all([
 				context.preload.ensureQueryData(merchantSettingsQuery),
 				context.preload.ensureQueryData(merchantKnowledgeDocumentsQuery),
-			])
+			]);
 		}
 	},
 	component: MerchantSettingsRoute,
@@ -27,7 +27,7 @@ function MerchantSettingsRoute() {
 	const settingsKey = JSON.stringify({
 		documentsGeneratedAt: documents.generatedAt,
 		widgetSettings: data.widgetSettings,
-	})
+	});
 
 	return (
 		<MerchantSettingsPage
@@ -37,5 +37,5 @@ function MerchantSettingsRoute() {
 			isRefreshing={isRefetching}
 			onRefresh={() => void refetch()}
 		/>
-	)
+	);
 }

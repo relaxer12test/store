@@ -18,7 +18,7 @@ function InternalOverviewRoute() {
 	if (error || !data) {
 		return (
 			<Text className="text-red-600 dark:text-red-500">Failed to load internal diagnostics.</Text>
-		)
+		);
 	}
 
 	return <InternalHome snapshot={data} />;

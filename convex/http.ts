@@ -1,6 +1,12 @@
 import { api } from "@convex/_generated/api";
 import { httpAction } from "@convex/_generated/server";
-import { authComponent, createAuth, getAuthSecret, getTrustedAuthOrigins } from "@convex/auth";
+import {
+	authComponent,
+	BETTER_AUTH_IP_HEADERS,
+	createAuth,
+	getAuthSecret,
+	getTrustedAuthOrigins,
+} from "@convex/auth";
 import { resend } from "@convex/mail";
 import { streamStorefrontWidgetReply } from "@convex/storefrontWidgetRuntime";
 import { httpRouter } from "convex/server";
@@ -97,6 +103,30 @@ function toCookieHeader(setCookieHeaders: string[]) {
 	return setCookieHeaders.map((cookie) => cookie.split(";", 1)[0]).join("; ");
 }
 
+function buildMerchantBridgeHeaders(request: Request, requestId: string) {
+	const headers = new Headers({
+		"content-type": "application/json",
+		[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
+		[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getAuthSecret(),
+	});
+
+	for (const headerName of BETTER_AUTH_IP_HEADERS) {
+		const headerValue = request.headers.get(headerName);
+
+		if (headerValue) {
+			headers.set(headerName, headerValue);
+		}
+	}
+
+	const userAgent = request.headers.get("user-agent");
+
+	if (userAgent) {
+		headers.set("user-agent", userAgent);
+	}
+
+	return headers;
+}
+
 async function readResponseError(response: Response, fallbackMessage: string) {
 	const payload = await response
 		.clone()
@@ -161,11 +191,7 @@ http.route({
 		const bridgeResponse = await auth.handler(
 			new Request(bridgeUrl.toString(), {
 				body: JSON.stringify(bridge.bridgeRequest),
-				headers: {
-					"content-type": "application/json",
-					[SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER]: requestId,
-					[SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER]: getAuthSecret(),
-				},
+				headers: buildMerchantBridgeHeaders(request, requestId),
 				method: "POST",
 			}),
 		);

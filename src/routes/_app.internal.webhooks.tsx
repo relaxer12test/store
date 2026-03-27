@@ -80,10 +80,10 @@ export const Route = createFileRoute("/_app/internal/webhooks")({
 function InternalWebhooksRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	})
+	});
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	})
+	});
 	const search = Route.useSearch();
 	const webhooksQuery = useQuery(getInternalWebhookDeliveriesQuery(search));
 
@@ -106,7 +106,7 @@ function InternalWebhooksRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					})
+					});
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -117,13 +117,13 @@ function InternalWebhooksRoute() {
 								sort: (q ? "topic" : current.sort) as InternalWebhookSort,
 								status: q ? undefined : current.status,
 							}),
-					})
+					});
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalWebhookSort>(value, {
 						direction: "desc",
 						sort: "receivedAt",
-					})
+					});
 
 					void navigate({
 						search: (current) =>
@@ -132,7 +132,7 @@ function InternalWebhooksRoute() {
 								q: next.sort === "topic" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					})
+					});
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -149,7 +149,7 @@ function InternalWebhooksRoute() {
 									q: undefined,
 									status: event.target.value || undefined,
 								}),
-						})
+						});
 					}}
 					value={search.status ?? ""}
 				>
@@ -181,7 +181,7 @@ function InternalWebhooksRoute() {
 												current,
 												webhooksQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									})
+									});
 								}
 							: null
 					}
@@ -190,7 +190,7 @@ function InternalWebhooksRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									})
+									});
 								}
 							: null
 					}
@@ -199,5 +199,5 @@ function InternalWebhooksRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	)
+	);
 }

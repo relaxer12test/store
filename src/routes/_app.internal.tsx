@@ -52,7 +52,7 @@ export const Route = createFileRoute("/_app/internal")({
 		if (!hasAdminViewer(await getCurrentViewerServer())) {
 			throw redirect({
 				to: "/auth/sign-in",
-			})
+			});
 		}
 	},
 	component: InternalLayoutRoute,
@@ -72,5 +72,5 @@ function InternalLayoutRoute() {
 		>
 			<Outlet />
 		</SidebarConsoleLayout>
-	)
+	);
 }

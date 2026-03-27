@@ -96,6 +96,7 @@ export const tables = {
 		shopifyUserId: v.string(),
 	})
 		.index("organizationId", ["organizationId"])
+		.index("organizationId_userId", ["organizationId", "userId"])
 		.index("userId", ["userId"])
 		.index("role", ["role"]),
 	invitation: defineTable({

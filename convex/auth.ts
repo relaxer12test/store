@@ -146,6 +146,12 @@ interface ShopifyMerchantBridgeBody {
 const DEFAULT_AUTH_BASE_URL = "https://example.invalid";
 const DEFAULT_AUTH_SECRET = "development-only-better-auth-secret-32";
 const LOCAL_AUTH_ORIGINS = ["http://localhost:3000", "http://localhost:3001"] as const;
+export const BETTER_AUTH_IP_HEADERS = [
+	"cf-connecting-ip",
+	"x-forwarded-for",
+	"x-real-ip",
+	"fly-client-ip",
+] as const;
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID = "shopify-merchant";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
@@ -884,6 +890,11 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 
 export function createAuthOptions(ctx: AuthCtx) {
 	return {
+		advanced: {
+			ipAddress: {
+				ipAddressHeaders: [...BETTER_AUTH_IP_HEADERS],
+			},
+		},
 		basePath: "/api/auth",
 		baseURL: getAuthBaseUrl(),
 		database: authComponent.adapter(ctx),

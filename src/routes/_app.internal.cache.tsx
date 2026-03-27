@@ -80,10 +80,10 @@ export const Route = createFileRoute("/_app/internal/cache")({
 function InternalCacheRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	})
+	});
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	})
+	});
 	const search = Route.useSearch();
 	const cacheQuery = useQuery(getInternalCacheStatesQuery(search));
 
@@ -106,7 +106,7 @@ function InternalCacheRoute() {
 				onPageSizeChange={(limit) => {
 					void navigate({
 						search: (current) => resetInternalPagination(current, { limit }),
-					})
+					});
 				}}
 				onSearchChange={(q) => {
 					void navigate({
@@ -117,13 +117,13 @@ function InternalCacheRoute() {
 								sort: (q ? "cacheKey" : current.sort) as InternalCacheSort,
 								status: q ? undefined : current.status,
 							}),
-					})
+					});
 				}}
 				onSortChange={(value) => {
 					const next = parseInternalSortValue<InternalCacheSort>(value, {
 						direction: "desc",
 						sort: "updatedAt",
-					})
+					});
 
 					void navigate({
 						search: (current) =>
@@ -132,7 +132,7 @@ function InternalCacheRoute() {
 								q: next.sort === "cacheKey" ? current.q : undefined,
 								sort: next.sort,
 							}),
-					})
+					});
 				}}
 				pageSize={search.limit}
 				pageSizeOptions={INTERNAL_PAGE_SIZE_OPTIONS}
@@ -149,7 +149,7 @@ function InternalCacheRoute() {
 									q: undefined,
 									status: event.target.value || undefined,
 								}),
-						})
+						});
 					}}
 					value={search.status ?? ""}
 				>
@@ -182,7 +182,7 @@ function InternalCacheRoute() {
 												current,
 												cacheQuery.data?.pageInfo.continueCursor ?? null,
 											),
-									})
+									});
 								}
 							: null
 					}
@@ -191,7 +191,7 @@ function InternalCacheRoute() {
 							? () => {
 									void navigate({
 										search: (current) => rewindInternalPage(current),
-									})
+									});
 								}
 							: null
 					}
@@ -200,5 +200,5 @@ function InternalCacheRoute() {
 				/>
 			)}
 		</InternalResourceLayout>
-	)
+	);
 }

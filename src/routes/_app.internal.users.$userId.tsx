@@ -33,7 +33,7 @@ function InternalUserDetailRoute() {
 			const result = await authClient.admin.setRole({
 				role,
 				userId,
-			})
+			});
 
 			if (result.error) {
 				throw new Error(getAuthClientErrorMessage(result.error, "Failed to update the user role."));
@@ -43,7 +43,7 @@ function InternalUserDetailRoute() {
 			await queryClient.invalidateQueries();
 			await invalidateAuthQueries(queryClient);
 		},
-	})
+	});
 
 	if (detailQuery.isPending) {
 		return <Text>Loading user detail…</Text>;
@@ -54,7 +54,7 @@ function InternalUserDetailRoute() {
 			<InternalDetailCard title="User detail unavailable">
 				<EmptyState body="The selected Better Auth user could not be loaded." title="Unavailable" />
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { user } = detailQuery.data;
@@ -144,5 +144,5 @@ function InternalUserDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

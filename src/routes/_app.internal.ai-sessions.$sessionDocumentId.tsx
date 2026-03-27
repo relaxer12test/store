@@ -32,7 +32,7 @@ export const Route = createFileRoute("/_app/internal/ai-sessions/$sessionDocumen
 function InternalAiSessionDetailRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
-	})
+	});
 	const { sessionDocumentId } = Route.useParams();
 	const search = Route.useSearch();
 	const detailQuery = useQuery(getInternalAiSessionDetailQuery(sessionDocumentId));
@@ -50,7 +50,7 @@ function InternalAiSessionDetailRoute() {
 					title="Unavailable"
 				/>
 			</InternalDetailCard>
-		)
+		);
 	}
 
 	const { session } = detailQuery.data;
@@ -120,7 +120,7 @@ function InternalAiSessionDetailRoute() {
 									limit: search.transcriptLimit,
 									prev: search.transcriptPrev,
 									sort: "updatedAt",
-								})
+								});
 
 								void navigate({
 									search: (current) => ({
@@ -128,7 +128,7 @@ function InternalAiSessionDetailRoute() {
 										transcriptCursor: previous.cursor,
 										transcriptPrev: previous.prev,
 									}),
-								})
+								});
 							}}
 							type="button"
 						>
@@ -147,7 +147,7 @@ function InternalAiSessionDetailRoute() {
 										sort: "updatedAt",
 									},
 									transcriptQuery.data?.pageInfo.continueCursor ?? null,
-								)
+								);
 
 								void navigate({
 									search: (current) => ({
@@ -155,7 +155,7 @@ function InternalAiSessionDetailRoute() {
 										transcriptCursor: next.cursor,
 										transcriptPrev: next.prev,
 									}),
-								})
+								});
 							}}
 							type="button"
 						>
@@ -196,5 +196,5 @@ function InternalAiSessionDetailRoute() {
 				)}
 			</section>
 		</InternalDetailCard>
-	)
+	);
 }

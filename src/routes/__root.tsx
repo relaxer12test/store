@@ -77,7 +77,7 @@ function resolveShopifyAppBridgeDocumentConfig({
 		apiKey,
 		host,
 		shop,
-		shouldLoad: Boolean(apiKey && isEmbeddedRequest && shop),
+		shouldLoad: Boolean(apiKey && isEmbeddedRequest),
 	};
 }
 

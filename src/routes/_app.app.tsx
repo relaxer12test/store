@@ -1,5 +1,4 @@
-import { createFileRoute, Outlet, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 import type { SurfaceNavItem } from "@/components/ui/layout";
 import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
@@ -7,7 +6,6 @@ import { MerchantSessionGate } from "@/features/app-shell/components/merchant-se
 import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
 import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
 import { useAppAuth } from "@/lib/auth-client";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 const appNav: SurfaceNavItem[] = [
 	{
@@ -47,25 +45,6 @@ export const Route = createFileRoute("/_app/app")({
 function MerchantLayoutRoute() {
 	const auth = useAppAuth();
 	const embeddedApp = useEmbeddedAppBootstrap();
-	const router = useRouter();
-
-	useEffect(() => {
-		if (auth.isMerchant) {
-			return
-		}
-
-		let cancelled = false;
-
-		void router.options.context.auth.ensureEmbeddedViewer().then((viewer) => {
-			if (!cancelled && hasMerchantViewer(viewer)) {
-				void router.invalidate();
-			}
-		})
-
-		return () => {
-			cancelled = true;
-		}
-	}, [auth.isMerchant, router]);
 
 	return (
 		<SurfaceLayout
@@ -84,5 +63,5 @@ function MerchantLayoutRoute() {
 				<Outlet />
 			</MerchantSessionGate>
 		</SurfaceLayout>
-	)
+	);
 }

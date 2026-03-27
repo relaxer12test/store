@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_app")({
 function ChromeLayout() {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
-	})
+	});
 	const isInternalRoute = pathname === "/internal" || pathname.startsWith("/internal/");
 
 	return (
@@ -22,5 +22,5 @@ function ChromeLayout() {
 		>
 			<Outlet />
 		</StackedLayout>
-	)
+	);
 }
