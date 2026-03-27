@@ -889,11 +889,18 @@ export const authComponent = createClient<DataModel, typeof authSchema>(componen
 });
 
 export function createAuthOptions(ctx: AuthCtx) {
+	const useSecureCookies = getAuthBaseUrl().startsWith("https://");
+
 	return {
 		advanced: {
+			defaultCookieAttributes: {
+				sameSite: useSecureCookies ? "none" : "lax",
+			},
 			ipAddress: {
 				ipAddressHeaders: [...BETTER_AUTH_IP_HEADERS],
 			},
+			trustedProxyHeaders: true,
+			useSecureCookies,
 		},
 		basePath: "/api/auth",
 		baseURL: getAuthBaseUrl(),

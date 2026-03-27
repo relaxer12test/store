@@ -1,5 +1,19 @@
 import { getRequiredConvexHttpUrl } from "@/lib/env";
 
+function getForwardedIp(request: Request) {
+	const xForwardedFor = request.headers.get("x-forwarded-for");
+
+	if (xForwardedFor) {
+		return xForwardedFor;
+	}
+
+	return (
+		request.headers.get("cf-connecting-ip") ??
+		request.headers.get("x-real-ip") ??
+		request.headers.get("fly-client-ip")
+	);
+}
+
 export function buildConvexApiProxyUrl(
 	request: Request | URL | string,
 	options?: {
@@ -27,9 +41,24 @@ export async function proxyApiRequestToConvex(
 	},
 ) {
 	const headers = new Headers(request.headers);
+	const requestUrl = new URL(request.url);
 
 	headers.delete("host");
 	headers.set("accept-encoding", "identity");
+
+	const forwardedIp = getForwardedIp(request);
+
+	if (forwardedIp) {
+		headers.set("x-forwarded-for", forwardedIp);
+	}
+
+	if (!headers.has("x-forwarded-host")) {
+		headers.set("x-forwarded-host", requestUrl.host);
+	}
+
+	if (!headers.has("x-forwarded-proto")) {
+		headers.set("x-forwarded-proto", requestUrl.protocol.replace(":", ""));
+	}
 
 	const init: RequestInit & {
 		duplex?: "half";
