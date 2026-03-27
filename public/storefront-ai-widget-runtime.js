@@ -338,11 +338,7 @@
 			payload.cartPlan.items.length > 0
 		) {
 			item.appendChild(
-				createCartPlanCard(
-					payload.cartPlan,
-					payload.onApplyCartPlan,
-					payload.onCheckoutCart,
-				),
+				createCartPlanCard(payload.cartPlan, payload.onApplyCartPlan, payload.onCheckoutCart),
 			);
 		}
 
@@ -584,7 +580,7 @@
 
 			return Boolean(
 				(cartDrawer && cartDrawer.classList.contains("active")) ||
-					(cartNotification && cartNotification.classList.contains("active")),
+				(cartNotification && cartNotification.classList.contains("active")),
 			);
 		}
 
@@ -699,7 +695,11 @@
 				}, 0);
 			});
 
-			if (!state.sessions.some(function (session) { return session.sessionId === state.sessionId; })) {
+			if (
+				!state.sessions.some(function (session) {
+					return session.sessionId === state.sessionId;
+				})
+			) {
 				newChatButton.classList.add("is-active");
 			}
 
@@ -729,7 +729,10 @@
 				}
 
 				button.addEventListener("click", function () {
-					if (state.sessionId === session.sessionId && state.loadedSessionId === session.sessionId) {
+					if (
+						state.sessionId === session.sessionId &&
+						state.loadedSessionId === session.sessionId
+					) {
 						return;
 					}
 
@@ -953,7 +956,7 @@
 				productContainer.innerHTML =
 					'<div><h3 class="cart-notification-product__name h4">Added ' +
 					String(addedCount) +
-					' items to your cart</h3><p>Open your cart to review everything.</p></div>';
+					" items to your cart</h3><p>Open your cart to review everything.</p></div>";
 			}
 
 			if (typeof cart.open === "function") {
@@ -1032,9 +1035,7 @@
 			})
 				.then(function (response) {
 					updateCartUiAfterAdd(response || {}, payload.items, button);
-					addSystemMessage(
-						"Added the plan to your cart. Your cart has been updated.",
-					);
+					addSystemMessage("Added the plan to your cart. Your cart has been updated.");
 				})
 				.catch(function (error) {
 					addSystemMessage(

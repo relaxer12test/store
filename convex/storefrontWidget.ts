@@ -123,9 +123,7 @@ async function readTranscriptMessages(ctx: QueryCtx, threadId: string) {
 						role: getTranscriptRole(message),
 					} satisfies StorefrontWidgetTranscriptMessage;
 				})
-				.filter(
-					(message): message is StorefrontWidgetTranscriptMessage => message !== null,
-				),
+				.filter((message): message is StorefrontWidgetTranscriptMessage => message !== null),
 		);
 
 		if (result.isDone) {

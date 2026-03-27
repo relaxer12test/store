@@ -893,14 +893,14 @@ async function prepareRequest(
 						message,
 						pageTitle,
 						promptCategory: "discovery",
-					promptPreview: sanitizePromptPreview(message || "widget disabled"),
-					shopDomain,
-					shopId: context.shopId,
-					userId: `${context.shopId}:${sessionId}`,
-					viewerUserId: request.viewerUserId,
-				}
-			: undefined,
-	};
+						promptPreview: sanitizePromptPreview(message || "widget disabled"),
+						shopDomain,
+						shopId: context.shopId,
+						userId: `${context.shopId}:${sessionId}`,
+						viewerUserId: request.viewerUserId,
+					}
+				: undefined,
+		};
 	}
 
 	if (message.length === 0) {

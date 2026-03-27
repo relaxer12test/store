@@ -19,7 +19,7 @@ window.storefrontCartUi = window.storefrontCartUi || {
 		const notification = document.getElementById("cart-notification");
 		const open = Boolean(
 			(drawer && drawer.classList.contains("active")) ||
-				(notification && notification.classList.contains("active")),
+			(notification && notification.classList.contains("active")),
 		);
 
 		document.body.classList.toggle(STOREFRONT_CART_UI_OPEN_CLASS, open);
