@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+	buildPasswordResetLink,
+	getTrustedAuthOrigins,
 	hasAdminIdentity,
 	requireAdmin,
 	requireMerchantActor,
@@ -33,6 +35,31 @@ describe("auth", () => {
 		await expect(requireAdmin(ctx)).rejects.toThrow(
 			"Internal diagnostics require an authenticated admin session.",
 		);
+	});
+
+	it("uses the callback URL directly for password reset emails", () => {
+		expect(
+			buildPasswordResetLink(
+				"https://storeai.ldev.cloud/api/auth/reset-password/token_123?callbackURL=http%3A%2F%2Flocalhost%3A3001%2Finternal-reset-password%3Fnext%3Dusers",
+				"token_123",
+			),
+		).toBe("http://localhost:3001/internal-reset-password?next=users&token=token_123");
+	});
+
+	it("keeps the original Better Auth reset URL when no callback URL is present", () => {
+		expect(
+			buildPasswordResetLink(
+				"https://storeai.ldev.cloud/api/auth/reset-password/token_123",
+				"token_123",
+			),
+		).toBe("https://storeai.ldev.cloud/api/auth/reset-password/token_123");
+	});
+
+	it("limits trusted Better Auth origins to the app domain and localhost", () => {
+		expect(getTrustedAuthOrigins()).toEqual([
+			"https://storeai.ldev.cloud",
+			"http://localhost:3000",
+		]);
 	});
 
 	it("resolves the active merchant actor and shop from the Better Auth userId link", async () => {

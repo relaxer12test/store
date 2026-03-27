@@ -110,7 +110,9 @@ function getConvexTokenExpiresAt(token: string | null | undefined) {
 	}
 }
 
-authComponent.registerRoutes(http, createAuth);
+authComponent.registerRoutes(http, createAuth, {
+	cors: true,
+});
 
 http.route({
 	path: "/shopify/bootstrap",

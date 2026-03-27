@@ -145,6 +145,7 @@ interface ShopifyMerchantBridgeBody {
 
 const DEFAULT_AUTH_BASE_URL = "https://example.invalid";
 const DEFAULT_AUTH_SECRET = "development-only-better-auth-secret-32";
+const LOCAL_AUTH_ORIGINS = ["http://localhost:3000"] as const;
 const SHOPIFY_MERCHANT_BRIDGE_PATH = "/sign-in/shopify-bridge";
 const SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID = "shopify-merchant";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
@@ -242,6 +243,25 @@ function getOptionalEnv(name: string) {
 
 function getAuthBaseUrl() {
 	return getOptionalEnv("SHOPIFY_APP_URL") ?? DEFAULT_AUTH_BASE_URL;
+}
+
+export function getTrustedAuthOrigins() {
+	const origins = new Set<string>([getAuthBaseUrl(), ...LOCAL_AUTH_ORIGINS]);
+	return Array.from(origins);
+}
+
+export function buildPasswordResetLink(url: string, token: string) {
+	const resetUrl = new URL(url);
+	const callbackUrl = resetUrl.searchParams.get("callbackURL");
+
+	if (!callbackUrl) {
+		return url;
+	}
+
+	const directUrl = new URL(callbackUrl, getAuthBaseUrl());
+	directUrl.searchParams.set("token", token);
+
+	return directUrl.toString();
 }
 
 export function getAuthSecret() {
@@ -869,7 +889,7 @@ export function createAuthOptions(ctx: AuthCtx) {
 		database: authComponent.adapter(ctx),
 		emailAndPassword: {
 			enabled: true,
-			sendResetPassword: async ({ user, url }) => {
+			sendResetPassword: async ({ user, url, token }) => {
 				if (!("runAction" in ctx) || typeof ctx.runAction !== "function") {
 					throw new Error("Password reset email requires an action-capable auth context.");
 				}
@@ -877,7 +897,7 @@ export function createAuthOptions(ctx: AuthCtx) {
 				await ctx.runAction(internal.emailActions.sendPasswordReset, {
 					email: user.email,
 					name: user.name,
-					resetUrl: url,
+					resetUrl: buildPasswordResetLink(url, token),
 				});
 			},
 		},
@@ -917,7 +937,7 @@ export function createAuthOptions(ctx: AuthCtx) {
 			}),
 		],
 		secret: getAuthSecret(),
-		trustedOrigins: [getAuthBaseUrl()],
+		trustedOrigins: getTrustedAuthOrigins(),
 	} satisfies BetterAuthOptions;
 }
 

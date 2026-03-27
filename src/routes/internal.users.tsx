@@ -3,6 +3,7 @@ import { useEffect, useState, useTransition } from "react";
 import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { authClient, useSessionEnvelope } from "@/lib/auth-client";
+import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
 
 interface ManagedUser {
 	banned?: boolean | null;
@@ -47,7 +48,9 @@ function InternalUsersRoute() {
 			});
 
 			if (result.error) {
-				throw new Error(result.error.message);
+				throw new Error(
+					getAuthClientErrorMessage(result.error, "Failed to load Better Auth users."),
+				);
 			}
 
 			const nextUsers = Array.isArray(result.data)
@@ -161,7 +164,12 @@ function InternalUsersRoute() {
 																});
 
 																if (result.error) {
-																	throw new Error(result.error.message);
+																	throw new Error(
+																		getAuthClientErrorMessage(
+																			result.error,
+																			"Failed to update the user role.",
+																		),
+																	);
 																}
 
 																await loadUsers();

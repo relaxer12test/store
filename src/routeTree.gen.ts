@@ -30,7 +30,6 @@ import { Route as AppCopilotRouteImport } from './routes/app.copilot'
 import { Route as ApiShopifyWidgetRouteImport } from './routes/api.shopify.widget'
 import { Route as ApiShopifyWebhooksRouteImport } from './routes/api.shopify.webhooks'
 import { Route as ApiShopifyBootstrapRouteImport } from './routes/api.shopify.bootstrap'
-import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiShopifyWidgetChatRouteImport } from './routes/api.shopify.widget.chat'
 
 const InternalResetPasswordRoute = InternalResetPasswordRouteImport.update({
@@ -138,11 +137,6 @@ const ApiShopifyBootstrapRoute = ApiShopifyBootstrapRouteImport.update({
   path: '/api/shopify/bootstrap',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
-  id: '/api/auth/$',
-  path: '/api/auth/$',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiShopifyWidgetChatRoute = ApiShopifyWidgetChatRouteImport.update({
   id: '/chat',
   path: '/chat',
@@ -168,7 +162,6 @@ export interface FileRoutesByFullPath {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -191,7 +184,6 @@ export interface FileRoutesByTo {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app': typeof AppIndexRoute
   '/internal': typeof InternalIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -217,7 +209,6 @@ export interface FileRoutesById {
   '/internal/webhooks': typeof InternalWebhooksRoute
   '/app/': typeof AppIndexRoute
   '/internal/': typeof InternalIndexRoute
-  '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/shopify/bootstrap': typeof ApiShopifyBootstrapRoute
   '/api/shopify/webhooks': typeof ApiShopifyWebhooksRoute
   '/api/shopify/widget': typeof ApiShopifyWidgetRouteWithChildren
@@ -244,7 +235,6 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
-    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -267,7 +257,6 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app'
     | '/internal'
-    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -292,7 +281,6 @@ export interface FileRouteTypes {
     | '/internal/webhooks'
     | '/app/'
     | '/internal/'
-    | '/api/auth/$'
     | '/api/shopify/bootstrap'
     | '/api/shopify/webhooks'
     | '/api/shopify/widget'
@@ -306,7 +294,6 @@ export interface RootRouteChildren {
   InternalRoute: typeof InternalRouteWithChildren
   InternalAuthRoute: typeof InternalAuthRoute
   InternalResetPasswordRoute: typeof InternalResetPasswordRoute
-  ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiShopifyBootstrapRoute: typeof ApiShopifyBootstrapRoute
   ApiShopifyWebhooksRoute: typeof ApiShopifyWebhooksRoute
   ApiShopifyWidgetRoute: typeof ApiShopifyWidgetRouteWithChildren
@@ -461,13 +448,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiShopifyBootstrapRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/auth/$': {
-      id: '/api/auth/$'
-      path: '/api/auth/$'
-      fullPath: '/api/auth/$'
-      preLoaderRoute: typeof ApiAuthSplatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/api/shopify/widget/chat': {
       id: '/api/shopify/widget/chat'
       path: '/chat'
@@ -538,7 +518,6 @@ const rootRouteChildren: RootRouteChildren = {
   InternalRoute: InternalRouteWithChildren,
   InternalAuthRoute: InternalAuthRoute,
   InternalResetPasswordRoute: InternalResetPasswordRoute,
-  ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiShopifyBootstrapRoute: ApiShopifyBootstrapRoute,
   ApiShopifyWebhooksRoute: ApiShopifyWebhooksRoute,
   ApiShopifyWidgetRoute: ApiShopifyWidgetRouteWithChildren,

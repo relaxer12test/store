@@ -1,9 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Button } from "@/components/ui/cata/button";
-import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Input } from "@/components/ui/cata/input";
-import { authClient } from "@/lib/auth-client";
+import { resetPasswordFromConvex } from "@/lib/auth-reset-client";
 
 type ResetView = "form" | "success" | "error";
 
@@ -61,14 +61,10 @@ function InternalResetPasswordRoute() {
 								}
 
 								try {
-									const result = await authClient.resetPassword({
+									await resetPasswordFromConvex({
 										newPassword,
 										token: token!,
 									});
-
-									if (result.error) {
-										throw new Error(result.error.message);
-									}
 
 									setView("success");
 								} catch (resetError) {
@@ -109,11 +105,7 @@ function InternalResetPasswordRoute() {
 								</Button>
 							</div>
 
-							{error ? (
-								<div className="mt-4">
-									<ErrorMessage>{error}</ErrorMessage>
-								</div>
-							) : null}
+							{error ? <p className="mt-4 text-sm leading-6 text-red-600">{error}</p> : null}
 						</form>
 					</>
 				)}

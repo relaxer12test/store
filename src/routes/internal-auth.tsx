@@ -1,9 +1,11 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/cata/button";
-import { ErrorMessage, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
+import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Input } from "@/components/ui/cata/input";
 import { authClient } from "@/lib/auth-client";
+import { getAuthClientErrorMessage } from "@/lib/auth-client-errors";
+import { requestPasswordResetFromConvex } from "@/lib/auth-reset-client";
 import { getSessionEnvelope } from "@/lib/auth-server";
 import { hasAdminSession } from "@/shared/contracts/session";
 
@@ -28,10 +30,10 @@ export const Route = createFileRoute("/internal-auth")({
 
 function InternalAuthRoute() {
 	const [view, setView] = useState<AuthView>("sign-in");
+	const [email, setEmail] = useState("");
 	const [error, setError] = useState<string | null>(null);
 	const [isPending, setIsPending] = useState(false);
 	const [sentEmail, setSentEmail] = useState("");
-	const emailRef = useRef<HTMLInputElement>(null);
 
 	const switchTo = (nextView: AuthView) => {
 		setError(null);
@@ -60,17 +62,19 @@ function InternalAuthRoute() {
 								setIsPending(true);
 
 								const formData = new FormData(event.currentTarget);
-								const email = ((formData.get("email") as string) ?? "").trim();
 								const password = (formData.get("password") as string) ?? "";
+								const normalizedEmail = email.trim();
 
 								try {
 									const result = await authClient.signIn.email({
-										email,
+										email: normalizedEmail,
 										password,
 									});
 
 									if (result.error) {
-										throw new Error(result.error.message);
+										throw new Error(
+											getAuthClientErrorMessage(result.error, "Admin authentication failed."),
+										);
 									}
 
 									const session = await getSessionEnvelope();
@@ -85,6 +89,7 @@ function InternalAuthRoute() {
 									setError(
 										authError instanceof Error ? authError.message : "Admin authentication failed.",
 									);
+								} finally {
 									setIsPending(false);
 								}
 							}}
@@ -97,9 +102,10 @@ function InternalAuthRoute() {
 											autoComplete="email"
 											name="email"
 											placeholder="admin@example.com"
-											ref={emailRef}
 											required
 											type="email"
+											value={email}
+											onChange={(event) => setEmail(event.currentTarget.value)}
 										/>
 									</Field>
 									<Field>
@@ -127,11 +133,7 @@ function InternalAuthRoute() {
 								</button>
 							</div>
 
-							{error ? (
-								<div className="mt-4">
-									<ErrorMessage>{error}</ErrorMessage>
-								</div>
-							) : null}
+							{error ? <p className="mt-4 text-sm leading-6 text-red-600">{error}</p> : null}
 						</form>
 					</>
 				)}
@@ -154,20 +156,15 @@ function InternalAuthRoute() {
 								setError(null);
 								setIsPending(true);
 
-								const formData = new FormData(event.currentTarget);
-								const email = ((formData.get("email") as string) ?? "").trim();
+								const normalizedEmail = email.trim();
 
 								try {
-									const result = await authClient.requestPasswordReset({
-										email,
+									await requestPasswordResetFromConvex({
+										email: normalizedEmail,
 										redirectTo: `${window.location.origin}/internal-reset-password`,
 									});
 
-									if (result.error) {
-										throw new Error(result.error.message);
-									}
-
-									setSentEmail(email);
+									setSentEmail(normalizedEmail);
 									setView("reset-email-sent");
 								} catch (resetError) {
 									setError(
@@ -184,11 +181,12 @@ function InternalAuthRoute() {
 										<Label>Email address</Label>
 										<Input
 											autoComplete="email"
-											defaultValue={emailRef.current?.value ?? ""}
 											name="email"
 											placeholder="admin@example.com"
 											required
 											type="email"
+											value={email}
+											onChange={(event) => setEmail(event.currentTarget.value)}
 										/>
 									</Field>
 								</FieldGroup>
@@ -203,11 +201,7 @@ function InternalAuthRoute() {
 								</Button>
 							</div>
 
-							{error ? (
-								<div className="mt-4">
-									<ErrorMessage>{error}</ErrorMessage>
-								</div>
-							) : null}
+							{error ? <p className="mt-4 text-sm leading-6 text-red-600">{error}</p> : null}
 						</form>
 					</>
 				)}
