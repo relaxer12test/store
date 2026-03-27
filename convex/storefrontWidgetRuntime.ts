@@ -1,9 +1,10 @@
 import { createOpenAI } from "@ai-sdk/openai";
+import { Agent, createTool, stepCountIs } from "@convex-dev/agent";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ActionCtx } from "@convex/_generated/server";
-import { generateText, Output, tool } from "ai";
+import type { ToolSet } from "ai";
 import { z } from "zod";
 import type {
 	CartPlan,
@@ -61,24 +62,15 @@ type RuntimeRequest = {
 	viewerUserId?: string;
 };
 
-type ToolOutputSnapshot = {
-	cartPlan: CartPlan | null;
-	collectionCards: StorefrontCollectionCard[];
-	policyOutput: PolicyToolOutput | null;
-	productCards: StorefrontProductCard[];
-	toolNames: string[];
+type StorefrontAgentCtx = ActionCtx & {
+	clientFingerprint?: string;
+	config: StorefrontWidgetConfig;
+	pageContext: StorefrontWidgetPageContext;
+	pageTitle?: string;
+	shopId: Id<"shops">;
 };
 
-const DEFAULT_SAFE_SUGGESTIONS = [
-	"Help me pick a product",
-	"Compare a few options",
-	"What is the return policy?",
-];
-
-const OPENAI_CONVERSATIONS_URL = "https://api.openai.com/v1/conversations";
-
-const storefrontTurnHintsSchema = z.object({
-	answer: z.string().min(1).max(1200),
+const storefrontReplyPlanSchema = z.object({
 	collectionHandles: z.array(z.string().min(1).max(120)).max(6),
 	includeCartPlan: z.boolean(),
 	includeCheckoutLink: z.boolean(),
@@ -100,7 +92,22 @@ const storefrontTurnHintsSchema = z.object({
 	]),
 });
 
-type StorefrontTurnHints = z.infer<typeof storefrontTurnHintsSchema>;
+type StorefrontReplyPlan = z.infer<typeof storefrontReplyPlanSchema>;
+
+type ToolOutputSnapshot = {
+	cartPlan: CartPlan | null;
+	collectionCards: StorefrontCollectionCard[];
+	policyOutput: PolicyToolOutput | null;
+	productCards: StorefrontProductCard[];
+	replyPlan: StorefrontReplyPlan | null;
+	toolNames: string[];
+};
+
+const DEFAULT_SAFE_SUGGESTIONS = [
+	"Help me pick a product",
+	"Compare a few options",
+	"What is the return policy?",
+];
 
 const storefrontRateLimiter = new RateLimiter(components.rateLimiter, {
 	storefrontClientMessage: {
@@ -116,6 +123,8 @@ const storefrontRateLimiter = new RateLimiter(components.rateLimiter, {
 		rate: 12,
 	},
 });
+
+let storefrontAgentSingleton: Agent<StorefrontAgentCtx> | null = null;
 
 function getEnv(name: string) {
 	return (
@@ -210,8 +219,11 @@ function createEffectiveSessionId(input: {
 	return `ephemeral:${input.shopDomain}:${Date.now()}`;
 }
 
-function buildLegacyThreadId(prepared: PreparedRequest) {
-	return `storefront:${prepared.shopId}:${prepared.effectiveSessionId}`;
+function toConfigReferences(config: StorefrontWidgetConfig) {
+	return config.knowledgeSources.slice(0, 4).map((source) => ({
+		label: source,
+		url: /^https?:\/\//i.test(source) ? source : undefined,
+	}));
 }
 
 function buildDisabledConfig(shopDomain: string): StorefrontWidgetConfig {
@@ -226,13 +238,6 @@ function buildDisabledConfig(shopDomain: string): StorefrontWidgetConfig {
 		shopDomain,
 		shopName: "Store assistant",
 	};
-}
-
-function toConfigReferences(config: StorefrontWidgetConfig) {
-	return config.knowledgeSources.slice(0, 4).map((source) => ({
-		label: source,
-		url: /^https?:\/\//i.test(source) ? source : undefined,
-	}));
 }
 
 function buildGreetingReply(config: StorefrontWidgetConfig): StorefrontWidgetReply {
@@ -382,62 +387,6 @@ function normalizeSuggestedPrompts(suggestedPrompts: string[], fallbackPrompts: 
 	return normalized.slice(0, 6);
 }
 
-function extractToolOutputs(
-	toolResults: Array<{ output: unknown; toolName: string }>,
-): ToolOutputSnapshot {
-	const productCards: StorefrontProductCard[] = [];
-	const collectionCards: StorefrontCollectionCard[] = [];
-	let cartPlan: CartPlan | null = null;
-	let policyOutput: PolicyToolOutput | null = null;
-	const toolNames: string[] = [];
-
-	for (const toolResult of toolResults) {
-		toolNames.push(toolResult.toolName);
-
-		if (
-			(toolResult.toolName === "searchCatalog" ||
-				toolResult.toolName === "compareProducts" ||
-				toolResult.toolName === "recommendBundle") &&
-			Array.isArray(toolResult.output)
-		) {
-			productCards.push(...(toolResult.output as StorefrontProductCard[]));
-			continue;
-		}
-
-		if (toolResult.toolName === "getProductDetail" && toolResult.output) {
-			productCards.push(toolResult.output as StorefrontProductCard);
-			continue;
-		}
-
-		if (toolResult.toolName === "searchCollections" && Array.isArray(toolResult.output)) {
-			collectionCards.push(...(toolResult.output as StorefrontCollectionCard[]));
-			continue;
-		}
-
-		if (toolResult.toolName === "getCollectionDetail" && toolResult.output) {
-			collectionCards.push(toolResult.output as StorefrontCollectionCard);
-			continue;
-		}
-
-		if (toolResult.toolName === "answerPolicyQuestion" && toolResult.output) {
-			policyOutput = toolResult.output as PolicyToolOutput;
-			continue;
-		}
-
-		if (toolResult.toolName === "buildCartPlan") {
-			cartPlan = (toolResult.output as CartPlan | null) ?? null;
-		}
-	}
-
-	return {
-		cartPlan,
-		collectionCards: dedupeByHandle(collectionCards).slice(0, 6),
-		policyOutput,
-		productCards: dedupeByHandle(productCards).slice(0, 6),
-		toolNames: Array.from(new Set(toolNames)),
-	};
-}
-
 function toCardReferences(cards: Array<StorefrontProductCard | StorefrontCollectionCard>) {
 	return cards.slice(0, 6).map((card) => ({
 		label: card.title,
@@ -452,52 +401,48 @@ function buildCheckoutReference(config: StorefrontWidgetConfig) {
 	} satisfies StorefrontReference;
 }
 
+function buildAgentUserId(prepared: PreparedRequest) {
+	if (prepared.viewerUserId) {
+		return `viewer:${prepared.shopId}:${prepared.viewerUserId}`;
+	}
+
+	return `session:${prepared.shopId}:${prepared.effectiveSessionId}`;
+}
+
 function buildSystemInstructions(config: StorefrontWidgetConfig) {
 	return [
-		`You are the public storefront AI concierge for ${config.shopName} (${config.shopDomain}).`,
-		"Your job is to respond naturally to shoppers and decide what storefront surface, if any, should appear.",
-		"Treat greetings, thanks, acknowledgements, and farewells as social turns. For social turns, respond warmly, keep surface as none, and do not surface products or collections.",
-		"Only surface products or collections when the shopper is actually asking for shopping help, browsing, comparison, bundling, cart help, or checkout.",
-		"Never invent product, collection, policy, price, availability, or variant details. Use tools before making claims about catalog or policy facts.",
-		"When the shopper refers to the current page or product, use the explicit page context provided in the current turn instead of display-title guesswork.",
-		"Keep answers concise, natural, and shopper-facing. One to three sentences is usually enough.",
-		"When you surface products or collections, include exact handles from the tool results in productHandles or collectionHandles.",
-		"If you want the UI to show a cart plan, set includeCartPlan to true and provide productHandles for the items to include.",
-		"If you want the UI to show checkout, set includeCheckoutLink to true.",
-		"If you must refuse, keep the refusal short, safe, and redirect back to allowed storefront help.",
-		`Example follow-up prompts the merchant likes: ${config.quickPrompts.join(" | ")}.`,
+		"You are the public storefront AI concierge for a Shopify storefront.",
+		`The store is ${config.shopName} (${config.shopDomain}).`,
+		"Reply naturally to the shopper in warm, concise language.",
+		"Use the tools before making claims about products, collections, variants, availability, or store policies.",
+		"Treat greetings, acknowledgements, thanks, and farewells as social turns. Social turns should not surface products or collections.",
+		"Use the explicit page context provided in the prompt when the shopper refers to the current page, product, or collection.",
+		"Never offer discounts, coupons, price overrides, hidden deals, unpublished products, merchant-private data, exact inventory counts, or operational/admin actions.",
+		"Before you finish every shopper turn, call emitReplyPlan exactly once.",
+		"emitReplyPlan must describe the UI surface for this turn using exact product or collection handles when relevant.",
+		"Use surface none for purely conversational turns.",
+		"If the shopper is asking about shopping, comparison, collections, bundles, cart help, or checkout, choose the appropriate surface.",
+		"If you refuse, keep it brief and redirect back to safe storefront help.",
+		`Starter follow-up ideas the merchant prefers: ${config.quickPrompts.join(" | ")}.`,
 	].join(" ");
 }
 
-function buildUserTurnPrompt(prepared: PreparedRequest) {
-	return JSON.stringify(
-		{
-			currentTurn: {
-				pageContext: prepared.pageContext,
-				pageTitle: prepared.pageTitle ?? null,
-				shopDomain: prepared.shopDomain,
-				shopName: prepared.config.shopName,
-				userMessage: prepared.message,
-			},
-			storefrontRules: {
-				publishedCatalogOnly: true,
-				safeActionsOnly: true,
-			},
-		},
-		null,
-		2,
-	);
-}
-
-function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
+function buildTools(toolCtx: StorefrontAgentCtx) {
 	return {
-		answerPolicyQuestion: tool({
+		answerPolicyQuestion: createTool<
+			{
+				question: string;
+			},
+			PolicyToolOutput,
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description:
 				"Answer public shipping, returns, or contact questions using merchant-authored storefront-safe policy text.",
-			execute: async (input: { question: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.answerPolicyQuestion, {
 					question: input.question,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -509,15 +454,24 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		buildCartPlan: tool({
+		buildCartPlan: createTool<
+			{
+				explanation?: string;
+				handles: string[];
+				note?: string;
+			},
+			CartPlan | null,
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description:
 				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts.",
-			execute: async (input: { explanation?: string; handles: string[]; note?: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
 					explanation: input.explanation,
 					handles: input.handles,
 					note: input.note,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -527,12 +481,19 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		compareProducts: tool({
+		compareProducts: createTool<
+			{
+				handles: string[];
+			},
+			StorefrontProductCard[],
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description: "Compare a few public products by exact product handles.",
-			execute: async (input: { handles: string[] }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.compareProducts, {
 					handles: input.handles,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -540,12 +501,29 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		getCollectionDetail: tool({
+		emitReplyPlan: createTool<StorefrontReplyPlan, StorefrontReplyPlan, StorefrontAgentCtx>({
+			ctx: toolCtx,
+			description:
+				"Record the shopper-facing UI plan for this turn. Call exactly once before finishing each response.",
+			execute: async (_ctx, input) => {
+				return input;
+			},
+			inputSchema: storefrontReplyPlanSchema,
+			strict: true,
+		}),
+		getCollectionDetail: createTool<
+			{
+				handle: string;
+			},
+			StorefrontCollectionCard | null,
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description: "Get a single public collection by exact handle.",
-			execute: async (input: { handle: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.getCollectionDetail, {
 					handle: input.handle,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -553,12 +531,19 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		getProductDetail: tool({
+		getProductDetail: createTool<
+			{
+				handle: string;
+			},
+			StorefrontProductCard | null,
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description: "Get a single public product by exact handle.",
-			execute: async (input: { handle: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.getProductDetail, {
 					handle: input.handle,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -566,14 +551,21 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		recommendBundle: tool({
+		recommendBundle: createTool<
+			{
+				query?: string;
+			},
+			StorefrontProductCard[],
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description:
 				"Recommend a safe starter bundle or complementary products using public storefront catalog data.",
-			execute: async (input: { query?: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.recommendBundle, {
-					anchorHandle: prepared.pageContext.productHandle,
+					anchorHandle: ctx.pageContext.productHandle,
 					query: input.query ?? "",
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -586,14 +578,22 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		searchCatalog: tool({
+		searchCatalog: createTool<
+			{
+				limit?: number;
+				query: string;
+			},
+			StorefrontProductCard[],
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description:
-				"Search the shop's public product catalog with a real shopper query. Do not use this for generic greetings.",
-			execute: async (input: { limit?: number; query: string }) => {
+				"Search the shop's public product catalog with a real shopper query. Do not use this for greetings or empty browsing.",
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.searchCatalog, {
 					limit: input.limit,
 					query: input.query,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputExamples: [
@@ -610,13 +610,21 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-		searchCollections: tool({
+		searchCollections: createTool<
+			{
+				limit?: number;
+				query: string;
+			},
+			StorefrontCollectionCard[],
+			StorefrontAgentCtx
+		>({
+			ctx: toolCtx,
 			description: "Search the shop's public collections with a real shopper query.",
-			execute: async (input: { limit?: number; query: string }) => {
+			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.searchCollections, {
 					limit: input.limit,
 					query: input.query,
-					shopId: prepared.shopId,
+					shopId: ctx.shopId,
 				});
 			},
 			inputSchema: z.object({
@@ -629,7 +637,27 @@ function buildTools(ctx: ActionCtx, prepared: PreparedRequest) {
 			}),
 			strict: true,
 		}),
-	} as const;
+	} satisfies ToolSet;
+}
+
+function getStorefrontAgent() {
+	if (!storefrontAgentSingleton) {
+		const openai = createOpenAI({
+			apiKey: getRequiredAiApiKey(),
+		});
+
+		storefrontAgentSingleton = new Agent<StorefrontAgentCtx>(components.agent, {
+			callSettings: {
+				maxOutputTokens: 700,
+				temperature: 0.2,
+			},
+			languageModel: openai.responses(getStorefrontModelId()),
+			name: "storefront_concierge",
+			stopWhen: stepCountIs(6),
+		});
+	}
+
+	return storefrontAgentSingleton;
 }
 
 export function reviewPromptSafety(message: string) {
@@ -728,12 +756,10 @@ async function prepareRequest(
 		sessionId: request.sessionId,
 		shopDomain,
 	});
-	const context: {
-		config: StorefrontWidgetConfig;
-		shopId: Id<"shops"> | null;
-	} = await ctx.runQuery(internal.storefrontConcierge.getContext, {
-		shopDomain,
-	});
+	const context: { config: StorefrontWidgetConfig; shopId: Id<"shops"> | null } =
+		await ctx.runQuery(internal.storefrontConcierge.getContext, {
+			shopDomain,
+		});
 	const config = context.config ?? buildDisabledConfig(shopDomain);
 
 	if (!context.shopId || !config.enabled) {
@@ -869,32 +895,19 @@ async function enforceRateLimits(ctx: ActionCtx, prepared: PreparedRequest) {
 	return true;
 }
 
-async function createOpenAIConversationId() {
-	const response = await fetch(OPENAI_CONVERSATIONS_URL, {
-		body: "{}",
-		headers: {
-			Authorization: `Bearer ${getRequiredAiApiKey()}`,
-			"Content-Type": "application/json",
-		},
-		method: "POST",
-	});
+async function isValidAgentThread(ctx: ActionCtx, threadId: string) {
+	try {
+		const thread = await ctx.runQuery(components.agent.threads.getThread, {
+			threadId,
+		});
 
-	if (!response.ok) {
-		throw new Error("OpenAI conversation creation failed.");
+		return Boolean(thread);
+	} catch {
+		return false;
 	}
-
-	const payload = (await response.json()) as {
-		id?: unknown;
-	};
-
-	if (typeof payload.id !== "string" || payload.id.length === 0) {
-		throw new Error("OpenAI conversation creation returned no conversation id.");
-	}
-
-	return payload.id;
 }
 
-async function ensureSessionRuntimeState(ctx: ActionCtx, prepared: PreparedRequest) {
+async function ensureThreadState(ctx: ActionCtx, prepared: PreparedRequest) {
 	const existingSession: {
 		lastReply: StorefrontWidgetReply | null;
 		lastReplyAt: number | null;
@@ -905,16 +918,31 @@ async function ensureSessionRuntimeState(ctx: ActionCtx, prepared: PreparedReque
 		sessionId: prepared.effectiveSessionId,
 		shopId: prepared.shopId,
 	});
-	const openaiConversationId =
-		existingSession?.openaiConversationId ?? (await createOpenAIConversationId());
-	const threadId = existingSession?.threadId ?? buildLegacyThreadId(prepared);
-	const threadOrder =
-		typeof existingSession?.lastReplyOrder === "number" ? existingSession.lastReplyOrder + 1 : 1;
+	const agentCtx = {
+		...ctx,
+		clientFingerprint: prepared.clientFingerprint,
+		config: prepared.config,
+		pageContext: prepared.pageContext,
+		pageTitle: prepared.pageTitle,
+		shopId: prepared.shopId,
+	} satisfies StorefrontAgentCtx;
+	let threadId =
+		existingSession?.threadId && (await isValidAgentThread(ctx, existingSession.threadId))
+			? existingSession.threadId
+			: null;
+
+	if (!threadId) {
+		const created = await getStorefrontAgent().createThread(agentCtx, {
+			title: `Storefront concierge ${prepared.shopDomain}`,
+			userId: buildAgentUserId(prepared),
+		});
+		threadId = created.threadId;
+	}
 
 	await ctx.runMutation(internal.storefrontConcierge.upsertSessionThread, {
 		clientFingerprint: prepared.clientFingerprint,
 		lastPromptPreview: prepared.promptPreview,
-		openaiConversationId,
+		openaiConversationId: existingSession?.openaiConversationId ?? undefined,
 		sessionId: prepared.effectiveSessionId,
 		shopId: prepared.shopId,
 		threadId,
@@ -922,9 +950,73 @@ async function ensureSessionRuntimeState(ctx: ActionCtx, prepared: PreparedReque
 	});
 
 	return {
-		openaiConversationId,
+		agentCtx,
 		threadId,
-		threadOrder,
+	};
+}
+
+function extractToolOutputs(
+	toolResults: Array<{ output: unknown; toolName: string }>,
+): ToolOutputSnapshot {
+	const productCards: StorefrontProductCard[] = [];
+	const collectionCards: StorefrontCollectionCard[] = [];
+	let cartPlan: CartPlan | null = null;
+	let policyOutput: PolicyToolOutput | null = null;
+	let replyPlan: StorefrontReplyPlan | null = null;
+	const toolNames: string[] = [];
+
+	for (const toolResult of toolResults) {
+		if (toolResult.toolName !== "emitReplyPlan") {
+			toolNames.push(toolResult.toolName);
+		}
+
+		if (
+			(toolResult.toolName === "searchCatalog" ||
+				toolResult.toolName === "compareProducts" ||
+				toolResult.toolName === "recommendBundle") &&
+			Array.isArray(toolResult.output)
+		) {
+			productCards.push(...(toolResult.output as StorefrontProductCard[]));
+			continue;
+		}
+
+		if (toolResult.toolName === "getProductDetail" && toolResult.output) {
+			productCards.push(toolResult.output as StorefrontProductCard);
+			continue;
+		}
+
+		if (toolResult.toolName === "searchCollections" && Array.isArray(toolResult.output)) {
+			collectionCards.push(...(toolResult.output as StorefrontCollectionCard[]));
+			continue;
+		}
+
+		if (toolResult.toolName === "getCollectionDetail" && toolResult.output) {
+			collectionCards.push(toolResult.output as StorefrontCollectionCard);
+			continue;
+		}
+
+		if (toolResult.toolName === "answerPolicyQuestion" && toolResult.output) {
+			policyOutput = toolResult.output as PolicyToolOutput;
+			continue;
+		}
+
+		if (toolResult.toolName === "buildCartPlan") {
+			cartPlan = (toolResult.output as CartPlan | null) ?? null;
+			continue;
+		}
+
+		if (toolResult.toolName === "emitReplyPlan" && toolResult.output) {
+			replyPlan = storefrontReplyPlanSchema.parse(toolResult.output);
+		}
+	}
+
+	return {
+		cartPlan,
+		collectionCards: dedupeByHandle(collectionCards).slice(0, 6),
+		policyOutput,
+		productCards: dedupeByHandle(productCards).slice(0, 6),
+		replyPlan,
+		toolNames: Array.from(new Set(toolNames)),
 	};
 }
 
@@ -994,41 +1086,52 @@ async function resolveCollectionCards(
 	});
 }
 
-async function buildReplyFromTurnHints(
+async function buildReplyFromPlan(
 	ctx: ActionCtx,
 	prepared: PreparedRequest,
-	turnHints: StorefrontTurnHints,
+	answerText: string,
 	outputs: ToolOutputSnapshot,
 ) {
-	const productHandles = normalizeHandleList([
-		...turnHints.productHandles,
-		...outputs.productCards.map((card) => card.handle),
-	]);
-	const collectionHandles = normalizeHandleList([
-		...turnHints.collectionHandles,
-		...outputs.collectionCards.map((card) => card.handle),
-	]);
+	const replyPlan =
+		outputs.replyPlan ??
+		({
+			collectionHandles: [],
+			includeCartPlan: false,
+			includeCheckoutLink: false,
+			productHandles: [],
+			refusalReason: null,
+			suggestedPrompts: [],
+			surface: "none",
+			tone: "answer",
+			turnKind: "social",
+		} satisfies StorefrontReplyPlan);
 	const productCards =
-		turnHints.surface === "products" ||
-		turnHints.surface === "cart" ||
-		turnHints.surface === "checkout"
-			? await resolveProductCards(ctx, prepared.shopId, productHandles, outputs.productCards)
+		replyPlan.surface === "products" ||
+		replyPlan.surface === "cart" ||
+		replyPlan.surface === "checkout"
+			? await resolveProductCards(
+					ctx,
+					prepared.shopId,
+					replyPlan.productHandles,
+					outputs.productCards,
+				)
 			: [];
 	const collectionCards =
-		turnHints.surface === "collections"
+		replyPlan.surface === "collections"
 			? await resolveCollectionCards(
 					ctx,
 					prepared.shopId,
-					collectionHandles,
+					replyPlan.collectionHandles,
 					outputs.collectionCards,
 				)
 			: [];
 	const cartPlan =
-		turnHints.includeCartPlan && productHandles.length > 0
+		(replyPlan.surface === "cart" || replyPlan.includeCartPlan) &&
+		replyPlan.productHandles.length > 0
 			? (outputs.cartPlan ??
 				(await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
 					explanation: undefined,
-					handles: productHandles.slice(0, 4),
+					handles: replyPlan.productHandles.slice(0, 4),
 					note: undefined,
 					shopId: prepared.shopId,
 				})))
@@ -1037,30 +1140,35 @@ async function buildReplyFromTurnHints(
 		...(outputs.policyOutput?.references ?? []),
 		...toCardReferences(productCards),
 		...toCardReferences(collectionCards),
-		...(turnHints.includeCheckoutLink || turnHints.surface === "checkout"
+		...(replyPlan.includeCheckoutLink || replyPlan.surface === "checkout"
 			? [buildCheckoutReference(prepared.config)]
 			: []),
 	]).slice(0, 6);
 	const cards =
-		turnHints.tone === "refusal"
+		replyPlan.tone === "refusal"
 			? []
-			: turnHints.surface === "collections"
+			: replyPlan.surface === "collections"
 				? collectionCards
-				: turnHints.surface === "products" ||
-					  turnHints.surface === "cart" ||
-					  turnHints.surface === "checkout"
+				: replyPlan.surface === "products" ||
+					  replyPlan.surface === "cart" ||
+					  replyPlan.surface === "checkout"
 					? productCards
 					: [];
 	const fallbackPrompts =
-		turnHints.tone === "refusal" ? DEFAULT_SAFE_SUGGESTIONS : prepared.config.quickPrompts;
+		replyPlan.tone === "refusal" ? DEFAULT_SAFE_SUGGESTIONS : prepared.config.quickPrompts;
+	const answer =
+		answerText.trim() ||
+		(replyPlan.tone === "refusal"
+			? "I can't help with that, but I can still help with products, collections, or store policies."
+			: "What can I help you find today?");
 	const reply = storefrontWidgetReplySchema.parse({
-		answer: turnHints.answer.trim(),
+		answer,
 		cards,
-		cartPlan: turnHints.tone === "refusal" ? null : cartPlan,
+		cartPlan: replyPlan.tone === "refusal" ? null : cartPlan,
 		references,
-		refusalReason: turnHints.tone === "refusal" ? (turnHints.refusalReason ?? "refusal") : null,
-		suggestedPrompts: normalizeSuggestedPrompts(turnHints.suggestedPrompts, fallbackPrompts),
-		tone: turnHints.tone,
+		refusalReason: replyPlan.tone === "refusal" ? (replyPlan.refusalReason ?? "refusal") : null,
+		suggestedPrompts: normalizeSuggestedPrompts(replyPlan.suggestedPrompts, fallbackPrompts),
+		tone: replyPlan.tone,
 	});
 
 	if (!reviewAssistantSafety(reply.answer)) {
@@ -1074,7 +1182,7 @@ async function buildReplyFromTurnHints(
 
 	return {
 		outcome: reply.tone === "refusal" ? ("refusal" as const) : ("answer" as const),
-		promptCategory: turnHints.turnKind,
+		promptCategory: replyPlan.turnKind,
 		reply,
 		toolNames: outputs.toolNames,
 	};
@@ -1202,7 +1310,8 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 
 	return createSseResponse(async (send) => {
 		try {
-			const sessionRuntimeState = await ensureSessionRuntimeState(ctx, prepared);
+			const { agentCtx, threadId } = await ensureThreadState(ctx, prepared);
+
 			await ctx.runMutation(internal.storefrontConcierge.appendSessionMessage, {
 				body: prepared.message,
 				role: "user",
@@ -1213,49 +1322,76 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 
 			send({
 				data: {
-					threadId: sessionRuntimeState.threadId,
+					threadId,
 				},
 				event: "meta",
 			});
 
-			const openai = createOpenAI({
-				apiKey: getRequiredAiApiKey(),
+			const { thread } = await getStorefrontAgent().continueThread(agentCtx, {
+				threadId,
+				userId: buildAgentUserId(prepared),
 			});
-			const result = await generateText({
-				maxOutputTokens: 700,
-				model: openai.responses(getStorefrontModelId()),
-				output: Output.object({
-					description:
-						"Structured storefront response hints for conversational behavior and UI surfaces.",
-					name: "storefront_turn_hints",
-					schema: storefrontTurnHintsSchema,
-				}),
-				providerOptions: {
-					openai: {
-						conversation: sessionRuntimeState.openaiConversationId,
-						reasoningEffort: "low",
+			const result = await thread.streamText(
+				{
+					prompt: prepared.message,
+					system: buildSystemInstructions(prepared.config),
+					tools: buildTools(agentCtx),
+				},
+				{
+					contextOptions: {
+						excludeToolMessages: true,
+						recentMessages: 8,
+					},
+					saveStreamDeltas: {
+						returnImmediately: true,
+						throttleMs: 200,
+					},
+					storageOptions: {
+						saveMessages: "all",
 					},
 				},
-				prompt: buildUserTurnPrompt(prepared),
-				system: buildSystemInstructions(prepared.config),
-				tools: buildTools(ctx, prepared),
-			});
-			const toolResults = result.steps.flatMap((step) => step.toolResults) as Array<{
-				output: unknown;
-				toolName: string;
-			}>;
-			const outputs = extractToolOutputs(toolResults);
-			const projected = await buildReplyFromTurnHints(ctx, prepared, result.output, outputs);
+			);
+
+			for await (const part of result.fullStream) {
+				if (part.type === "text-delta") {
+					send({
+						data: {
+							delta: part.text,
+						},
+						event: "chunk",
+					});
+					continue;
+				}
+
+				if (part.type === "tool-call" && part.toolName !== "emitReplyPlan") {
+					send({
+						data: {
+							toolName: part.toolName,
+						},
+						event: "tool",
+					});
+				}
+			}
+
+			const answerText = await result.text;
+			const steps = await result.steps;
+			const outputs = extractToolOutputs(
+				steps.flatMap((step) => step.toolResults) as Array<{
+					output: unknown;
+					toolName: string;
+				}>,
+			);
+			const projected = await buildReplyFromPlan(ctx, prepared, answerText, outputs);
 
 			await ctx.runMutation(internal.storefrontConcierge.saveSessionReply, {
 				clientFingerprint: prepared.clientFingerprint,
 				lastPromptPreview: prepared.promptPreview,
-				openaiConversationId: sessionRuntimeState.openaiConversationId,
+				openaiConversationId: undefined,
 				reply: projected.reply,
 				sessionId: prepared.effectiveSessionId,
 				shopId: prepared.shopId,
-				threadId: sessionRuntimeState.threadId,
-				threadOrder: sessionRuntimeState.threadOrder,
+				threadId,
+				threadOrder: result.order,
 				viewerUserId: prepared.viewerUserId,
 			});
 
