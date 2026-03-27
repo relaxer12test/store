@@ -6,7 +6,8 @@ import type {
 	StorefrontProductCard,
 	StorefrontReference,
 	StorefrontWidgetConfig,
-} from "../src/shared/contracts/storefront-widget";
+	StorefrontWidgetReply,
+} from "@/shared/contracts/storefront-widget";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
@@ -14,7 +15,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 	DEFAULT_STOREFRONT_WIDGET_QUICK_PROMPTS,
-} from "../src/shared/contracts/storefront-widget";
+} from "@/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import {
@@ -28,6 +29,59 @@ const SESSION_LIMIT = 12;
 const SESSION_WINDOW_MS = 1000 * 60 * 5;
 const CLIENT_LIMIT = 20;
 const CLIENT_WINDOW_MS = 1000 * 60 * 10;
+const storefrontReplyValidator = v.object({
+	answer: v.string(),
+	cards: v.array(
+		v.union(
+			v.object({
+				availabilityLabel: v.string(),
+				handle: v.string(),
+				href: v.string(),
+				imageUrl: v.optional(v.string()),
+				kind: v.literal("product"),
+				priceLabel: v.string(),
+				summary: v.string(),
+				title: v.string(),
+				vendor: v.union(v.string(), v.null()),
+			}),
+			v.object({
+				handle: v.string(),
+				href: v.string(),
+				kind: v.literal("collection"),
+				productCount: v.union(v.number(), v.null()),
+				summary: v.string(),
+				title: v.string(),
+			}),
+		),
+	),
+	cartPlan: v.union(
+		v.object({
+			explanation: v.optional(v.string()),
+			items: v.array(
+				v.object({
+					productHandle: v.string(),
+					productTitle: v.string(),
+					productUrl: v.string(),
+					quantity: v.number(),
+					variantId: v.string(),
+					variantTitle: v.string(),
+				}),
+			),
+			note: v.optional(v.string()),
+		}),
+		v.null(),
+	),
+	references: v.array(
+		v.object({
+			label: v.string(),
+			url: v.optional(v.string()),
+		}),
+	),
+	refusalReason: v.union(v.string(), v.null()),
+	suggestedPrompts: v.array(v.string()),
+	tone: v.union(v.literal("answer"), v.literal("refusal")),
+});
+const storefrontSessionMessageRoleValidator = v.union(v.literal("assistant"), v.literal("user"));
 
 type WidgetConfigRecord = Doc<"widgetConfigs"> & {
 	knowledgeSources?: string[];
@@ -80,6 +134,40 @@ function withoutUndefined<T extends Record<string, unknown>>(value: T) {
 			return entry[1] !== undefined;
 		}),
 	) as T;
+}
+
+function normalizeSessionMessageBody(body: string) {
+	return body.trim().replace(/\s+/g, " ").slice(0, 1200);
+}
+
+async function insertSessionMessage(
+	ctx: MutationCtx,
+	args: {
+		body: string;
+		reply?: StorefrontWidgetReply;
+		role: "assistant" | "user";
+		sessionId: string;
+		shopId: Id<"shops">;
+		viewerUserId?: string;
+	},
+) {
+	const body = normalizeSessionMessageBody(args.body);
+
+	if (!body) {
+		return null;
+	}
+
+	return await ctx.db.insert("storefrontAiSessionMessages", {
+		body,
+		createdAt: Date.now(),
+		...withoutUndefined({
+			reply: args.reply,
+			viewerUserId: args.viewerUserId,
+		}),
+		role: args.role,
+		sessionId: args.sessionId,
+		shopId: args.shopId,
+	});
 }
 
 function normalizeShopDomain(shopDomain: string) {
@@ -451,58 +539,7 @@ export const saveSessionReply = internalMutation({
 	args: {
 		clientFingerprint: v.optional(v.string()),
 		lastPromptPreview: v.optional(v.string()),
-		reply: v.object({
-			answer: v.string(),
-			cards: v.array(
-				v.union(
-					v.object({
-						availabilityLabel: v.string(),
-						handle: v.string(),
-						href: v.string(),
-						imageUrl: v.optional(v.string()),
-						kind: v.literal("product"),
-						priceLabel: v.string(),
-						summary: v.string(),
-						title: v.string(),
-						vendor: v.union(v.string(), v.null()),
-					}),
-					v.object({
-						handle: v.string(),
-						href: v.string(),
-						kind: v.literal("collection"),
-						productCount: v.union(v.number(), v.null()),
-						summary: v.string(),
-						title: v.string(),
-					}),
-				),
-			),
-			cartPlan: v.union(
-				v.object({
-					explanation: v.optional(v.string()),
-					items: v.array(
-						v.object({
-							productHandle: v.string(),
-							productTitle: v.string(),
-							productUrl: v.string(),
-							quantity: v.number(),
-							variantId: v.string(),
-							variantTitle: v.string(),
-						}),
-					),
-					note: v.optional(v.string()),
-				}),
-				v.null(),
-			),
-			references: v.array(
-				v.object({
-					label: v.string(),
-					url: v.optional(v.string()),
-				}),
-			),
-			refusalReason: v.union(v.string(), v.null()),
-			suggestedPrompts: v.array(v.string()),
-			tone: v.union(v.literal("answer"), v.literal("refusal")),
-		}),
+		reply: storefrontReplyValidator,
 		sessionId: v.string(),
 		shopId: v.id("shops"),
 		threadId: v.string(),
@@ -530,24 +567,45 @@ export const saveSessionReply = internalMutation({
 				updatedAt: now,
 				viewerUserId: args.viewerUserId,
 			});
-
-			return existing._id;
+		} else {
+			await ctx.db.insert("storefrontAiSessions", {
+				clientFingerprint: args.clientFingerprint,
+				createdAt: now,
+				lastPromptAt: now,
+				lastPromptPreview: args.lastPromptPreview,
+				lastReply: args.reply,
+				lastReplyAt: now,
+				lastReplyOrder: args.threadOrder,
+				sessionId: args.sessionId,
+				shopId: args.shopId,
+				threadId: args.threadId,
+				updatedAt: now,
+				viewerUserId: args.viewerUserId,
+			});
 		}
 
-		return await ctx.db.insert("storefrontAiSessions", {
-			clientFingerprint: args.clientFingerprint,
-			createdAt: now,
-			lastPromptAt: now,
-			lastPromptPreview: args.lastPromptPreview,
-			lastReply: args.reply,
-			lastReplyAt: now,
-			lastReplyOrder: args.threadOrder,
+		return await insertSessionMessage(ctx, {
+			body: args.reply.answer,
+			reply: args.reply,
+			role: "assistant",
 			sessionId: args.sessionId,
 			shopId: args.shopId,
-			threadId: args.threadId,
-			updatedAt: now,
 			viewerUserId: args.viewerUserId,
 		});
+	},
+});
+
+export const appendSessionMessage = internalMutation({
+	args: {
+		body: v.string(),
+		reply: v.optional(storefrontReplyValidator),
+		role: storefrontSessionMessageRoleValidator,
+		sessionId: v.string(),
+		shopId: v.id("shops"),
+		viewerUserId: v.optional(v.string()),
+	},
+	handler: async (ctx, args) => {
+		return await insertSessionMessage(ctx, args);
 	},
 });
 

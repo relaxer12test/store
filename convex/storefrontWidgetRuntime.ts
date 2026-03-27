@@ -10,7 +10,7 @@ import type {
 	StorefrontReference,
 	StorefrontWidgetConfig,
 	StorefrontWidgetReply,
-} from "../src/shared/contracts/storefront-widget";
+} from "@/shared/contracts/storefront-widget";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
@@ -19,7 +19,7 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 	DEFAULT_STOREFRONT_WIDGET_QUICK_PROMPTS,
 	storefrontWidgetReplySchema,
-} from "../src/shared/contracts/storefront-widget";
+} from "@/shared/contracts/storefront-widget";
 import { components, internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import type { ActionCtx } from "./_generated/server";
@@ -158,10 +158,6 @@ function sanitizePromptPreview(prompt: string) {
 		.replace(/\b\d{6,}\b/g, "[redacted-number]")
 		.replace(/\s+/g, " ")
 		.slice(0, 220);
-}
-
-function sanitizeAssistantAnswer(answer: string | undefined) {
-	return (answer ?? "").replace(/\s+/g, " ").trim().slice(0, 1200);
 }
 
 function usesPageContext(message: string) {
@@ -624,23 +620,6 @@ function dedupeReferences(references: StorefrontReference[]) {
 	}
 
 	return deduped;
-}
-
-function overrideReplyAnswer(reply: StorefrontWidgetReply, answer: string | undefined) {
-	if (reply.cards.length > 0 || reply.cartPlan) {
-		return reply;
-	}
-
-	const sanitizedAnswer = sanitizeAssistantAnswer(answer);
-
-	if (!sanitizedAnswer) {
-		return reply;
-	}
-
-	return storefrontWidgetReplySchema.parse({
-		...reply,
-		answer: sanitizedAnswer,
-	});
 }
 
 function buildAgentInstructions() {
@@ -1199,26 +1178,7 @@ async function buildProjectedReply(
 	const outputs = extractToolOutputs(toolResults);
 	await addFallbackToolOutputs(ctx, prepared, outputs);
 
-	const fallbackReply = buildFallbackReply(prepared, outputs);
-	const generatedAnswer = sanitizeAssistantAnswer(await result.text);
-
-	if (generatedAnswer && !reviewAssistantSafety(generatedAnswer)) {
-		await ctx.runMutation(internal.storefrontConcierge.flagModeration, {
-			clientFingerprint: prepared.clientFingerprint,
-			promptPreview: prepared.promptPreview,
-			reason: "unsafe_generation",
-			sessionId: prepared.effectiveSessionId,
-			shopId: prepared.shopId,
-		});
-
-		return {
-			outcome: "refusal" as const,
-			reply: buildSafetyRefusalReply(prepared.config, "policy_bypass"),
-			toolNames: outputs.toolNames,
-		};
-	}
-
-	const reply = overrideReplyAnswer(fallbackReply, generatedAnswer);
+	const reply = buildFallbackReply(prepared, outputs);
 
 	return {
 		outcome: reply.tone === "refusal" ? ("refusal" as const) : ("answer" as const),
@@ -1352,6 +1312,13 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 
 	return createSseResponse(async (send) => {
 		const threadId = await ensureThreadId(ctx, prepared);
+		await ctx.runMutation(internal.storefrontConcierge.appendSessionMessage, {
+			body: prepared.message,
+			role: "user",
+			sessionId: prepared.effectiveSessionId,
+			shopId: prepared.shopId,
+			viewerUserId: prepared.viewerUserId,
+		});
 		send({
 			data: {
 				threadId,
@@ -1390,16 +1357,6 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 			)) as Awaited<ReturnType<typeof thread.streamText>>;
 
 			for await (const part of result.fullStream) {
-				if (part.type === "text-delta" && part.text) {
-					send({
-						data: {
-							delta: part.text,
-						},
-						event: "chunk",
-					});
-					continue;
-				}
-
 				if (part.type === "tool-call") {
 					send({
 						data: {

@@ -1,10 +1,11 @@
 import { v } from "convex/values";
 import type {
 	StorefrontWidgetConfig,
+	StorefrontWidgetReply,
 	StorefrontWidgetSessionDetail,
 	StorefrontWidgetSessionSummary,
 	StorefrontWidgetTranscriptMessage,
-} from "../src/shared/contracts/storefront-widget";
+} from "@/shared/contracts/storefront-widget";
 import { components, internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { query, type QueryCtx } from "./_generated/server";
@@ -12,8 +13,9 @@ import { authComponent } from "./auth";
 import { getStorefrontConfigFallback } from "./storefrontWidgetRuntime";
 
 const MAX_VIEWER_SESSIONS = 12;
-const MESSAGE_PAGE_SIZE = 80;
-const MAX_TRANSCRIPT_MESSAGES = 160;
+const LEGACY_THREAD_MESSAGE_PAGE_SIZE = 80;
+const MAX_PUBLIC_TRANSCRIPT_MESSAGES = 80;
+const MAX_LEGACY_USER_MESSAGES = 40;
 
 type ViewerRecord = {
 	id: string;
@@ -31,6 +33,8 @@ type TranscriptMessagePage = {
 		text?: string;
 	}>;
 };
+
+type SessionMessageRecord = Doc<"storefrontAiSessionMessages">;
 
 function normalizeShopDomain(shopDomain: string) {
 	return shopDomain.trim().toLowerCase();
@@ -64,12 +68,23 @@ function getTranscriptRole(message: {
 }): StorefrontWidgetTranscriptMessage["role"] {
 	switch (message.message?.role) {
 		case "assistant":
-		case "system":
 		case "user":
 			return message.message.role;
 		default:
 			return "assistant";
 	}
+}
+
+function toPublicTranscriptMessage(
+	message: SessionMessageRecord,
+): StorefrontWidgetTranscriptMessage {
+	return {
+		body: message.body,
+		createdAt: new Date(message.createdAt).toISOString(),
+		id: message._id,
+		reply: (message.reply ?? null) as StorefrontWidgetReply | null,
+		role: message.role,
+	};
 }
 
 async function getViewer(ctx: QueryCtx): Promise<ViewerRecord | null> {
@@ -87,13 +102,31 @@ async function getConnectedShopByDomain(ctx: QueryCtx, shopDomain: string) {
 	return shop?.installStatus === "connected" ? shop : null;
 }
 
-async function readTranscriptMessages(ctx: QueryCtx, threadId: string) {
+async function readPublicTranscriptMessages(
+	ctx: QueryCtx,
+	options: {
+		sessionId: string;
+		shopId: Id<"shops">;
+	},
+) {
+	const messages = await ctx.db
+		.query("storefrontAiSessionMessages")
+		.withIndex("by_shop_and_session_id_and_created_at", (query) =>
+			query.eq("shopId", options.shopId).eq("sessionId", options.sessionId),
+		)
+		.order("desc")
+		.take(MAX_PUBLIC_TRANSCRIPT_MESSAGES);
+
+	return messages.slice().reverse().map(toPublicTranscriptMessage);
+}
+
+async function readLegacyUserMessages(ctx: QueryCtx, threadId: string) {
 	const messages: StorefrontWidgetTranscriptMessage[] = [];
 	let cursor: string | null = null;
 
-	while (messages.length < MAX_TRANSCRIPT_MESSAGES) {
-		const remaining = MAX_TRANSCRIPT_MESSAGES - messages.length;
-		const pageSize = Math.min(MESSAGE_PAGE_SIZE, remaining);
+	while (messages.length < MAX_LEGACY_USER_MESSAGES) {
+		const remaining = MAX_LEGACY_USER_MESSAGES - messages.length;
+		const pageSize = Math.min(LEGACY_THREAD_MESSAGE_PAGE_SIZE, remaining);
 		const result: TranscriptMessagePage = await ctx.runQuery(
 			components.agent.messages.listMessagesByThreadId,
 			{
@@ -108,22 +141,23 @@ async function readTranscriptMessages(ctx: QueryCtx, threadId: string) {
 		);
 
 		messages.push(
-			...result.page
-				.map((message) => {
-					const body = message.text?.trim();
+			...result.page.flatMap((message) => {
+				const body = message.text?.trim();
 
-					if (!body) {
-						return null;
-					}
+				if (!body || getTranscriptRole(message) !== "user") {
+					return [];
+				}
 
-					return {
+				return [
+					{
 						body,
 						createdAt: new Date(message._creationTime).toISOString(),
 						id: message._id,
-						role: getTranscriptRole(message),
-					} satisfies StorefrontWidgetTranscriptMessage;
-				})
-				.filter((message): message is StorefrontWidgetTranscriptMessage => message !== null),
+						reply: null,
+						role: "user",
+					} satisfies StorefrontWidgetTranscriptMessage,
+				];
+			}),
 		);
 
 		if (result.isDone) {
@@ -214,8 +248,16 @@ export const getViewerSessionDetail = query({
 			return null;
 		}
 
+		const publicMessages = await readPublicTranscriptMessages(ctx, {
+			sessionId: session.sessionId,
+			shopId: shop._id,
+		});
+
 		return {
-			messages: await readTranscriptMessages(ctx, session.threadId),
+			messages:
+				publicMessages.length > 0
+					? publicMessages
+					: await readLegacyUserMessages(ctx, session.threadId),
 			sessionId: session.sessionId,
 			title: toSessionTitle(session),
 		};

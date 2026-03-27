@@ -528,11 +528,7 @@
 			"storefront-ai-widget-header-button storefront-ai-widget-header-button--secondary",
 			"Chats",
 		);
-		var newChatButton = createElement(
-			"button",
-			"storefront-ai-widget-header-button",
-			"New chat",
-		);
+		var newChatButton = createElement("button", "storefront-ai-widget-header-button", "New chat");
 		var close = createElement("button", "storefront-ai-widget-close", "x");
 		var sessionPage = createElement("div", "storefront-ai-widget-session-page");
 		var sessionIntro = createElement("div", "storefront-ai-widget-session-intro");
@@ -748,9 +744,7 @@
 
 			if (state.sessions.length === 0) {
 				var emptyState = createElement("div", "storefront-ai-widget-session-empty");
-				emptyState.appendChild(
-					createElement("strong", "", "No saved chats yet"),
-				);
+				emptyState.appendChild(createElement("strong", "", "No saved chats yet"));
 				emptyState.appendChild(
 					createElement(
 						"p",
@@ -792,9 +786,7 @@
 
 				if (session.sessionId === state.sessionId) {
 					button.classList.add("is-active");
-					row.appendChild(
-						createElement("span", "storefront-ai-widget-session-badge", "Current"),
-					);
+					row.appendChild(createElement("span", "storefront-ai-widget-session-badge", "Current"));
 				}
 
 				button.appendChild(row);
@@ -902,16 +894,38 @@
 						return;
 					}
 
+					var latestReply = null;
+
 					payload.messages.forEach(function (message) {
+						var role = message && message.role === "user" ? "user" : "assistant";
+						var reply = role === "assistant" && message && message.reply ? message.reply : null;
+
+						if (reply) {
+							latestReply = reply;
+						}
+
 						feed.appendChild(
-							createMessage(message.role === "user" ? "user" : message.role, {
-								cards: [],
-								cartPlan: null,
-								references: [],
-								text: message.body || "",
+							createMessage(reply && reply.tone === "refusal" ? "refusal" : role, {
+								cards: reply && Array.isArray(reply.cards) ? reply.cards : [],
+								cartPlan: reply && reply.cartPlan ? reply.cartPlan : null,
+								onApplyCartPlan: applyCartPlan,
+								onCheckoutCart: checkoutCart,
+								references: reply && Array.isArray(reply.references) ? reply.references : [],
+								text:
+									typeof message.body === "string" && message.body
+										? message.body
+										: reply && typeof reply.answer === "string"
+											? reply.answer
+											: "",
 							}),
 						);
 					});
+
+					renderSuggestions(
+						latestReply && Array.isArray(latestReply.suggestedPrompts)
+							? latestReply.suggestedPrompts
+							: [],
+					);
 
 					state.loadedSessionId = sessionId;
 					scrollFeedToBottom();

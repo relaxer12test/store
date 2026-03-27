@@ -347,6 +347,16 @@ export default defineSchema({
 		.index("by_session_id", ["sessionId"])
 		.index("by_thread_id", ["threadId"]),
 
+	storefrontAiSessionMessages: defineTable({
+		body: v.string(),
+		createdAt: v.number(),
+		reply: v.optional(storefrontWidgetReplyValidator),
+		role: v.union(v.literal("assistant"), v.literal("user")),
+		sessionId: v.string(),
+		shopId: v.id("shops"),
+		viewerUserId: v.optional(v.string()),
+	}).index("by_shop_and_session_id_and_created_at", ["shopId", "sessionId", "createdAt"]),
+
 	storefrontAiRateLimits: defineTable({
 		clientFingerprint: v.optional(v.string()),
 		count: v.number(),

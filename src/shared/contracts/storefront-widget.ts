@@ -107,7 +107,8 @@ export interface StorefrontWidgetTranscriptMessage {
 	body: string;
 	createdAt: string;
 	id: string;
-	role: "assistant" | "system" | "user";
+	reply?: StorefrontWidgetReply | null;
+	role: "assistant" | "user";
 }
 
 export interface StorefrontWidgetSessionDetail {
