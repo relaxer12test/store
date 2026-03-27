@@ -1,20 +1,49 @@
 import { TanStackDevtools } from "@tanstack/react-devtools";
-import { createRootRouteWithContext, HeadContent, Scripts } from "@tanstack/react-router";
+import {
+	createRootRouteWithContext,
+	HeadContent,
+	Scripts,
+	useRouter,
+	useRouterState,
+	type ErrorComponentProps,
+	type NotFoundRouteProps,
+} from "@tanstack/react-router";
 import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
+import { useEffect, useRef } from "react";
+import { Button } from "@/components/ui/cata/button";
+import { Heading } from "@/components/ui/cata/heading";
+import { Text } from "@/components/ui/cata/text";
+import { StatusPill } from "@/components/ui/feedback";
 import { AppProviders } from "@/integrations/app/providers";
 import type { AppRouterContext } from "@/integrations/app/router-context";
-import { currentViewerQuery } from "@/lib/auth-queries";
 import { getAuthBootstrap } from "@/lib/auth-functions";
+import { currentViewerQuery } from "@/lib/auth-queries";
 import { applyEmbeddedAppContentSecurityPolicyHeader } from "@/lib/auth-server";
 import { getOptionalShopifyApiKey } from "@/lib/env";
 import type { AppViewerContext } from "@/shared/contracts/auth";
 import appCss from "@/styles.css?url";
+
+const ROUTER_LOG_PREFIX = "[router]";
 
 interface ShopifyAppBridgeDocumentConfig {
 	apiKey: string | null;
 	host: string | null;
 	shop: string | null;
 	shouldLoad: boolean;
+}
+
+interface RouterDiagnosticsSnapshot {
+	hash: string;
+	href: string;
+	matches: Array<{
+		fullPath: string;
+		pathname: string;
+		routeId: string;
+		status: string;
+	}>;
+	pathname: string;
+	search: string;
+	status: string;
 }
 
 function normalizeMyshopifyDomain(value: string | null) {
@@ -99,6 +128,8 @@ export const Route = createRootRouteWithContext<AppRouterContext>()({
 			},
 		],
 	}),
+	errorComponent: RouterErrorBoundary,
+	notFoundComponent: RouterNotFoundBoundary,
 	shellComponent: RootDocument,
 });
 
@@ -146,5 +177,241 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<Scripts />
 			</body>
 		</html>
+	);
+}
+
+function useRouterDiagnosticsSnapshot(): RouterDiagnosticsSnapshot {
+	return useRouterState({
+		select: (state) => ({
+			hash: state.location.hash,
+			href: `${state.location.pathname}${state.location.searchStr}${state.location.hash}`,
+			matches: state.matches.map((match) => ({
+				fullPath: match.fullPath,
+				pathname: match.pathname,
+				routeId: match.routeId,
+				status: match.status,
+			})),
+			pathname: state.location.pathname,
+			search: state.location.searchStr,
+			status: state.status,
+		}),
+	});
+}
+
+function serializeLogValue(value: unknown, seen = new WeakSet<object>()): unknown {
+	if (value instanceof Error) {
+		const serialized: Record<string, unknown> = {
+			message: value.message,
+			name: value.name,
+		};
+
+		for (const propertyName of Object.getOwnPropertyNames(value)) {
+			const propertyValue = Reflect.get(value, propertyName) as unknown;
+
+			if (propertyValue !== undefined) {
+				serialized[propertyName] = serializeLogValue(propertyValue, seen);
+			}
+		}
+
+		return serialized;
+	}
+
+	if (Array.isArray(value)) {
+		return value.map((item) => serializeLogValue(item, seen));
+	}
+
+	if (value && typeof value === "object") {
+		if (seen.has(value)) {
+			return "[circular]";
+		}
+
+		seen.add(value);
+
+		return Object.fromEntries(
+			Object.entries(value as Record<string, unknown>).map(([key, nestedValue]) => [
+				key,
+				serializeLogValue(nestedValue, seen),
+			]),
+		);
+	}
+
+	if (typeof value === "function") {
+		return `[function ${value.name || "anonymous"}]`;
+	}
+
+	if (typeof value === "symbol") {
+		return value.toString();
+	}
+
+	return value;
+}
+
+function useLogRouterEvent(event: "not_found" | "route_error", payload: unknown) {
+	const lastLogRef = useRef<string>("");
+
+	useEffect(() => {
+		const normalizedPayload = serializeLogValue(payload);
+		const serializedPayload = JSON.stringify(normalizedPayload);
+
+		if (serializedPayload === lastLogRef.current) {
+			return;
+		}
+
+		lastLogRef.current = serializedPayload;
+
+		if (event === "route_error") {
+			console.error(`${ROUTER_LOG_PREFIX} ${event}`, normalizedPayload);
+			return;
+		}
+
+		console.warn(`${ROUTER_LOG_PREFIX} ${event}`, normalizedPayload);
+	}, [event, payload]);
+}
+
+function RouterErrorBoundary({ error, reset }: ErrorComponentProps) {
+	const router = useRouter();
+	const snapshot = useRouterDiagnosticsSnapshot();
+	const boundaryRouteId = snapshot.matches.at(-1)?.routeId ?? "__root__";
+	const errorMessage =
+		error instanceof Error
+			? error.message
+			: typeof error === "string"
+				? error
+				: "Unknown route error.";
+
+	useLogRouterEvent("route_error", {
+		boundaryRouteId,
+		error,
+		location: {
+			hash: snapshot.hash,
+			href: snapshot.href,
+			pathname: snapshot.pathname,
+			search: snapshot.search,
+		},
+		matches: snapshot.matches,
+		routerStatus: snapshot.status,
+	});
+
+	return (
+		<main className="mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+			<section className="w-full rounded-2xl border border-zinc-950/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-8">
+				<StatusPill tone="blocked">Route error</StatusPill>
+				<Heading className="mt-4">This route failed to load</Heading>
+				<Text className="mt-2 max-w-2xl">
+					The router caught an unexpected error while resolving this screen. Check the browser
+					console for{" "}
+					<span className="font-mono text-zinc-700 dark:text-zinc-300">
+						{`${ROUTER_LOG_PREFIX} route_error`}
+					</span>{" "}
+					for the full payload.
+				</Text>
+				<div className="mt-6 flex flex-wrap gap-3">
+					<Button
+						color="dark/zinc"
+						onClick={() => {
+							reset();
+							void router.invalidate();
+						}}
+					>
+						Retry route
+					</Button>
+					<Button href="/" outline>
+						Go home
+					</Button>
+				</div>
+				<RouterDiagnosticsSummary
+					boundaryRouteId={boundaryRouteId}
+					message={errorMessage}
+					snapshot={snapshot}
+				/>
+			</section>
+		</main>
+	);
+}
+
+function RouterNotFoundBoundary({ data, routeId }: NotFoundRouteProps) {
+	const snapshot = useRouterDiagnosticsSnapshot();
+
+	useLogRouterEvent("not_found", {
+		boundaryRouteId: routeId,
+		data,
+		location: {
+			hash: snapshot.hash,
+			href: snapshot.href,
+			pathname: snapshot.pathname,
+			search: snapshot.search,
+		},
+		matches: snapshot.matches,
+		routerStatus: snapshot.status,
+	});
+
+	return (
+		<main className="mx-auto flex min-h-screen w-full max-w-4xl items-center px-4 py-10 sm:px-6">
+			<section className="w-full rounded-2xl border border-zinc-950/5 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-8">
+				<StatusPill tone="watch">Route not found</StatusPill>
+				<Heading className="mt-4">No route matched this URL</Heading>
+				<Text className="mt-2 max-w-2xl">
+					The router resolved this request as not found. Check the browser console for{" "}
+					<span className="font-mono text-zinc-700 dark:text-zinc-300">
+						{`${ROUTER_LOG_PREFIX} not_found`}
+					</span>{" "}
+					to see the exact pathname, search string, and matched route chain.
+				</Text>
+				<div className="mt-6 flex flex-wrap gap-3">
+					<Button color="dark/zinc" href="/">
+						Go home
+					</Button>
+				</div>
+				<RouterDiagnosticsSummary boundaryRouteId={routeId} snapshot={snapshot} />
+			</section>
+		</main>
+	);
+}
+
+function RouterDiagnosticsSummary({
+	boundaryRouteId,
+	message,
+	snapshot,
+}: {
+	boundaryRouteId: string;
+	message?: string;
+	snapshot: RouterDiagnosticsSnapshot;
+}) {
+	const activeMatches = snapshot.matches.length
+		? snapshot.matches.map((match) => `${match.routeId}:${match.status}`).join(" -> ")
+		: "none";
+
+	return (
+		<div className="mt-8 grid gap-4 sm:grid-cols-2">
+			<RouterDiagnosticsField label="Path" value={snapshot.href || snapshot.pathname || "/"} />
+			<RouterDiagnosticsField label="Boundary route" value={boundaryRouteId} />
+			<RouterDiagnosticsField label="Router status" value={snapshot.status} />
+			<RouterDiagnosticsField label="Search" value={snapshot.search || "(empty)"} />
+			<div className="sm:col-span-2">
+				<Text>Active matches</Text>
+				<pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-950/10 bg-zinc-50 px-4 py-3 font-mono text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+					{activeMatches}
+				</pre>
+			</div>
+			{message ? (
+				<div className="sm:col-span-2">
+					<Text>Error message</Text>
+					<pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-950/10 bg-zinc-50 px-4 py-3 font-mono text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+						{message}
+					</pre>
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function RouterDiagnosticsField({ label, value }: { label: string; value: string }) {
+	return (
+		<div>
+			<Text>{label}</Text>
+			<pre className="mt-2 overflow-x-auto rounded-lg border border-zinc-950/10 bg-zinc-50 px-4 py-3 font-mono text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+				{value}
+			</pre>
+		</div>
 	);
 }
