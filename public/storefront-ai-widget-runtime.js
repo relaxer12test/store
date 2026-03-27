@@ -408,14 +408,14 @@
 		root.dataset.storefrontAiReady = "true";
 
 		var apiBase = (root.dataset.apiBase || "").replace(/\/$/, "");
-		var convexBase = (root.dataset.convexBase || apiBase || "").replace(/\/$/, "");
+		var convexBase = (root.dataset.convexBase || "").replace(/\/$/, "");
 		var shopDomain = root.dataset.shopDomain || "";
 		var isThemeEditor = root.dataset.themeEditor === "true";
 
 		if (!apiBase || !convexBase || !shopDomain) {
 			if (isThemeEditor) {
 				root.appendChild(
-					buildThemeEditorNotice("The app embed is missing its API base or shop domain."),
+					buildThemeEditorNotice("The app embed is missing its app base, Convex base, or shop domain."),
 				);
 			}
 
