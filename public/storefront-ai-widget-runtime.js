@@ -1,6 +1,8 @@
 (function () {
 	var SESSION_KEY_PREFIX = "storefront-ai-session::";
 
+	/* ─── Network helpers (unchanged) ─── */
+
 	function fetchJson(url, options) {
 		return fetch(url, options).then(function (response) {
 			return response.text().then(function (text) {
@@ -102,6 +104,8 @@
 		});
 	}
 
+	/* ─── DOM helpers ─── */
+
 	function createElement(tagName, className, textContent) {
 		var element = document.createElement(tagName);
 
@@ -115,6 +119,51 @@
 
 		return element;
 	}
+
+	function svgIcon(html, width, height) {
+		var span = document.createElement("span");
+		span.style.display = "inline-flex";
+		span.style.alignItems = "center";
+		span.style.justifyContent = "center";
+		span.innerHTML = html;
+		var svg = span.querySelector("svg");
+		if (svg) {
+			svg.setAttribute("width", String(width || 16));
+			svg.setAttribute("height", String(height || 16));
+		}
+		return span;
+	}
+
+	/* ─── SVG Icons ─── */
+
+	var ICON_CLOSE =
+		'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="4" x2="12" y2="12"/><line x1="12" y1="4" x2="4" y2="12"/></svg>';
+
+	var ICON_SESSIONS =
+		'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><polyline points="8,5 8,8 10.5,9.5"/></svg>';
+
+	var ICON_NEW_CHAT =
+		'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="8" y1="3" x2="8" y2="13"/><line x1="3" y1="8" x2="13" y2="8"/></svg>';
+
+	var ICON_SEND =
+		'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="12" x2="8" y2="4"/><polyline points="4,7 8,3 12,7"/></svg>';
+
+	var ICON_SPINNER =
+		'<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2a6 6 0 1 0 6 6"/></svg>';
+
+	/* ─── Unicorn SVG (simplified — body only, no sparkles/stars/tail-swish) ─── */
+
+	var UNICORN_SVG =
+		'<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="storefront-ai-widget-unicorn-svg">' +
+		'<g class="storefront-ai-widget-unicorn-body">' +
+		'<path d="M14 28c0-8 5-14 12-14 3 0 5 1 6 3l1-3s1-5-3-8l-2-2s-1 3-2 4c-2-2-5-3-8-2-4 1-7 5-8 10s-1 9 2 12z" fill="currentColor" opacity="0.9"/>' +
+		'<path d="M29 4l-2-4-1 5z" fill="#F0D5A8"/>' +
+		'<circle cx="23" cy="11" r="1.2" fill="white" opacity="0.9"/>' +
+		'<path d="M16 26l-1 6m3-5l0 5m4-5l1 5m3-6l1 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.8"/>' +
+		'<path d="M14 23c-4-2-6 1-5 4" stroke="#F4C2C2" stroke-width="1.5" stroke-linecap="round" fill="none"/>' +
+		"</g></svg>";
+
+	/* ─── Card rendering ─── */
 
 	function createReferenceNode(reference) {
 		if (!reference || typeof reference.label !== "string") {
@@ -169,13 +218,17 @@
 			image.src = card.imageUrl;
 
 			if (card.href) {
-				media = createElement("a", "storefront-ai-widget-card-media");
+				media = createElement("a", "storefront-ai-widget-card-media storefront-ai-widget-card-media--loading");
 				media.href = card.href;
 				media.rel = "noopener noreferrer";
 				media.target = "_blank";
 			} else {
-				media = createElement("div", "storefront-ai-widget-card-media");
+				media = createElement("div", "storefront-ai-widget-card-media storefront-ai-widget-card-media--loading");
 			}
+
+			image.addEventListener("load", function () {
+				media.classList.remove("storefront-ai-widget-card-media--loading");
+			});
 
 			image.addEventListener("error", function () {
 				item.classList.remove("storefront-ai-widget-card--product-with-image");
@@ -269,12 +322,12 @@
 			card.appendChild(createElement("p", "storefront-ai-widget-cart-plan-note", plan.note));
 		}
 
-		var button = createElement("button", "storefront-ai-widget-apply-cart", "Add plan to cart");
-		button.type = "button";
-		button.addEventListener("click", function () {
-			onApply(plan, button);
+		var addButton = createElement("button", "storefront-ai-widget-apply-cart", "Add to cart");
+		addButton.type = "button";
+		addButton.addEventListener("click", function () {
+			onApply(plan, addButton);
 		});
-		actions.appendChild(button);
+		actions.appendChild(addButton);
 
 		var checkoutButton = createElement(
 			"button",
@@ -286,10 +339,13 @@
 			onCheckout();
 		});
 		actions.appendChild(checkoutButton);
+
 		card.appendChild(actions);
 
 		return card;
 	}
+
+	/* ─── Message rendering ─── */
 
 	function createMessage(role, payload) {
 		var item = createElement(
@@ -361,24 +417,46 @@
 		return item;
 	}
 
-	function createStreamingAssistantMessage(onApplyCartPlan, onCheckoutCart) {
-		var current = createMessage("assistant", {
-			cards: [],
-			cartPlan: null,
-			onApplyCartPlan: onApplyCartPlan,
-			onCheckoutCart: onCheckoutCart,
-			references: [],
-			text: "Working on it...",
-		});
-		var body = current.querySelector(".storefront-ai-widget-message-text");
-		current.classList.add("storefront-ai-widget-message--streaming");
+	/* ─── Streaming message ─── */
 
-		function setText(text) {
-			if (!body) {
+	function createStreamingAssistantMessage(onApplyCartPlan, onCheckoutCart) {
+		var current = createElement(
+			"div",
+			"storefront-ai-widget-message storefront-ai-widget-message--assistant storefront-ai-widget-message--streaming",
+		);
+
+		var typingDots = createElement("div", "storefront-ai-widget-typing");
+		typingDots.innerHTML = "<span></span><span></span><span></span>";
+
+		var toolStatus = createElement("span", "storefront-ai-widget-tool-status");
+		toolStatus.hidden = true;
+
+		var textNode = createElement("p", "storefront-ai-widget-message-text");
+		textNode.hidden = true;
+
+		current.appendChild(toolStatus);
+		current.appendChild(typingDots);
+		current.appendChild(textNode);
+
+		var hasReceivedText = false;
+
+		function setToolStatus(statusText) {
+			if (hasReceivedText) {
 				return;
 			}
+			toolStatus.textContent = statusText;
+			toolStatus.hidden = false;
+		}
 
-			body.textContent = text || "";
+		function setText(text) {
+			if (!hasReceivedText && text) {
+				hasReceivedText = true;
+				typingDots.hidden = true;
+				toolStatus.hidden = true;
+				textNode.hidden = false;
+			}
+
+			textNode.textContent = text || "";
 		}
 
 		function replace(reply) {
@@ -396,7 +474,6 @@
 			}
 
 			current = next;
-			body = current.querySelector(".storefront-ai-widget-message-text");
 			return next;
 		}
 
@@ -409,6 +486,7 @@
 			},
 			replace: replace,
 			setText: setText,
+			setToolStatus: setToolStatus,
 		};
 	}
 
@@ -416,21 +494,23 @@
 		switch (toolName) {
 			case "searchCatalog":
 			case "getProductDetail":
-				return "Looking for a few good matches...";
+				return "Searching products...";
 			case "compareProducts":
-				return "Comparing a few options...";
+				return "Comparing options...";
 			case "searchCollections":
-				return "Looking through collections...";
+				return "Browsing collections...";
 			case "answerPolicyQuestion":
-				return "Checking the store details...";
+				return "Checking store policies...";
 			case "recommendBundle":
-				return "Putting together a bundle...";
+				return "Building a bundle...";
 			case "buildCartPlan":
-				return "Getting the cart ready...";
+				return "Preparing your cart...";
 			default:
-				return "Working on it...";
+				return "Thinking...";
 		}
 	}
+
+	/* ─── Theme editor notice ─── */
 
 	function buildThemeEditorNotice(message) {
 		var notice = createElement("div", "storefront-ai-widget-theme-note");
@@ -440,6 +520,8 @@
 		notice.appendChild(body);
 		return notice;
 	}
+
+	/* ─── Session ID management ─── */
 
 	function createSessionId() {
 		if (window.crypto && typeof window.crypto.randomUUID === "function") {
@@ -474,6 +556,8 @@
 			window.localStorage.setItem(storageKey, sessionId);
 		} catch {}
 	}
+
+	/* ─── Bootstrap ─── */
 
 	function bootstrapRoot(root) {
 		if (!(root instanceof HTMLElement) || root.dataset.storefrontAiReady === "true") {
@@ -511,106 +595,141 @@
 			view: "chat",
 		};
 
+		/* ─── Build DOM ─── */
+
 		var shell = createElement("section", "storefront-ai-widget-shell");
+
+		// Toggle
 		var toggle = createElement("button", "storefront-ai-widget-toggle");
 		var toggleIcon = document.createElement("span");
 		toggleIcon.className = "storefront-ai-widget-toggle-icon";
-		toggleIcon.innerHTML =
-			'<svg viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" class="storefront-ai-widget-unicorn-svg"><g class="storefront-ai-widget-unicorn-body"><path d="M14 28c0-8 5-14 12-14 3 0 5 1 6 3l1-3s1-5-3-8l-2-2s-1 3-2 4c-2-2-5-3-8-2-4 1-7 5-8 10s-1 9 2 12z" fill="currentColor" opacity="0.9"/><path d="M29 4l-2-4-1 5z" fill="#F0D5A8"/><circle cx="23" cy="11" r="1.2" fill="white" opacity="0.9"/><path d="M16 26l-1 6m3-5l0 5m4-5l1 5m3-6l1 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" opacity="0.8"/><path d="M14 23c-4-2-6 1-5 4" stroke="#F4C2C2" stroke-width="1.5" stroke-linecap="round" fill="none" class="storefront-ai-widget-unicorn-tail"/></g><path d="M6 10l1 2.5 3 0-2 2 1 3-3-2-3 2 1-3-2-2 3 0z" fill="#F0D5A8" opacity="0.5" class="storefront-ai-widget-unicorn-star storefront-ai-widget-unicorn-star--1"/><path d="M33 8l.6 1.5 1.8 0-1.2 1.2.5 1.8-1.7-1.2-1.7 1.2.5-1.8-1.2-1.2 1.8 0z" fill="#F0D5A8" opacity="0.4" class="storefront-ai-widget-unicorn-star storefront-ai-widget-unicorn-star--2"/><circle cx="35" cy="18" r="1" fill="#C8A2C8" opacity="0.4" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--1"/><circle cx="8" cy="22" r="0.8" fill="#F4C2C2" opacity="0.5" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--2"/><circle cx="32" cy="28" r="0.6" fill="#B2DFDB" opacity="0.4" class="storefront-ai-widget-unicorn-sparkle storefront-ai-widget-unicorn-sparkle--3"/></svg>';
+		toggleIcon.innerHTML = UNICORN_SVG;
+		toggle.type = "button";
+		toggle.setAttribute("aria-expanded", "false");
+		toggle.setAttribute("aria-label", "Open store assistant");
+		toggle.appendChild(toggleIcon);
+
+		// Panel
 		var panel = createElement("div", "storefront-ai-widget-panel");
+		panel.hidden = true;
+		panel.setAttribute("role", "dialog");
+		panel.setAttribute("aria-label", "Store assistant");
+
+		// Header
 		var header = createElement("div", "storefront-ai-widget-header");
 		var title = createElement("div", "storefront-ai-widget-title");
-		var eyebrow = createElement("span", "storefront-ai-widget-eyebrow", "Moonbeam");
-		var heading = createElement("span", "storefront-ai-widget-heading", "Unicorn Concierge");
+		var heading = createElement("span", "storefront-ai-widget-heading", "Moonbeam Unicorn Concierge");
+
 		var headerActions = createElement("div", "storefront-ai-widget-header-actions");
-		var chatsButton = createElement(
-			"button",
-			"storefront-ai-widget-header-button storefront-ai-widget-header-button--secondary",
-			"Chats",
-		);
-		var newChatButton = createElement("button", "storefront-ai-widget-header-button", "New chat");
-		var close = createElement("button", "storefront-ai-widget-close", "x");
+
+		var chatsButton = createElement("button", "storefront-ai-widget-header-button");
+		chatsButton.type = "button";
+		chatsButton.setAttribute("aria-label", "Chat history");
+		chatsButton.appendChild(svgIcon(ICON_SESSIONS));
+
+		var newChatButton = createElement("button", "storefront-ai-widget-header-button");
+		newChatButton.type = "button";
+		newChatButton.setAttribute("aria-label", "Start new chat");
+		newChatButton.appendChild(svgIcon(ICON_NEW_CHAT));
+
+		var closeButton = createElement("button", "storefront-ai-widget-header-button");
+		closeButton.type = "button";
+		closeButton.setAttribute("aria-label", "Close assistant");
+		closeButton.appendChild(svgIcon(ICON_CLOSE));
+
+		title.appendChild(heading);
+		headerActions.appendChild(chatsButton);
+		headerActions.appendChild(newChatButton);
+		headerActions.appendChild(closeButton);
+		header.appendChild(title);
+		header.appendChild(headerActions);
+
+		// Sessions drawer
 		var sessionPage = createElement("div", "storefront-ai-widget-session-page");
-		var sessionIntro = createElement("div", "storefront-ai-widget-session-intro");
-		var sessionKicker = createElement("p", "storefront-ai-widget-session-kicker", "Chats");
-		var sessionHeading = createElement(
-			"h3",
-			"storefront-ai-widget-session-heading",
-			"Pick up where you left off",
-		);
-		var sessionCopy = createElement(
-			"p",
-			"storefront-ai-widget-session-copy",
-			"Open an earlier chat or start a new one. Fresh chats appear here after the first answer.",
+		var sessionHandle = createElement("div", "storefront-ai-widget-session-handle");
+		var sessionHeader = createElement("div", "storefront-ai-widget-session-header");
+		var sessionHeaderTitle = createElement(
+			"span",
+			"storefront-ai-widget-session-header-title",
+			"Recent chats",
 		);
 		var sessionStartButton = createElement(
 			"button",
 			"storefront-ai-widget-session-cta",
-			"Start a new chat",
+			"New chat",
 		);
-		var sessionListView = createElement("div", "storefront-ai-widget-session-list");
-		var feed = createElement("div", "storefront-ai-widget-feed");
-		var suggestions = createElement("div", "storefront-ai-widget-suggestions");
-		var form = createElement("form", "storefront-ai-widget-form");
-		var input = createElement("textarea", "storefront-ai-widget-input");
-		var toolbar = createElement("div", "storefront-ai-widget-toolbar");
-		var helper = createElement(
-			"p",
-			"storefront-ai-widget-helper",
-			"Ask about products, gifts, party planning, sizing, or shipping.",
-		);
-		var submit = createElement("button", "storefront-ai-widget-submit", "Send");
-
-		toggle.type = "button";
-		toggle.setAttribute("aria-expanded", "false");
-		toggle.setAttribute("aria-label", "Ask Moonbeam Unicorn Concierge");
-		toggle.appendChild(toggleIcon);
-
-		panel.hidden = true;
-		panel.setAttribute("role", "dialog");
-		panel.setAttribute("aria-label", "Moonbeam Unicorn Concierge");
-
-		title.appendChild(eyebrow);
-		title.appendChild(heading);
-
-		close.type = "button";
-		close.setAttribute("aria-label", "Close storefront AI assistant");
-		chatsButton.type = "button";
-		chatsButton.setAttribute("aria-label", "Open saved chats");
-		newChatButton.type = "button";
-		newChatButton.setAttribute("aria-label", "Start a new chat");
 		sessionStartButton.type = "button";
+		var sessionListView = createElement("div", "storefront-ai-widget-session-list");
 
-		input.placeholder = "What are you shopping for today?";
-		input.rows = 4;
-		input.maxLength = 500;
+		sessionHeader.appendChild(sessionHeaderTitle);
+		sessionHeader.appendChild(sessionStartButton);
+		sessionPage.appendChild(sessionHandle);
+		sessionPage.appendChild(sessionHeader);
+		sessionPage.appendChild(sessionListView);
 
-		submit.type = "submit";
-		sessionPage.hidden = true;
+		// Feed
+		var feed = createElement("div", "storefront-ai-widget-feed");
+
+		// ARIA live region
+		var liveRegion = createElement("div", "storefront-ai-widget-sr-only");
+		liveRegion.setAttribute("role", "status");
+		liveRegion.setAttribute("aria-live", "polite");
+		liveRegion.setAttribute("aria-atomic", "false");
+
+		// Suggestions
+		var suggestions = createElement("div", "storefront-ai-widget-suggestions");
 		suggestions.hidden = true;
 
-		header.appendChild(title);
-		headerActions.appendChild(chatsButton);
-		headerActions.appendChild(newChatButton);
-		headerActions.appendChild(close);
-		header.appendChild(headerActions);
-		sessionIntro.appendChild(sessionKicker);
-		sessionIntro.appendChild(sessionHeading);
-		sessionIntro.appendChild(sessionCopy);
-		sessionIntro.appendChild(sessionStartButton);
-		sessionPage.appendChild(sessionIntro);
-		sessionPage.appendChild(sessionListView);
-		toolbar.appendChild(helper);
-		toolbar.appendChild(submit);
-		form.appendChild(input);
-		form.appendChild(toolbar);
+		// Form
+		var form = createElement("form", "storefront-ai-widget-form");
+		var inputWrap = createElement("div", "storefront-ai-widget-input-wrap");
+		var input = createElement("textarea", "storefront-ai-widget-input");
+		input.placeholder = "Ask anything...";
+		input.rows = 1;
+
+		var submit = createElement("button", "storefront-ai-widget-submit");
+		submit.type = "submit";
+		submit.setAttribute("aria-label", "Send message");
+		submit.appendChild(svgIcon(ICON_SEND));
+
+		inputWrap.appendChild(input);
+		inputWrap.appendChild(submit);
+		form.appendChild(suggestions);
+		form.appendChild(inputWrap);
+
+		// Assemble panel
 		panel.appendChild(header);
-		panel.appendChild(sessionPage);
 		panel.appendChild(feed);
-		panel.appendChild(suggestions);
 		panel.appendChild(form);
+		panel.appendChild(sessionPage);
+		panel.appendChild(liveRegion);
+
+		// Assemble shell
 		shell.appendChild(panel);
 		shell.appendChild(toggle);
+
+		/* ─── Auto-grow input ─── */
+
+		function syncInputHeight() {
+			input.style.height = "auto";
+			input.style.height = Math.min(input.scrollHeight, 120) + "px";
+		}
+
+		function syncSubmitVisibility() {
+			var hasContent = input.value.trim().length > 0;
+			if (hasContent || state.pending) {
+				submit.classList.add("storefront-ai-widget-submit--visible");
+			} else {
+				submit.classList.remove("storefront-ai-widget-submit--visible");
+			}
+		}
+
+		input.addEventListener("input", function () {
+			syncInputHeight();
+			syncSubmitVisibility();
+		});
+
+		/* ─── Cart detection ─── */
 
 		function isCartUiOpen() {
 			if (window.storefrontCartUi && typeof window.storefrontCartUi.isOpen === "function") {
@@ -622,17 +741,13 @@
 
 			return Boolean(
 				(cartDrawer && cartDrawer.classList.contains("active")) ||
-				(cartNotification && cartNotification.classList.contains("active")),
+					(cartNotification && cartNotification.classList.contains("active")),
 			);
 		}
 
 		function setCartVisible(nextCartVisible) {
 			state.cartVisible = nextCartVisible;
-
-			if (nextCartVisible && state.open) {
-				closePanel();
-			}
-
+			// Widget stays open when cart opens — they can coexist
 			toggle.hidden = nextCartVisible;
 		}
 
@@ -647,24 +762,37 @@
 			subtree: true,
 		});
 
+		/* ─── Pending state ─── */
+
 		function setPending(nextPending) {
 			state.pending = nextPending;
 			submit.disabled = nextPending;
-			submit.textContent = nextPending ? "Sending..." : "Send";
+
+			if (nextPending) {
+				submit.classList.add("storefront-ai-widget-submit--pending");
+				submit.innerHTML = "";
+				submit.appendChild(svgIcon(ICON_SPINNER));
+			} else {
+				submit.classList.remove("storefront-ai-widget-submit--pending");
+				submit.innerHTML = "";
+				submit.appendChild(svgIcon(ICON_SEND));
+			}
+
+			syncSubmitVisibility();
 		}
+
+		/* ─── View management ─── */
 
 		function syncPanelView() {
 			var showingSessions = state.view === "sessions";
 
-			sessionPage.hidden = !showingSessions;
-			feed.hidden = showingSessions;
-			form.hidden = showingSessions;
+			if (showingSessions) {
+				sessionPage.classList.add("storefront-ai-widget-session-page--open");
+			} else {
+				sessionPage.classList.remove("storefront-ai-widget-session-page--open");
+			}
+
 			suggestions.hidden = showingSessions || state.suggestionCount === 0;
-			chatsButton.textContent = showingSessions ? "Back to chat" : "Chats";
-			chatsButton.setAttribute(
-				"aria-label",
-				showingSessions ? "Return to the current chat" : "Open saved chats",
-			);
 		}
 
 		function setView(nextView) {
@@ -675,6 +803,8 @@
 		function scrollFeedToBottom() {
 			feed.scrollTop = feed.scrollHeight;
 		}
+
+		/* ─── Suggestions ─── */
 
 		function renderSuggestions(promptSuggestions) {
 			suggestions.innerHTML = "";
@@ -690,6 +820,8 @@
 				suggestion.type = "button";
 				suggestion.addEventListener("click", function () {
 					input.value = promptText;
+					syncInputHeight();
+					syncSubmitVisibility();
 					void sendMessage(promptText);
 				});
 				suggestions.appendChild(suggestion);
@@ -698,8 +830,23 @@
 			suggestions.hidden = state.view === "sessions";
 		}
 
+		/* ─── Feed helpers ─── */
+
 		function clearFeed() {
 			feed.innerHTML = "";
+		}
+
+		function appendMessageToFeed(messageElement) {
+			messageElement.classList.add("storefront-ai-widget-message--entering");
+			feed.appendChild(messageElement);
+			scrollFeedToBottom();
+			messageElement.addEventListener(
+				"animationend",
+				function () {
+					messageElement.classList.remove("storefront-ai-widget-message--entering");
+				},
+				{ once: true },
+			);
 		}
 
 		function buildGreetingReplyPayload() {
@@ -725,6 +872,8 @@
 			state.loadedSessionId = state.sessionId;
 		}
 
+		/* ─── Session list rendering ─── */
+
 		function formatSessionTimestamp(value) {
 			var timestamp = Date.parse(value || "");
 
@@ -746,11 +895,7 @@
 				var emptyState = createElement("div", "storefront-ai-widget-session-empty");
 				emptyState.appendChild(createElement("strong", "", "No saved chats yet"));
 				emptyState.appendChild(
-					createElement(
-						"p",
-						"",
-						"Start a new chat and it will appear here after the first answer.",
-					),
+					createElement("p", "", "Start a new chat and it will appear here after the first reply."),
 				);
 				sessionListView.appendChild(emptyState);
 				return;
@@ -786,7 +931,9 @@
 
 				if (session.sessionId === state.sessionId) {
 					button.classList.add("is-active");
-					row.appendChild(createElement("span", "storefront-ai-widget-session-badge", "Current"));
+					row.appendChild(
+						createElement("span", "storefront-ai-widget-session-badge", "Current"),
+					);
 				}
 
 				button.appendChild(row);
@@ -822,6 +969,8 @@
 				input.focus();
 			}, 0);
 		}
+
+		/* ─── Auth ─── */
 
 		function ensureWidgetAuth() {
 			if (state.authPromise) {
@@ -864,6 +1013,8 @@
 				});
 			});
 		}
+
+		/* ─── Session loading ─── */
 
 		function loadSessionList() {
 			return fetchWidgetJson(
@@ -963,64 +1114,11 @@
 				});
 		}
 
+		/* ─── Cart integration ─── */
+
 		function setCartButtonPending(button, pending) {
 			button.disabled = pending;
-			button.textContent = pending ? "Adding..." : "Add plan to cart";
-		}
-
-		function addAssistantReply(reply) {
-			setView("chat");
-			feed.appendChild(
-				createMessage(reply.tone === "refusal" ? "refusal" : "assistant", {
-					cards: reply.cards || [],
-					cartPlan: reply.cartPlan || null,
-					onApplyCartPlan: applyCartPlan,
-					onCheckoutCart: checkoutCart,
-					references: reply.references || [],
-					text: reply.answer || "",
-				}),
-			);
-			renderSuggestions(reply.suggestedPrompts || []);
-			scrollFeedToBottom();
-		}
-
-		function addUserMessage(text) {
-			setView("chat");
-			feed.appendChild(
-				createMessage("user", {
-					cards: [],
-					cartPlan: null,
-					references: [],
-					text: text,
-				}),
-			);
-			scrollFeedToBottom();
-		}
-
-		function addSystemMessage(text) {
-			setView("chat");
-			feed.appendChild(
-				createMessage("system", {
-					cards: [],
-					cartPlan: null,
-					references: [],
-					text: text,
-				}),
-			);
-			scrollFeedToBottom();
-		}
-
-		function addErrorMessage(text) {
-			setView("chat");
-			feed.appendChild(
-				createMessage("error", {
-					cards: [],
-					cartPlan: null,
-					references: [],
-					text: text,
-				}),
-			);
-			scrollFeedToBottom();
+			button.textContent = pending ? "Adding..." : "Add to cart";
 		}
 
 		function getCartUiTarget() {
@@ -1112,7 +1210,17 @@
 		}
 
 		function checkoutCart() {
-			window.location.assign("/checkout");
+			// Use Shopify's native checkout mechanism: POST to /cart with name=checkout
+			var checkoutForm = document.createElement("form");
+			checkoutForm.method = "POST";
+			checkoutForm.action = (window.routes && window.routes.cart_url) || "/cart";
+			var checkoutInput = document.createElement("input");
+			checkoutInput.type = "hidden";
+			checkoutInput.name = "checkout";
+			checkoutInput.value = "1";
+			checkoutForm.appendChild(checkoutInput);
+			document.body.appendChild(checkoutForm);
+			checkoutForm.submit();
 		}
 
 		function applyCartPlan(plan, button) {
@@ -1166,18 +1274,87 @@
 				});
 		}
 
+		/* ─── Message helpers ─── */
+
+		function addAssistantReply(reply) {
+			setView("chat");
+			appendMessageToFeed(
+				createMessage(reply.tone === "refusal" ? "refusal" : "assistant", {
+					cards: reply.cards || [],
+					cartPlan: reply.cartPlan || null,
+					onApplyCartPlan: applyCartPlan,
+					onCheckoutCart: checkoutCart,
+					references: reply.references || [],
+					text: reply.answer || "",
+				}),
+			);
+			renderSuggestions(reply.suggestedPrompts || []);
+		}
+
+		function addUserMessage(text) {
+			setView("chat");
+			appendMessageToFeed(
+				createMessage("user", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
+		}
+
+		function addSystemMessage(text) {
+			setView("chat");
+			appendMessageToFeed(
+				createMessage("system", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
+		}
+
+		function addErrorMessage(text) {
+			setView("chat");
+			appendMessageToFeed(
+				createMessage("error", {
+					cards: [],
+					cartPlan: null,
+					references: [],
+					text: text,
+				}),
+			);
+		}
+
+		/* ─── Panel open / close with animation ─── */
+
+		var panelAnimating = false;
+
 		function openPanel() {
-			if (!state.config || state.cartVisible) {
+			if (!state.config || state.cartVisible || panelAnimating) {
 				return;
 			}
 
 			setView("chat");
 			state.open = true;
 			panel.hidden = false;
+			panel.style.display = "";
 			toggle.setAttribute("aria-expanded", "true");
-			toggle.setAttribute("aria-label", "Close Moonbeam Unicorn Concierge");
+			toggle.setAttribute("aria-label", "Close store assistant");
 			toggle.classList.add("storefront-ai-widget-toggle--open");
-			panel.classList.add("storefront-ai-widget-panel--open");
+
+			panelAnimating = true;
+			panel.classList.remove("storefront-ai-widget-panel--leaving");
+			panel.classList.add("storefront-ai-widget-panel--entering");
+			panel.addEventListener(
+				"animationend",
+				function () {
+					panel.classList.remove("storefront-ai-widget-panel--entering");
+					panelAnimating = false;
+				},
+				{ once: true },
+			);
 
 			if (state.loadedSessionId !== state.sessionId || feed.childNodes.length === 0) {
 				void hydrateCurrentSession();
@@ -1189,21 +1366,103 @@
 				input.focus();
 				scrollFeedToBottom();
 			}, 0);
+
+			enableFocusTrap();
 		}
 
 		function closePanel() {
+			if (panelAnimating) {
+				return;
+			}
+
 			state.open = false;
-			panel.hidden = true;
 			toggle.setAttribute("aria-expanded", "false");
-			toggle.setAttribute("aria-label", "Ask Moonbeam Unicorn Concierge");
+			toggle.setAttribute("aria-label", "Open store assistant");
 			toggle.classList.remove("storefront-ai-widget-toggle--open");
-			panel.classList.remove("storefront-ai-widget-panel--open");
+
+			// Close sessions drawer if open
+			if (state.view === "sessions") {
+				setView("chat");
+			}
+
+			panelAnimating = true;
+			panel.classList.remove("storefront-ai-widget-panel--entering");
+			panel.classList.add("storefront-ai-widget-panel--leaving");
+			panel.addEventListener(
+				"animationend",
+				function () {
+					panel.hidden = true;
+					panel.style.display = "none";
+					panel.classList.remove("storefront-ai-widget-panel--leaving");
+					panelAnimating = false;
+				},
+				{ once: true },
+			);
+
+			disableFocusTrap();
+			toggle.focus();
 		}
+
+		/* ─── Focus trap ─── */
+
+		var focusTrapHandler = null;
+
+		function enableFocusTrap() {
+			focusTrapHandler = function (event) {
+				if (event.key !== "Tab") {
+					return;
+				}
+
+				var focusable = panel.querySelectorAll(
+					'button:not([disabled]):not([hidden]), [href], textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+				);
+
+				if (focusable.length === 0) {
+					return;
+				}
+
+				var first = focusable[0];
+				var last = focusable[focusable.length - 1];
+
+				if (event.shiftKey && document.activeElement === first) {
+					event.preventDefault();
+					last.focus();
+				} else if (!event.shiftKey && document.activeElement === last) {
+					event.preventDefault();
+					first.focus();
+				}
+			};
+
+			panel.addEventListener("keydown", focusTrapHandler);
+		}
+
+		function disableFocusTrap() {
+			if (focusTrapHandler) {
+				panel.removeEventListener("keydown", focusTrapHandler);
+				focusTrapHandler = null;
+			}
+		}
+
+		/* ─── Escape key ─── */
+
+		document.addEventListener("keydown", function (event) {
+			if (event.key === "Escape" && state.open) {
+				if (state.view === "sessions") {
+					setView("chat");
+					return;
+				}
+				closePanel();
+			}
+		});
+
+		/* ─── Cart UI events ─── */
 
 		document.addEventListener("storefront-cart-ui:toggle", function (event) {
 			var detail = event && event.detail ? event.detail : null;
 			setCartVisible(detail ? Boolean(detail.open) : isCartUiOpen());
 		});
+
+		/* ─── Send message ─── */
 
 		function sendMessage(messageText) {
 			var trimmedMessage = (messageText || input.value || "").trim();
@@ -1212,10 +1471,17 @@
 				return Promise.resolve();
 			}
 
+			if (trimmedMessage.length > 500) {
+				trimmedMessage = trimmedMessage.slice(0, 500);
+			}
+
 			addUserMessage(trimmedMessage);
 			input.value = "";
+			syncInputHeight();
+			syncSubmitVisibility();
 			renderSuggestions([]);
 			setPending(true);
+
 			var streamingMessage = createStreamingAssistantMessage(applyCartPlan, checkoutCart);
 			var streamedText = "";
 
@@ -1257,13 +1523,18 @@
 								renderSuggestions((reply && reply.suggestedPrompts) || []);
 								scrollFeedToBottom();
 								void loadSessionList();
+
+								// Update ARIA live region
+								if (reply && reply.answer) {
+									liveRegion.textContent = reply.answer;
+								}
 							},
 							tool: function (payload) {
-								if (!payload || typeof payload.toolName !== "string" || streamedText) {
+								if (!payload || typeof payload.toolName !== "string") {
 									return;
 								}
 
-								streamingMessage.setText(getToolStatusText(payload.toolName));
+								streamingMessage.setToolStatus(getToolStatusText(payload.toolName));
 								scrollFeedToBottom();
 							},
 							error: function (payload) {
@@ -1280,7 +1551,9 @@
 				.catch(function (error) {
 					streamingMessage.remove();
 					addErrorMessage(
-						error instanceof Error ? error.message : "The storefront assistant could not respond.",
+						error instanceof Error
+							? error.message
+							: "The storefront assistant could not respond.",
 					);
 				})
 				.finally(function () {
@@ -1288,16 +1561,18 @@
 				});
 		}
 
+		/* ─── Event listeners ─── */
+
 		toggle.addEventListener("click", function () {
 			if (state.open) {
 				closePanel();
 				return;
 			}
-
 			openPanel();
 		});
 
-		close.addEventListener("click", closePanel);
+		closeButton.addEventListener("click", closePanel);
+
 		chatsButton.addEventListener("click", function () {
 			if (state.view === "sessions") {
 				setView("chat");
@@ -1317,6 +1592,7 @@
 				);
 			});
 		});
+
 		newChatButton.addEventListener("click", startNewChat);
 		sessionStartButton.addEventListener("click", startNewChat);
 
@@ -1338,20 +1614,18 @@
 			void sendMessage();
 		});
 
+		/* ─── Initialize ─── */
+
 		fetchJson(apiBase + "/api/shopify/widget?shop=" + encodeURIComponent(shopDomain))
 			.then(function (config) {
 				state.config = config;
-				heading.textContent = "Unicorn Concierge";
-				helper.textContent = config.enabled
-					? "Ask about products, gifts, party planning, sizing, or shipping."
-					: "Enable the widget in merchant settings before shoppers can use it.";
 
 				shell.classList.add(
 					config.position === "bottom-left"
 						? "storefront-ai-widget-shell--bottom-left"
 						: "storefront-ai-widget-shell--bottom-right",
 				);
-				shell.style.setProperty("--storefront-ai-accent", config.accentColor || "#0f172a");
+				shell.style.setProperty("--storefront-ai-accent", config.accentColor || "#1a1a1a");
 
 				if (!config.enabled) {
 					if (isThemeEditor) {
