@@ -5,7 +5,7 @@ import { authClient } from "@/lib/auth-client";
 import { getCurrentViewerServer } from "@/lib/auth-functions";
 import { currentViewerQuery } from "@/lib/auth-queries";
 import { getRequiredConvexDeploymentUrl } from "@/lib/env";
-import { hasMerchantViewer, type AppViewerContext } from "@/shared/contracts/auth";
+import { hasAdminViewer, hasMerchantViewer, type AppViewerContext } from "@/shared/contracts/auth";
 
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
 
@@ -66,7 +66,11 @@ function createManagedAppRouterContext(): AppRouterContext {
 				| null
 				| undefined) ?? null;
 
-		if (hasMerchantViewer(cachedViewer) || typeof window === "undefined") {
+		if (
+			hasMerchantViewer(cachedViewer) ||
+			hasAdminViewer(cachedViewer) ||
+			typeof window === "undefined"
+		) {
 			return cachedViewer;
 		}
 

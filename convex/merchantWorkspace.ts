@@ -24,7 +24,12 @@ import {
 	type MutationCtx,
 	type QueryCtx,
 } from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims, type MerchantActorRecord } from "./auth";
+import {
+	parseInternalAdminMerchantUserId,
+	requireMerchantActor,
+	requireMerchantClaims,
+	type MerchantActorRecord,
+} from "./auth";
 import { getShopifyAccessFailureReason } from "./shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 
@@ -927,6 +932,53 @@ async function getRuntimeState(
 		shopId: Id<"shops">;
 	},
 ) {
+	const shop = await ctx.db.get(args.shopId);
+
+	if (!shop || shop.domain !== args.shopDomain) {
+		throw new Error("Authenticated shop could not be resolved.");
+	}
+
+	const installation = await ctx.db
+		.query("shopifyInstallations")
+		.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
+		.unique();
+	const internalAdminUserId = parseInternalAdminMerchantUserId(args.actorId);
+
+	if (internalAdminUserId) {
+		const user = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
+			model: "user",
+			where: [
+				{
+					field: "_id",
+					value: internalAdminUserId,
+				},
+			],
+		})) as BetterAuthUserSnapshot | null;
+
+		if (!user) {
+			throw new Error("Authenticated Better Auth user could not be resolved.");
+		}
+
+		return {
+			actor: {
+				email: user.email,
+				id: args.actorId,
+				initials: getInitials(user.name),
+				lastAuthenticatedAt: shop.lastAuthenticatedAt ?? null,
+				name: user.name,
+				organizationId: `internal-admin-org:${shop._id}`,
+				role: "admin",
+				sessionId: null,
+				shopDomain: shop.domain,
+				shopId: shop._id,
+				shopifyUserId: `internal-admin:${getAuthRecordId(user)}`,
+				userId: getAuthRecordId(user),
+			} satisfies MerchantActorRecord,
+			installation,
+			shop,
+		};
+	}
+
 	const member = (await ctx.runQuery(components.betterAuth.adapter.findOne, {
 		model: "member",
 		where: [
@@ -972,17 +1024,6 @@ async function getRuntimeState(
 	if (!user) {
 		throw new Error("Authenticated Better Auth user could not be resolved.");
 	}
-
-	const shop = await ctx.db.get(args.shopId);
-
-	if (!shop || shop.domain !== args.shopDomain) {
-		throw new Error("Authenticated shop could not be resolved.");
-	}
-
-	const installation = await ctx.db
-		.query("shopifyInstallations")
-		.withIndex("by_shop", (query) => query.eq("shopId", shop._id))
-		.unique();
 
 	return {
 		actor: {

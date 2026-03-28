@@ -26,7 +26,7 @@ function EmbeddedMerchantBootstrap() {
 	const router = useRouter();
 
 	useEffect(() => {
-		if (auth.isMerchant || !embeddedApp.isEmbedded) {
+		if (auth.isPending || auth.isMerchant || auth.isAdmin || !embeddedApp.isEmbedded) {
 			return;
 		}
 
@@ -41,7 +41,7 @@ function EmbeddedMerchantBootstrap() {
 		return () => {
 			cancelled = true;
 		};
-	}, [auth.isMerchant, embeddedApp.isEmbedded, router]);
+	}, [auth.isAdmin, auth.isMerchant, auth.isPending, embeddedApp.isEmbedded, router]);
 
 	return null;
 }

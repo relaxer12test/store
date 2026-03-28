@@ -2,6 +2,7 @@ import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import type { SidebarConsoleNavItem } from "@/components/ui/resource";
 import { SidebarConsoleLayout } from "@/components/ui/resource";
 import { currentViewerQuery } from "@/lib/auth-queries";
+import type { AppViewerContext } from "@/shared/contracts/auth";
 import { hasAdminViewer, hasMerchantAppAccess } from "@/shared/contracts/auth";
 
 const appNav: SidebarConsoleNavItem[] = [
@@ -34,12 +35,20 @@ const appNav: SidebarConsoleNavItem[] = [
 
 export const Route = createFileRoute("/_app/app")({
 	beforeLoad: async ({ context }) => {
-		const embeddedViewer = await context.auth.ensureEmbeddedViewer();
-		const viewer = hasMerchantAppAccess(embeddedViewer)
-			? embeddedViewer
-			: await context.queryClient.fetchQuery(currentViewerQuery);
+		const cachedViewer =
+			(context.queryClient.getQueryData(currentViewerQuery.queryKey) as
+				| AppViewerContext
+				| null
+				| undefined) ?? null;
 
-		if (hasMerchantAppAccess(viewer)) {
+		if (hasMerchantAppAccess(cachedViewer) || hasAdminViewer(cachedViewer)) {
+			return;
+		}
+
+		const embeddedViewer = await context.auth.ensureEmbeddedViewer();
+		const viewer = hasMerchantAppAccess(embeddedViewer) ? embeddedViewer : cachedViewer;
+
+		if (hasMerchantAppAccess(viewer) || hasAdminViewer(viewer)) {
 			return;
 		}
 

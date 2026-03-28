@@ -65,14 +65,12 @@ function resolveShopifyAppBridgeDocumentConfig({
 	const apiKey = getOptionalShopifyApiKey() ?? null;
 	const searchParams = new URLSearchParams(searchStr);
 	const host = searchParams.get("host");
-	const shop =
-		normalizeMyshopifyDomain(searchParams.get("shop")) ??
-		normalizeMyshopifyDomain(viewer?.activeShop?.domain ?? null);
-	const isEmbeddedRequest =
-		viewer?.authMode === "embedded" ||
-		searchParams.get("embedded") === "1" ||
-		Boolean(host) ||
-		Boolean(shop);
+	const explicitShop = normalizeMyshopifyDomain(searchParams.get("shop"));
+	const shop = explicitShop ?? normalizeMyshopifyDomain(viewer?.activeShop?.domain ?? null);
+	const hasExplicitEmbeddedSignal =
+		searchParams.get("embedded") === "1" || Boolean(host) || Boolean(explicitShop);
+	const isEmbeddedViewer = viewer?.authMode === "embedded" && !viewer?.roles.includes("admin");
+	const isEmbeddedRequest = isEmbeddedViewer || hasExplicitEmbeddedSignal;
 
 	return {
 		apiKey,

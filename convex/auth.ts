@@ -18,6 +18,7 @@ import { admin } from "better-auth/plugins/admin";
 import { anonymous } from "better-auth/plugins/anonymous";
 import { getOrgAdapter, organization } from "better-auth/plugins/organization";
 import type { UserIdentity } from "convex/server";
+import { v } from "convex/values";
 import { z } from "zod";
 import { deriveViewerRoles, type AppViewerContext } from "@/shared/contracts/auth";
 import {
@@ -61,7 +62,7 @@ export interface MerchantActorRecord {
 
 export interface MerchantContext {
 	actor: MerchantActorRecord;
-	identity: UserIdentity;
+	identity: UserIdentity | null;
 	organization: BetterAuthOrganizationRecord;
 	roles: string[];
 	shop: Doc<"shops">;
@@ -76,7 +77,10 @@ interface MerchantLookup {
 	user: BetterAuthUserRecord;
 }
 
-type MerchantContextSource = "active_organization" | "admin_single_membership";
+type MerchantContextSource =
+	| "active_organization"
+	| "admin_single_membership"
+	| "admin_connected_shop";
 type MerchantLookupResolution = {
 	lookup: MerchantLookup;
 	source: MerchantContextSource;
@@ -165,6 +169,8 @@ const SHOPIFY_MERCHANT_BRIDGE_PROVIDER_ID = "shopify-merchant";
 const SHOPIFY_MERCHANT_BRIDGE_SECRET_HEADER = "x-shopify-bridge-secret";
 const SHOPIFY_MERCHANT_BOOTSTRAP_REQUEST_ID_HEADER = "x-shopify-bootstrap-request-id";
 const SHOPIFY_MERCHANT_AUTH_LOG_PREFIX = "[shopify-merchant-auth]";
+const INTERNAL_ADMIN_MERCHANT_ACTOR_PREFIX = "internal-admin:";
+const INTERNAL_ADMIN_MERCHANT_ORGANIZATION_PREFIX = "internal-admin-org:";
 
 function serializeMerchantBridgeError(error: unknown) {
 	if (error instanceof APIError) {
@@ -356,6 +362,20 @@ function getAuthRecordId(record: { _id?: string; id?: string } | null | undefine
 	return record?.id ?? record?._id ?? null;
 }
 
+function buildInternalAdminMerchantActorId(userId: string) {
+	return `${INTERNAL_ADMIN_MERCHANT_ACTOR_PREFIX}${userId}`;
+}
+
+function buildInternalAdminMerchantOrganizationId(shopId: string) {
+	return `${INTERNAL_ADMIN_MERCHANT_ORGANIZATION_PREFIX}${shopId}`;
+}
+
+export function parseInternalAdminMerchantUserId(actorId: string) {
+	return actorId.startsWith(INTERNAL_ADMIN_MERCHANT_ACTOR_PREFIX)
+		? actorId.slice(INTERNAL_ADMIN_MERCHANT_ACTOR_PREFIX.length) || null
+		: null;
+}
+
 function buildMerchantActor(args: {
 	member: BetterAuthMemberRecord;
 	organization: BetterAuthOrganizationRecord;
@@ -380,7 +400,63 @@ function buildMerchantActor(args: {
 	};
 }
 
-function getMerchantRoles(args: { identity: UserIdentity; memberRole: string }) {
+function buildInternalAdminMerchantLookup(args: {
+	shop: Doc<"shops">;
+	user: BetterAuthUserRecord;
+}): MerchantLookup {
+	const userId = getAuthRecordId(args.user) ?? "";
+	const actorId = buildInternalAdminMerchantActorId(userId);
+	const organizationId = buildInternalAdminMerchantOrganizationId(args.shop._id);
+	const createdAt = new Date(args.shop.createdAt);
+	const shopifyUserId = `${INTERNAL_ADMIN_MERCHANT_ACTOR_PREFIX}${userId}`;
+
+	return {
+		actor: {
+			email: args.user.email,
+			id: actorId,
+			initials: getInitials(args.user.name),
+			lastAuthenticatedAt: args.shop.lastAuthenticatedAt ?? null,
+			name: args.user.name,
+			organizationId,
+			role: "admin",
+			sessionId: null,
+			shopDomain: args.shop.domain,
+			shopId: args.shop._id,
+			shopifyUserId,
+			userId,
+		},
+		member: {
+			createdAt,
+			id: actorId,
+			initials: getInitials(args.user.name),
+			lastAuthenticatedAt: args.shop.lastAuthenticatedAt ?? null,
+			organizationId,
+			role: "admin",
+			sessionId: null,
+			shopifyUserId,
+			userId,
+		},
+		organization: {
+			createdAt,
+			id: organizationId,
+			name: args.shop.name,
+			planDisplayName: args.shop.planDisplayName,
+			shopDomain: args.shop.domain,
+			shopId: args.shop._id,
+			shopifyShopId: args.shop.shopifyShopId,
+			slug: `internal-admin-${args.shop._id}`,
+			updatedAt: null,
+		},
+		shop: args.shop,
+		user: args.user,
+	};
+}
+
+function getMerchantRoles(args: {
+	identity?: UserIdentity | null;
+	includeAdmin?: boolean;
+	memberRole: string;
+}) {
 	const roles = new Set<string>();
 	const viewerRole = mapMerchantMemberRoleToViewerRole(args.memberRole);
 
@@ -388,7 +464,7 @@ function getMerchantRoles(args: { identity: UserIdentity; memberRole: string }) 
 		roles.add(viewerRole);
 	}
 
-	if (hasAdminIdentity(args.identity)) {
+	if (args.includeAdmin || hasAdminIdentity(args.identity ?? null)) {
 		roles.add("admin");
 	}
 
@@ -529,6 +605,102 @@ async function pickAdminFallbackMembership(
 	return candidates[0]?.membership ?? null;
 }
 
+async function pickAdminFallbackShop(ctx: MerchantDbCtx): Promise<Doc<"shops"> | null> {
+	const shops = await ctx.db
+		.query("shops")
+		.withIndex("by_install_status_and_created_at", (query) =>
+			query.eq("installStatus", "connected"),
+		)
+		.order("desc")
+		.take(32);
+
+	const ranked = [...shops].sort(
+		(left, right) =>
+			(right.lastAuthenticatedAt ?? right.createdAt) - (left.lastAuthenticatedAt ?? left.createdAt),
+	);
+
+	return ranked[0] ?? null;
+}
+
+async function readAdminMerchantContextFromDb(
+	ctx: MerchantDbCtx,
+	args: {
+		isAdmin: boolean;
+		user: BetterAuthUserRecord;
+	},
+): Promise<MerchantLookupResolution | null> {
+	if (!args.isAdmin) {
+		return null;
+	}
+
+	const userId = getAuthRecordId(args.user);
+
+	if (!userId) {
+		return null;
+	}
+
+	const memberships = await findMerchantMembershipsForUser(ctx, userId);
+	const fallbackMembership = await pickAdminFallbackMembership(ctx, memberships);
+
+	if (fallbackMembership) {
+		const organization = await findAdapterRecord<BetterAuthOrganizationRecord>(ctx, {
+			model: "organization",
+			where: [
+				{
+					field: "_id",
+					value: fallbackMembership.organizationId,
+				},
+			],
+		});
+
+		if (!organization) {
+			return null;
+		}
+
+		const shopId = toOptionalString(organization.shopId);
+
+		if (!shopId) {
+			return null;
+		}
+
+		const shop = await ctx.db.get(shopId as Id<"shops">);
+
+		if (!shop || shop.domain !== organization.shopDomain || shop.installStatus !== "connected") {
+			return null;
+		}
+
+		return {
+			lookup: {
+				actor: buildMerchantActor({
+					member: fallbackMembership,
+					organization,
+					shop,
+					user: args.user,
+				}),
+				member: fallbackMembership,
+				organization,
+				shop,
+				user: args.user,
+			},
+			source: "admin_single_membership",
+		};
+	}
+
+	const fallbackShop = await pickAdminFallbackShop(ctx);
+
+	if (!fallbackShop) {
+		return null;
+	}
+
+	return {
+		lookup: buildInternalAdminMerchantLookup({
+			shop: fallbackShop,
+			user: args.user,
+		}),
+		source: "admin_connected_shop",
+	};
+}
+
 async function readMerchantContextResolutionFromDb(
 	ctx: MerchantDbCtx,
 	identity: UserIdentity,
@@ -581,17 +753,15 @@ async function readMerchantContextResolutionFromDb(
 	const activeOrganizationId =
 		getActiveOrganizationId(identity) ?? session.activeOrganizationId ?? null;
 	let organizationId = activeOrganizationId;
-	let memberFromFallback: BetterAuthMemberRecord | null = null;
-	let source: MerchantContextSource = "active_organization";
 
 	if (!organizationId && (user.role === "admin" || hasAdminIdentity(identity))) {
-		const memberships = await findMerchantMembershipsForUser(ctx, userId);
-		const fallbackMembership = await pickAdminFallbackMembership(ctx, memberships);
+		const adminResolved = await readAdminMerchantContextFromDb(ctx, {
+			isAdmin: user.role === "admin" || hasAdminIdentity(identity),
+			user,
+		});
 
-		if (fallbackMembership) {
-			organizationId = fallbackMembership.organizationId;
-			memberFromFallback = fallbackMembership;
-			source = "admin_single_membership";
+		if (adminResolved) {
+			return adminResolved;
 		}
 	}
 
@@ -619,22 +789,19 @@ async function readMerchantContextResolutionFromDb(
 		throw new Error("Authenticated merchant organization id could not be resolved.");
 	}
 
-	const member =
-		memberFromFallback && memberFromFallback.organizationId === resolvedOrganizationId
-			? memberFromFallback
-			: await findAdapterRecord<BetterAuthMemberRecord>(ctx, {
-					model: "member",
-					where: [
-						{
-							field: "organizationId",
-							value: resolvedOrganizationId,
-						},
-						{
-							field: "userId",
-							value: userId,
-						},
-					],
-				});
+	const member = await findAdapterRecord<BetterAuthMemberRecord>(ctx, {
+		model: "member",
+		where: [
+			{
+				field: "organizationId",
+				value: resolvedOrganizationId,
+			},
+			{
+				field: "userId",
+				value: userId,
+			},
+		],
+	});
 
 	if (!member) {
 		throw new Error("Authenticated merchant membership could not be found.");
@@ -673,7 +840,7 @@ async function readMerchantContextResolutionFromDb(
 			shop,
 			user,
 		},
-		source,
+		source: "active_organization",
 	};
 }
 
@@ -1133,20 +1300,86 @@ export const readMerchantContext = internalQuery({
 	},
 });
 
-export async function requireMerchantClaims(ctx: AuthCtx): Promise<MerchantClaims> {
-	const identity = await ctx.auth.getUserIdentity();
+export const readAdminMerchantContext = internalQuery({
+	args: {
+		userId: v.string(),
+	},
+	handler: async (ctx, args): Promise<MerchantLookup> => {
+		const user = await findAdapterRecord<BetterAuthUserRecord>(ctx, {
+			model: "user",
+			where: [
+				{
+					field: "_id",
+					value: args.userId,
+				},
+			],
+		});
 
-	if (!identity) {
-		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
+		if (!user || user.role !== "admin") {
+			throw new Error("Internal merchant access requires an authenticated admin user.");
+		}
+
+		const resolved = await readAdminMerchantContextFromDb(ctx, {
+			isAdmin: true,
+			user,
+		});
+
+		if (!resolved) {
+			throw new Error("No connected merchant shop is available for this admin session.");
+		}
+
+		return resolved.lookup;
+	},
+});
+
+async function resolveAdminMerchantContext(
+	ctx: AuthCtx,
+	user: BetterAuthUserRecord,
+): Promise<MerchantLookup | null> {
+	if (user.role !== "admin") {
+		return null;
 	}
 
-	const resolved = await resolveMerchantContext(ctx, identity);
+	if ("db" in ctx) {
+		return (
+			(
+				await readAdminMerchantContextFromDb(ctx, {
+					isAdmin: user.role === "admin",
+					user,
+				})
+			)?.lookup ?? null
+		);
+	}
+
+	try {
+		return await ctx.runQuery(internal.auth.readAdminMerchantContext, {
+			userId: user.id,
+		});
+	} catch {
+		return null;
+	}
+}
+
+export async function requireMerchantClaims(ctx: AuthCtx): Promise<MerchantClaims> {
+	const identity = await ctx.auth.getUserIdentity();
+	const authUser = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
+	const resolved =
+		identity !== null
+			? await resolveMerchantContext(ctx, identity)
+			: authUser
+				? await resolveAdminMerchantContext(ctx, authUser)
+				: null;
+
+	if (!resolved) {
+		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
+	}
 
 	return {
 		actorId: resolved.actor.id,
 		organizationId: resolved.actor.organizationId,
 		roles: getMerchantRoles({
 			identity,
+			includeAdmin: authUser?.role === "admin",
 			memberRole: resolved.member.role,
 		}),
 		shopDomain: resolved.shop.domain,
@@ -1158,12 +1391,17 @@ export async function requireMerchantClaims(ctx: AuthCtx): Promise<MerchantClaim
 
 export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<MerchantContext> {
 	const identity = await ctx.auth.getUserIdentity();
+	const authUser = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
+	const resolved =
+		identity !== null
+			? await readMerchantContextFromDb(ctx, identity)
+			: authUser
+				? await resolveAdminMerchantContext(ctx, authUser)
+				: null;
 
-	if (!identity) {
+	if (!resolved) {
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
-
-	const resolved = await readMerchantContextFromDb(ctx, identity);
 
 	return {
 		actor: resolved.actor,
@@ -1171,6 +1409,7 @@ export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<Merchant
 		organization: resolved.organization,
 		roles: getMerchantRoles({
 			identity,
+			includeAdmin: authUser?.role === "admin",
 			memberRole: resolved.member.role,
 		}),
 		shop: resolved.shop,
@@ -1203,7 +1442,7 @@ export const getCurrentViewer = query({
 						installStatus: merchant.shop.installStatus,
 						name: merchant.shop.name,
 					},
-					authMode: source === "admin_single_membership" ? "internal" : "embedded",
+					authMode: source === "active_organization" ? "embedded" : "internal",
 					roles,
 					viewer: {
 						email: merchant.user.email,
@@ -1220,6 +1459,35 @@ export const getCurrentViewer = query({
 
 		if (!user) {
 			return null;
+		}
+
+		if (betterAuthRole === "admin") {
+			const adminResolved = await resolveAdminMerchantContext(ctx, user);
+
+			if (adminResolved) {
+				const roles = deriveViewerRoles({
+					betterAuthRole,
+					merchantRole: adminResolved.member.role,
+				});
+
+				return {
+					activeShop: {
+						domain: adminResolved.shop.domain,
+						id: adminResolved.shop._id,
+						installStatus: adminResolved.shop.installStatus,
+						name: adminResolved.shop.name,
+					},
+					authMode: "internal",
+					roles,
+					viewer: {
+						email: adminResolved.user.email,
+						id: adminResolved.user.id,
+						initials: adminResolved.actor.initials,
+						name: adminResolved.user.name,
+						roles,
+					},
+				};
+			}
 		}
 
 		if (betterAuthRole === "admin") {
