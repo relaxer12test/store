@@ -1,21 +1,8 @@
-import { v } from "convex/values";
-import {
-	dashboardSpecSchema,
-	type DashboardSpec,
-	type MerchantApprovalCard,
-	type MerchantCitation,
-	type MerchantCopilotConversation,
-	type MerchantDocumentRecord,
-	type MerchantExplorerData,
-	type MerchantOverviewData,
-	type MerchantWorkflowLog,
-	type MerchantWorkflowRecord,
-	type MerchantWorkflowsData,
-} from "../src/shared/contracts/merchant-workspace";
-import { api, components, internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { api, components, internal } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
 import {
 	action,
+	internalAction,
 	internalMutation,
 	internalQuery,
 	mutation,
@@ -23,16 +10,31 @@ import {
 	type ActionCtx,
 	type MutationCtx,
 	type QueryCtx,
-} from "./_generated/server";
+} from "@convex/_generated/server";
 import {
 	parseInternalAdminMerchantUserId,
 	requireMerchantActor,
 	requireMerchantClaims,
 	type MerchantActorRecord,
-} from "./auth";
-import { resolveUsableInstallationAccessToken } from "./shopify";
-import { getShopifyAccessFailureReason } from "./shopifyAccess";
-import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
+} from "@convex/auth";
+import { runMerchantCopilotTurn } from "@convex/merchantCopilotRuntime";
+import { resolveUsableInstallationAccessToken } from "@convex/shopify";
+import { getShopifyAccessFailureReason } from "@convex/shopifyAccess";
+import { shopifyAdminGraphqlRequest } from "@convex/shopifyAdmin";
+import { v } from "convex/values";
+import {
+	dashboardSpecSchema,
+	type MerchantApprovalCard,
+	type MerchantCitation,
+	type MerchantCopilotConversation,
+	type MerchantDocumentRecord,
+	type MerchantKnowledgeDocumentsData,
+	type MerchantExplorerData,
+	type MerchantOverviewData,
+	type MerchantWorkflowLog,
+	type MerchantWorkflowRecord,
+	type MerchantWorkflowsData,
+} from "@/shared/contracts/merchant-workspace";
 
 const DEFAULT_CONVERSATION_TITLE = "Merchant copilot";
 const DEFAULT_ORDER_WINDOW_DAYS = 30;
@@ -402,11 +404,6 @@ type ProductSearchResponse = {
 	} | null;
 };
 
-type RetrievedKnowledgeMatch = {
-	citation: MerchantCitation;
-	snippet: string;
-};
-
 type OrderSearchResponse = {
 	orders?: {
 		nodes?: OrderNode[] | null;
@@ -688,13 +685,15 @@ function searchTextForDocument(document: { content: string; fileName?: string; t
 	return [document.title, document.fileName, document.content].filter(Boolean).join(" ");
 }
 
-function promptPreview(prompt: string) {
-	return normalizeText(prompt).slice(0, 180);
-}
-
 function recentOrdersQuery(days = DEFAULT_ORDER_WINDOW_DAYS) {
 	const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
 	return `processed_at:>=${since}`;
+}
+
+function buildOrderSearchQuery(args: { query?: string | null; windowDays?: number | null }) {
+	return [recentOrdersQuery(args.windowDays ?? DEFAULT_ORDER_WINDOW_DAYS), args.query?.trim()]
+		.filter((value): value is string => Boolean(value))
+		.join(" ");
 }
 
 function buildDefaultDashboard(input: {
@@ -784,35 +783,6 @@ function buildDefaultDashboard(input: {
 	});
 
 	return spec;
-}
-
-function buildDashboardForDocuments(documents: MerchantDocumentRecord[]) {
-	return dashboardSpecSchema.parse({
-		cards: [
-			{
-				description: "Recent uploaded knowledge docs available to the merchant copilot.",
-				id: "document-table",
-				rows: documents.map((document) => ({
-					status: document.status,
-					title: document.title,
-					updated_at: document.updatedAt,
-					visibility: document.visibility,
-				})),
-				columns: ["title", "visibility", "status", "updated_at"],
-				type: "table",
-			},
-			{
-				bullets: documents.slice(0, 3).map((document) => document.summary),
-				description: "At-a-glance summaries from the newest uploaded documents.",
-				id: "document-insight",
-				tone: documents.length > 0 ? "success" : "watch",
-				type: "insight",
-			},
-		],
-		description: "Document-grounded view for merchant-private notes and public knowledge docs.",
-		generatedAt: new Date().toISOString(),
-		title: "Knowledge dashboard",
-	});
 }
 
 function buildTrendPoints(orders: OrderNode[]) {
@@ -1052,12 +1022,15 @@ async function listConversationMessages(
 		conversationId: Id<"merchantCopilotConversations">;
 	},
 ) {
-	return await ctx.db
+	const rows = await ctx.db
 		.query("merchantCopilotMessages")
 		.withIndex("by_conversation_and_created_at", (query) =>
 			query.eq("conversationId", options.conversationId),
 		)
+		.order("desc")
 		.take(COPILOT_MESSAGE_LIMIT);
+
+	return rows.reverse();
 }
 
 async function getLatestConversation(
@@ -1276,13 +1249,14 @@ async function auditAction(
 async function fetchShopifyOverview(args: {
 	accessToken: string;
 	shopDomain: string;
+	windowDays?: number | null;
 }): Promise<MerchantOverviewResponse> {
 	return await shopifyAdminGraphqlRequest<MerchantOverviewResponse>({
 		accessToken: args.accessToken,
 		query: MERCHANT_OVERVIEW_QUERY,
 		shop: args.shopDomain,
 		variables: {
-			recentOrdersQuery: recentOrdersQuery(),
+			recentOrdersQuery: recentOrdersQuery(args.windowDays ?? DEFAULT_ORDER_WINDOW_DAYS),
 		},
 	});
 }
@@ -1345,64 +1319,6 @@ function buildShopifyCitation(label: string, detail: string): MerchantCitation {
 	};
 }
 
-function extractQuotedTerms(prompt: string) {
-	return Array.from(prompt.matchAll(/"([^"]+)"/g))
-		.map((match) => match[1])
-		.filter(Boolean);
-}
-
-function parseTagsList(segment: string | undefined) {
-	return (segment ?? "")
-		.split(/[,\n]/)
-		.map((tag) => tag.trim())
-		.filter(Boolean);
-}
-
-function classifyWorkflow(prompt: string) {
-	const normalized = prompt.toLowerCase();
-
-	if (normalized.includes("reindex") && normalized.includes("document")) {
-		return "document_reindex";
-	}
-
-	if (normalized.includes("dashboard")) {
-		return "dashboard_regeneration";
-	}
-
-	if (normalized.includes("catalog")) {
-		return "catalog_index_rebuild";
-	}
-
-	if (normalized.includes("metrics") || normalized.includes("refresh cache")) {
-		return "metrics_cache_refresh";
-	}
-
-	return "reconciliation_scan";
-}
-
-async function findProductForPrompt(args: {
-	accessToken: string;
-	prompt: string;
-	shopDomain: string;
-}) {
-	const quoted = extractQuotedTerms(args.prompt);
-	const searchSeed =
-		quoted[0] ??
-		args.prompt
-			.replace(
-				/add tags?|remove tags?|set metafield|adjust inventory|change title|change description|pause|publish|archive|draft/gi,
-				" ",
-			)
-			.trim();
-	const rows = await searchShopifyProducts({
-		accessToken: args.accessToken,
-		query: searchSeed.length > 0 ? searchSeed : "status:active",
-		shopDomain: args.shopDomain,
-	});
-
-	return rows[0] ?? null;
-}
-
 function buildProductSearchRows(rows: ProductSearchNode[]) {
 	return rows.map((row) => ({
 		description: row.description ?? null,
@@ -1457,25 +1373,6 @@ function buildAuditRows(rows: Doc<"auditLogs">[]) {
 	}));
 }
 
-function dashboardForPrompt(
-	prompt: string,
-	defaultDashboard: DashboardSpec,
-	documents: MerchantDocumentRecord[],
-) {
-	if (/(document|note|knowledge|sop|policy)/i.test(prompt) && documents.length > 0) {
-		return buildDashboardForDocuments(documents);
-	}
-
-	return defaultDashboard;
-}
-
-function mergeCitations(
-	shopifyCitations: MerchantCitation[],
-	documentCitations: MerchantCitation[],
-) {
-	return [...shopifyCitations, ...documentCitations.slice(0, 4)];
-}
-
 export const getRuntimeStateInternal = internalQuery({
 	args: {
 		actorId: v.string(),
@@ -1495,6 +1392,24 @@ export const getConversationStateInternal = internalQuery({
 	},
 	handler: async (ctx, args) => {
 		return await loadConversationState(ctx, args);
+	},
+});
+
+export const getConversationThreadState = internalQuery({
+	args: {
+		conversationId: v.id("merchantCopilotConversations"),
+	},
+	handler: async (ctx, args) => {
+		const conversation = await ctx.db.get(args.conversationId);
+
+		if (!conversation) {
+			return null;
+		}
+
+		return {
+			conversationId: conversation._id,
+			threadId: conversation.threadId ?? null,
+		};
 	},
 });
 
@@ -1592,9 +1507,31 @@ export const ensureConversation = internalMutation({
 			createdAt: now,
 			lastPromptPreview: args.promptPreview,
 			shopId: args.shopId,
+			threadId: undefined,
 			title: DEFAULT_CONVERSATION_TITLE,
 			updatedAt: now,
 		});
+	},
+});
+
+export const setConversationThread = internalMutation({
+	args: {
+		conversationId: v.id("merchantCopilotConversations"),
+		threadId: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const conversation = await ctx.db.get(args.conversationId);
+
+		if (!conversation) {
+			return null;
+		}
+
+		await ctx.db.patch(conversation._id, {
+			threadId: args.threadId,
+			updatedAt: Date.now(),
+		});
+
+		return conversation._id;
 	},
 });
 
@@ -1757,6 +1694,170 @@ export const recordDashboardRegeneration = internalMutation({
 		});
 
 		return true;
+	},
+});
+
+export const getOverviewSnapshotInternal = internalAction({
+	args: {
+		actorId: v.string(),
+		shopDomain: v.string(),
+		shopId: v.id("shops"),
+		windowDays: v.optional(v.number()),
+	},
+	handler: async (
+		ctx,
+		args,
+	): Promise<{
+		citations: MerchantCitation[];
+		dashboard: ReturnType<typeof dashboardSpecSchema.parse>;
+		lowStockRows: Array<Record<string, string | number | null>>;
+		orderCount: number;
+		orders: OrderNode[];
+		revenueCurrency: string | null;
+		revenueTotal: number;
+	}> => {
+		const installationAccessToken: string | null = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: args.shopDomain,
+			shopId: args.shopId,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for this merchant tool.");
+		}
+
+		const [documents, conversationState, snapshot]: [
+			MerchantKnowledgeDocumentsData,
+			MerchantCopilotConversation,
+			MerchantOverviewResponse,
+		] = await Promise.all([
+			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
+			ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {
+				actorId: args.actorId,
+				shopId: args.shopId,
+			}),
+			fetchShopifyOverview({
+				accessToken: installationAccessToken,
+				shopDomain: args.shopDomain,
+				windowDays: args.windowDays ?? DEFAULT_SALES_TREND_DAYS,
+			}),
+		]);
+		const orders: OrderNode[] = snapshot.recentOrders?.nodes ?? [];
+		const lowStockRows = buildLowStockRows(snapshot.lowStockProducts?.nodes ?? []);
+		const citations: MerchantCitation[] = [
+			buildShopifyCitation(
+				"Shopify Admin orders",
+				`${orders.length} recent order record(s) analysed for the requested window.`,
+			),
+			buildShopifyCitation(
+				"Shopify Admin inventory",
+				`${lowStockRows.length} low-stock row(s) are currently visible in active products.`,
+			),
+		];
+		const revenueTotal = orders.reduce(
+			(total: number, order: OrderNode) =>
+				total + parseAmount(order.currentTotalPriceSet?.shopMoney?.amount),
+			0,
+		);
+		const revenueCurrency = orders[0]?.currentTotalPriceSet?.shopMoney?.currencyCode ?? null;
+		const dashboard = buildDefaultDashboard({
+			activeProducts: snapshot.activeProductsCount?.count ?? 0,
+			citations,
+			documentCount: documents.documents.length,
+			lowStockCount: lowStockRows.length,
+			lowStockRows,
+			orderCount: snapshot.recentOrdersCount?.count ?? orders.length,
+			pendingApprovalCount: conversationState.pendingApprovals.length,
+			revenueCurrency,
+			revenueTotal,
+			salesTrend: buildTrendPoints(orders),
+			topProducts: buildTopProducts(orders),
+		});
+
+		return {
+			citations,
+			dashboard,
+			lowStockRows,
+			orderCount: snapshot.recentOrdersCount?.count ?? orders.length,
+			orders,
+			revenueCurrency,
+			revenueTotal,
+		};
+	},
+});
+
+export const searchProductsSnapshotInternal = internalAction({
+	args: {
+		shopDomain: v.string(),
+		shopId: v.id("shops"),
+		query: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: args.shopDomain,
+			shopId: args.shopId,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for this merchant tool.");
+		}
+
+		return await searchShopifyProducts({
+			accessToken: installationAccessToken,
+			query: args.query.trim() || "status:active",
+			shopDomain: args.shopDomain,
+		});
+	},
+});
+
+export const searchOrdersSnapshotInternal = internalAction({
+	args: {
+		query: v.optional(v.string()),
+		shopDomain: v.string(),
+		shopId: v.id("shops"),
+		windowDays: v.optional(v.number()),
+	},
+	handler: async (ctx, args) => {
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: args.shopDomain,
+			shopId: args.shopId,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for this merchant tool.");
+		}
+
+		return await searchShopifyOrders({
+			accessToken: installationAccessToken,
+			query: buildOrderSearchQuery({
+				query: args.query,
+				windowDays: args.windowDays,
+			}),
+			shopDomain: args.shopDomain,
+		});
+	},
+});
+
+export const getProductEditContextInternal = internalAction({
+	args: {
+		productId: v.string(),
+		shopDomain: v.string(),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: args.shopDomain,
+			shopId: args.shopId,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for this merchant tool.");
+		}
+
+		return await getProductEditContext({
+			accessToken: installationAccessToken,
+			productId: args.productId,
+			shopDomain: args.shopDomain,
+		});
 	},
 });
 
@@ -2147,528 +2248,7 @@ export const askCopilot = action({
 		prompt: v.string(),
 	},
 	handler: async (ctx, args): Promise<MerchantCopilotConversation> => {
-		const claims = await requireMerchantClaims(ctx);
-		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
-			actorId: claims.actorId,
-			shopDomain: claims.shopDomain,
-			shopId: claims.shopId,
-		});
-		const prompt = args.prompt.trim();
-
-		if (prompt.length < 4) {
-			throw new Error(
-				"Ask a more specific merchant question so the copilot can ground the answer.",
-			);
-		}
-
-		const conversationId =
-			args.conversationId ??
-			(await ctx.runMutation(internal.merchantWorkspace.ensureConversation, {
-				actorId: runtime.actor.id,
-				promptPreview: promptPreview(prompt),
-				shopId: runtime.shop._id,
-			}));
-
-		await ctx.runMutation(internal.merchantWorkspace.appendCopilotMessage, {
-			actorId: runtime.actor.id,
-			body: prompt,
-			conversationId,
-			role: "user",
-			shopId: runtime.shop._id,
-			toolNames: [],
-		});
-
-		const quotedTerms = extractQuotedTerms(prompt);
-		const lowerPrompt = prompt.toLowerCase();
-		const documents = await ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {});
-		const knowledgeMatches: RetrievedKnowledgeMatch[] = await ctx.runAction(
-			internal.merchantDocumentsNode.retrieveKnowledge,
-			{
-				audience: "merchant",
-				query: quotedTerms[0] ?? prompt,
-				shopId: runtime.shop._id,
-			},
-		);
-		let approvalIds: Id<"merchantActionApprovals">[] = [];
-		let toolNames: string[] = [];
-		let body = "";
-		let dashboard: DashboardSpec | null = null;
-		let citations: MerchantCitation[] = [];
-		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
-			shopDomain: runtime.shop.domain,
-			shopId: runtime.shop._id,
-		});
-		const shopifyAccessFailure = installationAccessToken
-			? null
-			: getShopifyAccessFailureReason({
-					actionLabel: "use the merchant copilot",
-					installation: null,
-					shop: runtime.shop,
-				});
-
-		if (shopifyAccessFailure || !installationAccessToken) {
-			body = `${shopifyAccessFailure} Re-run embedded bootstrap from Shopify admin after reinstalling the app if needed.`;
-			citations = [
-				buildShopifyCitation(
-					"Install health",
-					`Shop ${runtime.shop.domain} is not currently in a connected embedded-admin state.`,
-				),
-			];
-		} else if (/(reindex|refresh|replay|rebuild|regenerate)/i.test(prompt)) {
-			const workflowType = classifyWorkflow(prompt);
-			const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-				actorId: runtime.actor.id,
-				conversationId,
-				plannedChangesJson: JSON.stringify([
-					{
-						after: formatWorkflowTitle(workflowType),
-						before: null,
-						label: "Queued workflow",
-					},
-				]),
-				requestPayload: {
-					productId: "",
-					productTitle: formatWorkflowTitle(workflowType),
-					tool: "enqueueWorkflow",
-					workflowType,
-				} satisfies ApprovalPayload,
-				riskSummary:
-					"Triggers background work only, but it can refresh caches or overwrite derived summaries used in the merchant UI.",
-				shopDomain: runtime.shop.domain,
-				shopId: runtime.shop._id,
-				summary: `Queue ${formatWorkflowTitle(workflowType).toLowerCase()} for ${runtime.shop.domain}.`,
-				targetLabel: formatWorkflowTitle(workflowType),
-				targetType: "workflow",
-				tool: "enqueueWorkflow",
-			});
-
-			approvalIds = [approvalId];
-			toolNames = ["enqueueWorkflow"];
-			body = `I prepared an approval card to queue ${formatWorkflowTitle(workflowType).toLowerCase()} for ${runtime.shop.domain}. Review the scope and approve it explicitly before Convex executes the workflow.`;
-			citations = [
-				buildShopifyCitation("Workflow scope", `Queued against shop ${runtime.shop.domain}.`),
-			];
-		} else if (/(pause|draft|archive|publish|activate)/i.test(prompt)) {
-			const product = await findProductForPrompt({
-				accessToken: installationAccessToken,
-				prompt,
-				shopDomain: runtime.shop.domain,
-			});
-
-			if (!product?.id) {
-				body =
-					'I could not identify a product to update. Quote the product title or handle, for example: pause product "Unicorn Sparkle Backpack".';
-			} else {
-				const status: "ACTIVE" | "ARCHIVED" | "DRAFT" = lowerPrompt.includes("archive")
-					? "ARCHIVED"
-					: lowerPrompt.includes("publish") || lowerPrompt.includes("activate")
-						? "ACTIVE"
-						: "DRAFT";
-				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor.id,
-					conversationId,
-					plannedChangesJson: JSON.stringify([
-						{
-							after: status,
-							before: product.status ?? null,
-							label: "Product status",
-						},
-					]),
-					requestPayload: {
-						productId: product.id,
-						productTitle: product.title ?? "Untitled product",
-						status,
-						tool: "updateProductStatus",
-					} satisfies ApprovalPayload,
-					riskSummary:
-						status === "ACTIVE"
-							? "Publishing changes visibility across sales channels."
-							: "Drafting or archiving can hide the product from merchant flows and storefront shoppers.",
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-					summary: `Update ${product.title ?? "product"} to status ${status}.`,
-					targetId: product.id,
-					targetLabel: product.title ?? "Untitled product",
-					targetType: "product",
-					tool: "updateProductStatus",
-				});
-
-				approvalIds = [approvalId];
-				toolNames = ["getProductEditContext", "updateProductStatus"];
-				body = `I prepared a status-change approval for ${product.title ?? "the selected product"}. Nothing has been written to Shopify yet.`;
-				citations = [
-					buildShopifyCitation(
-						"Product edit context",
-						`${product.title ?? "Product"} currently reports status ${product.status ?? "unknown"}.`,
-					),
-				];
-			}
-		} else if (/(add tag|remove tag)/i.test(prompt)) {
-			const product = await findProductForPrompt({
-				accessToken: installationAccessToken,
-				prompt,
-				shopDomain: runtime.shop.domain,
-			});
-			const addMatch = prompt.match(/add tags?\s+(.+?)\s+to/i);
-			const removeMatch = prompt.match(/remove tags?\s+(.+?)\s+from/i);
-			const tags = parseTagsList(addMatch?.[1] ?? removeMatch?.[1]);
-
-			if (!product?.id || tags.length === 0) {
-				body =
-					'Use a direct tag instruction with a quoted product, for example: add tags "summer, featured" to "Unicorn Sparkle Backpack".';
-			} else {
-				const mode = addMatch ? "add" : "remove";
-				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor.id,
-					conversationId,
-					plannedChangesJson: JSON.stringify(
-						tags.map((tag) => ({
-							after: mode === "add" ? tag : null,
-							before: mode === "remove" ? tag : null,
-							label: `Tag ${mode}`,
-						})),
-					),
-					requestPayload: {
-						mode,
-						productId: product.id,
-						productTitle: product.title ?? "Untitled product",
-						tags,
-						tool: "updateProductTags",
-					} satisfies ApprovalPayload,
-					riskSummary:
-						"Tag changes affect merchant search, merchandising rules, and any downstream automations keyed on tags.",
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-					summary: `${mode === "add" ? "Add" : "Remove"} ${tags.length} tag(s) on ${product.title ?? "product"}.`,
-					targetId: product.id,
-					targetLabel: product.title ?? "Untitled product",
-					targetType: "product",
-					tool: "updateProductTags",
-				});
-
-				approvalIds = [approvalId];
-				toolNames = ["searchProducts", "updateProductTags"];
-				body = `I prepared a tag update for ${product.title ?? "the selected product"} with ${tags.join(", ")}. Review the approval card before Shopify is mutated.`;
-				citations = [
-					buildShopifyCitation(
-						"Product search",
-						`${product.title ?? "Product"} matched the requested tag change.`,
-					),
-				];
-			}
-		} else if (/(change title|change description|rewrite description)/i.test(prompt)) {
-			const product = await findProductForPrompt({
-				accessToken: installationAccessToken,
-				prompt,
-				shopDomain: runtime.shop.domain,
-			});
-			const titleMatch = prompt.match(/change title(?: of)?\s+"[^"]+"\s+to\s+"([^"]+)"/i);
-			const descriptionMatch = prompt.match(
-				/(?:change|rewrite) description(?: of)?\s+"[^"]+"\s+to\s+"([^"]+)"/i,
-			);
-
-			if (!product?.id || (!titleMatch && !descriptionMatch)) {
-				body =
-					'Use a direct content instruction, for example: change title of "Unicorn Sparkle Backpack" to "Unicorn Trail Backpack".';
-			} else {
-				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor.id,
-					conversationId,
-					plannedChangesJson: JSON.stringify(
-						[
-							titleMatch
-								? {
-										after: titleMatch[1],
-										before: product.title ?? null,
-										label: "Title",
-									}
-								: null,
-							descriptionMatch
-								? {
-										after: descriptionMatch[1],
-										before: product.description ?? null,
-										label: "Description",
-									}
-								: null,
-						].filter(Boolean),
-					),
-					requestPayload: {
-						descriptionHtml: descriptionMatch?.[1],
-						productId: product.id,
-						productTitle: product.title ?? "Untitled product",
-						title: titleMatch?.[1],
-						tool: "updateProductContent",
-					} satisfies ApprovalPayload,
-					riskSummary:
-						"Content changes can affect storefront conversion, SEO, and downstream product feeds.",
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-					summary: `Update core content on ${product.title ?? "product"}.`,
-					targetId: product.id,
-					targetLabel: product.title ?? "Untitled product",
-					targetType: "product",
-					tool: "updateProductContent",
-				});
-
-				approvalIds = [approvalId];
-				toolNames = ["getProductEditContext", "updateProductContent"];
-				body = `I prepared a content update approval for ${product.title ?? "the selected product"}. You can approve it once the before/after copy looks right.`;
-				citations = [
-					buildShopifyCitation(
-						"Product edit context",
-						`${product.title ?? "Product"} current content was loaded before preparing the approval.`,
-					),
-				];
-			}
-		} else if (/set metafield/i.test(prompt)) {
-			const product = await findProductForPrompt({
-				accessToken: installationAccessToken,
-				prompt,
-				shopDomain: runtime.shop.domain,
-			});
-			const fieldMatch = prompt.match(
-				/set metafield\s+([a-zA-Z0-9_-]+)\.([a-zA-Z0-9_-]+)\s+to\s+"([^"]+)"/i,
-			);
-
-			if (!product?.id || !fieldMatch) {
-				body =
-					'Use a full namespace.key instruction, for example: set metafield custom.hero_blurb to "New copy" on "Unicorn Sparkle Backpack".';
-			} else {
-				const context = await getProductEditContext({
-					accessToken: installationAccessToken,
-					productId: product.id,
-					shopDomain: runtime.shop.domain,
-				});
-				const [namespace, key, value] = fieldMatch.slice(1);
-				const existingField = context.product?.metafields?.nodes?.find(
-					(metafield) => metafield?.namespace === namespace && metafield.key === key,
-				);
-				const approvalId = await ctx.runMutation(internal.merchantWorkspace.createApprovalRequest, {
-					actorId: runtime.actor.id,
-					conversationId,
-					plannedChangesJson: JSON.stringify([
-						{
-							after: value,
-							before: existingField?.value ?? null,
-							label: `${namespace}.${key}`,
-						},
-					]),
-					requestPayload: {
-						metafields: [
-							{
-								compareDigest: existingField?.compareDigest ?? null,
-								key,
-								namespace,
-								type: existingField?.type ?? "single_line_text_field",
-								value,
-							},
-						],
-						productId: product.id,
-						productTitle: product.title ?? "Untitled product",
-						tool: "updateProductMetafields",
-					} satisfies ApprovalPayload,
-					riskSummary:
-						"Metafield writes can affect storefront themes, app logic, and downstream automations that depend on this namespace.",
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-					summary: `Set metafield ${namespace}.${key} on ${product.title ?? "product"}.`,
-					targetId: product.id,
-					targetLabel: product.title ?? "Untitled product",
-					targetType: "product",
-					tool: "updateProductMetafields",
-				});
-
-				approvalIds = [approvalId];
-				toolNames = ["getProductEditContext", "updateProductMetafields"];
-				body = `I prepared a metafield update for ${product.title ?? "the selected product"} under ${namespace}.${key}. Review the approval card for the exact value before execution.`;
-				citations = [
-					buildShopifyCitation(
-						"Product metafield context",
-						existingField
-							? `Existing value for ${namespace}.${key} was loaded before preparing the update.`
-							: `No existing value for ${namespace}.${key} was found before preparing the update.`,
-					),
-				];
-			}
-		} else if (/adjust inventory/i.test(prompt)) {
-			const product = await findProductForPrompt({
-				accessToken: installationAccessToken,
-				prompt,
-				shopDomain: runtime.shop.domain,
-			});
-			const deltaMatch = prompt.match(/adjust inventory(?: of)?(?:\s+"[^"]+")?\s+by\s+(-?\d+)/i);
-
-			if (!product?.id || !deltaMatch) {
-				body =
-					'Use a direct delta instruction, for example: adjust inventory of "Unicorn Sparkle Backpack" by -4.';
-			} else {
-				const context = await getProductEditContext({
-					accessToken: installationAccessToken,
-					productId: product.id,
-					shopDomain: runtime.shop.domain,
-				});
-				const variant = context.product?.variants?.nodes?.[0];
-				const location =
-					context.locations?.nodes?.find((row) => row.isActive) ?? context.locations?.nodes?.[0];
-				const delta = Number.parseInt(deltaMatch[1], 10);
-
-				if (!variant?.inventoryItem?.id || !location?.id) {
-					body =
-						"I couldn't resolve a tracked inventory item and active location for that product, so I didn't prepare a write.";
-				} else {
-					const approvalId = await ctx.runMutation(
-						internal.merchantWorkspace.createApprovalRequest,
-						{
-							actorId: runtime.actor.id,
-							conversationId,
-							plannedChangesJson: JSON.stringify([
-								{
-									after: `${delta > 0 ? "+" : ""}${delta}`,
-									before: `${variant.inventoryQuantity ?? 0}`,
-									label: `${variant.title ?? "Default"} available delta`,
-								},
-							]),
-							requestPayload: {
-								delta,
-								locationId: location.id,
-								locationName: location.name ?? "Primary location",
-								productTitle: context.product?.title ?? "Untitled product",
-								reason: "correction",
-								referenceDocumentUri: `gid://growth-capital-shopify-ai/InventoryAdjustment/${Date.now()}`,
-								tool: "adjustInventory",
-								variantId: variant.id ?? "",
-								variantInventoryItemId: variant.inventoryItem.id,
-								variantTitle: variant.title ?? "Default",
-							} satisfies ApprovalPayload,
-							riskSummary:
-								"Inventory adjustments immediately affect merchant inventory history and downstream availability decisions.",
-							shopDomain: runtime.shop.domain,
-							shopId: runtime.shop._id,
-							summary: `Adjust inventory on ${context.product?.title ?? "product"} by ${delta}.`,
-							targetId: variant.id ?? product.id,
-							targetLabel: `${context.product?.title ?? "Untitled product"} · ${variant.title ?? "Default"}`,
-							targetType: "inventory",
-							tool: "adjustInventory",
-						},
-					);
-
-					approvalIds = [approvalId];
-					toolNames = ["getProductEditContext", "adjustInventory"];
-					body = `I prepared an inventory adjustment approval for ${context.product?.title ?? "the selected product"} at ${location.name ?? "the active location"}.`;
-					citations = [
-						buildShopifyCitation(
-							"Inventory context",
-							`${variant.title ?? "Default"} currently reports inventory ${variant.inventoryQuantity ?? 0}.`,
-						),
-					];
-				}
-			}
-		} else {
-			const [overviewData, productRows, orderRows] = await Promise.all([
-				fetchShopifyOverview({
-					accessToken: installationAccessToken,
-					shopDomain: runtime.shop.domain,
-				}),
-				searchShopifyProducts({
-					accessToken: installationAccessToken,
-					query: quotedTerms[0] ?? "status:active",
-					shopDomain: runtime.shop.domain,
-				}),
-				searchShopifyOrders({
-					accessToken: installationAccessToken,
-					query: recentOrdersQuery(),
-					shopDomain: runtime.shop.domain,
-				}),
-			]);
-			const orders = overviewData.recentOrders?.nodes ?? [];
-			const lowStockRows = buildLowStockRows(overviewData.lowStockProducts?.nodes ?? []);
-			const productRowsTable = buildProductSearchRows(productRows).slice(0, 6);
-			const documentsDashboard = documents.documents.slice(0, 6);
-			const defaultDashboard = buildDefaultDashboard({
-				activeProducts: overviewData.activeProductsCount?.count ?? 0,
-				citations: [
-					buildShopifyCitation(
-						"Shopify Admin revenue window",
-						`${orders.length} recent orders analysed for dashboard generation.`,
-					),
-				],
-				documentCount: documents.documents.length,
-				lowStockCount: lowStockRows.length,
-				lowStockRows,
-				orderCount: overviewData.recentOrdersCount?.count ?? orders.length,
-				pendingApprovalCount: 0,
-				revenueCurrency: orders[0]?.currentTotalPriceSet?.shopMoney?.currencyCode ?? null,
-				revenueTotal: orders.reduce(
-					(total, order) => total + parseAmount(order.currentTotalPriceSet?.shopMoney?.amount),
-					0,
-				),
-				salesTrend: buildTrendPoints(orders),
-				topProducts: buildTopProducts(orders),
-			});
-			dashboard = dashboardForPrompt(prompt, defaultDashboard, documentsDashboard);
-			citations = mergeCitations(
-				[
-					buildShopifyCitation(
-						"Shopify Admin products",
-						`${productRowsTable.length} product result(s) were considered.`,
-					),
-					buildShopifyCitation(
-						"Shopify Admin orders",
-						`${orderRows.length} order result(s) were considered.`,
-					),
-				],
-				knowledgeMatches.map((match) => match.citation),
-			);
-			toolNames = [
-				"getOverviewMetrics",
-				"getSalesTrend",
-				"getTopProducts",
-				"getLowStockItems",
-				"searchProducts",
-				"searchOrders",
-				"searchDocuments",
-			];
-
-			if (/(document|policy|sop|knowledge)/i.test(prompt) && knowledgeMatches.length > 0) {
-				body = `I found ${knowledgeMatches.length} document match(es). The strongest excerpts are: ${knowledgeMatches
-					.slice(0, 3)
-					.map((match) => match.snippet)
-					.join(" ")}`;
-			} else if (/(inventory|stock)/i.test(prompt)) {
-				body = lowStockRows.length
-					? `There are ${lowStockRows.length} low-stock variant row(s) at or below ${LOW_STOCK_THRESHOLD}. The dashboard highlights the most urgent items first.`
-					: `No low-stock variants were found under the current ${LOW_STOCK_THRESHOLD}-unit threshold in the sampled active products.`;
-			} else if (/(order|sales|revenue|dashboard)/i.test(prompt)) {
-				const revenue = orders.reduce(
-					(total, order) => total + parseAmount(order.currentTotalPriceSet?.shopMoney?.amount),
-					0,
-				);
-				body = `The recent demo-order window shows ${overviewData.recentOrdersCount?.count ?? orders.length} order(s) totaling ${formatMoney(
-					revenue,
-					orders[0]?.currentTotalPriceSet?.shopMoney?.currencyCode ?? "USD",
-				)}. I rendered the dashboard from grounded Shopify data rather than freeform model HTML.`;
-			} else {
-				body = `I grounded this answer using live Shopify reads plus ${knowledgeMatches.length} matching merchant document excerpt(s). Use the dashboard cards and explorer datasets to drill into products, orders, inventory, or document context.`;
-			}
-		}
-
-		await ctx.runMutation(internal.merchantWorkspace.appendCopilotMessage, {
-			actorId: runtime.actor.id,
-			approvalIds,
-			body,
-			citationsJson: JSON.stringify(citations),
-			conversationId,
-			dashboardSpecJson: dashboard ? JSON.stringify(dashboard) : undefined,
-			role: "assistant",
-			shopId: runtime.shop._id,
-			toolNames,
-		});
-
-		return await ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {
-			actorId: runtime.actor.id,
-			conversationId,
-			shopId: runtime.shop._id,
-		});
+		return await runMerchantCopilotTurn(ctx, args);
 	},
 });
 

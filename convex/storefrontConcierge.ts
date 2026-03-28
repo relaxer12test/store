@@ -725,7 +725,7 @@ export const answerPolicyQuestion = internalQuery({
 		const hydratedMatches: HydratedPublicKnowledgeChunk[] =
 			chunkMatches.length > 0
 				? await ctx.runQuery(internal.merchantDocuments.hydrateKnowledgeChunks, {
-						chunkIds: chunkMatches.map((row) => row._id),
+						chunkIds: chunkMatches.map((row: { _id: Id<"merchantDocumentChunks"> }) => row._id),
 					})
 				: [];
 		const publicDocumentMatches = hydratedMatches.filter(

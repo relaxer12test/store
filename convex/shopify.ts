@@ -477,7 +477,7 @@ export async function resolveUsableInstallationAccessToken(
 		shopDomain: string;
 		shopId: Id<"shops">;
 	},
-) {
+): Promise<string | null> {
 	let installation: ShopifyInstallationAccessState | null = await ctx.runQuery(
 		internal.shopify.getInstallationAccessState,
 		{

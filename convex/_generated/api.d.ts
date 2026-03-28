@@ -21,6 +21,7 @@ import type * as internalAdmin from "../internalAdmin.js";
 import type * as internalStorefrontAi from "../internalStorefrontAi.js";
 import type * as mail from "../mail.js";
 import type * as merchantApp from "../merchantApp.js";
+import type * as merchantCopilotRuntime from "../merchantCopilotRuntime.js";
 import type * as merchantDocuments from "../merchantDocuments.js";
 import type * as merchantDocumentsNode from "../merchantDocumentsNode.js";
 import type * as merchantKnowledgeShared from "../merchantKnowledgeShared.js";
@@ -56,6 +57,7 @@ declare const fullApi: ApiFromModules<{
   internalStorefrontAi: typeof internalStorefrontAi;
   mail: typeof mail;
   merchantApp: typeof merchantApp;
+  merchantCopilotRuntime: typeof merchantCopilotRuntime;
   merchantDocuments: typeof merchantDocuments;
   merchantDocumentsNode: typeof merchantDocumentsNode;
   merchantKnowledgeShared: typeof merchantKnowledgeShared;

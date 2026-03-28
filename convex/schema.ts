@@ -403,6 +403,7 @@ export default defineSchema({
 		lastAssistantSummary: v.optional(v.string()),
 		lastPromptPreview: v.optional(v.string()),
 		shopId: v.id("shops"),
+		threadId: v.optional(v.string()),
 		title: v.string(),
 		updatedAt: v.number(),
 	})
