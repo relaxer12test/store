@@ -48,7 +48,7 @@ export default defineConfig({
 	testMatch: /.*\.spec\.ts/,
 	timeout: 30_000,
 	use: {
-		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
+		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "https://storeai.ldev.cloud",
 		screenshot: "only-on-failure",
 		trace: "retain-on-failure",
 		video: "retain-on-failure",

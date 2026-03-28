@@ -377,11 +377,11 @@ async function fillCheckoutContactAndShipping(
 		profile.postalCode,
 	);
 
-	const phoneField = await maybeFindVisibleMainFrameLocator(page, [
-		'input[name="phone"]',
-		'input[type="tel"]',
-		'input[autocomplete="tel"]',
-	]);
+	const phoneField = await maybeFindVisibleMainFrameLocator(
+		page,
+		['input[name="phone"]', 'input[type="tel"]', 'input[autocomplete="tel"]'],
+		750,
+	);
 
 	if (phoneField) {
 		await typeSlowly(phoneField, profile.phone);
@@ -504,6 +504,13 @@ async function selectShippingRateIfNeeded(page: Page) {
 	if (!(await shippingRate.isChecked().catch(() => false))) {
 		await shippingRate.check();
 		await pause(page, 0.75);
+	}
+
+	const paymentHeading = page.getByRole("heading", { name: /^Payment$/i }).first();
+
+	if (await paymentHeading.isVisible().catch(() => false)) {
+		await paymentHeading.scrollIntoViewIfNeeded();
+		await pause(page, 0.6);
 	}
 }
 
@@ -745,6 +752,18 @@ async function waitForOrderConfirmation(page: Page) {
 	await expect(confirmationText.first()).toBeVisible({
 		timeout: 90_000,
 	});
+
+	const pageMain = page.locator("main").first();
+
+	if (await pageMain.isVisible().catch(() => false)) {
+		await pageMain.scrollIntoViewIfNeeded();
+	}
+
+	await pause(page, 2);
+	await page.mouse.wheel(0, 500);
+	await pause(page, 1.5);
+	await page.mouse.wheel(0, -250);
+	await pause(page, 2.5);
 }
 
 function escapeRegExp(value: string) {
