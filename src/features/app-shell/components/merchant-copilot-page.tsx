@@ -205,43 +205,45 @@ export function MerchantCopilotPage({
 		sessions.find((session) => session.conversationId === (resolvedConversationId ?? null)) ?? null;
 
 	return (
-		<div className="grid gap-4 xl:grid-cols-[20rem_minmax(0,1fr)]">
-			<CopilotSessionRail
-				activeConversationId={(resolvedConversationId as string | null) ?? null}
-				deleteError={deleteConversationMutation.error ?? null}
-				deletePendingConversationId={
-					deleteConversationMutation.isPending
-						? (deleteConversationMutation.variables?.conversationId ?? null)
-						: null
-				}
-				editTitle={editTitle}
-				editingConversationId={editingConversationId}
-				isCreating={createConversationMutation.isPending}
-				isRenaming={renameConversationMutation.isPending}
-				onCreateConversation={() => createConversationMutation.mutate({})}
-				onDeleteConversation={deleteSession}
-				onRenameCancel={() => {
-					setEditingConversationId(null);
-					setEditTitle("");
-				}}
-				onRenameChange={setEditTitle}
-				onRenameConversation={commitRename}
-				onRenameStart={startRenameSession}
-				onSelectConversation={(conversationId) => {
-					setEditingConversationId(null);
-					setEditTitle("");
-					void navigate({
-						search: (current) => ({
-							...current,
-							conversation: conversationId,
-						}),
-					});
-				}}
-				renameError={renameConversationMutation.error ?? null}
-				sessions={sessions}
-			/>
+		<div className="grid h-[calc(100dvh-10rem)] min-h-0 grid-rows-[minmax(15rem,18rem)_minmax(0,1fr)] gap-4 overflow-hidden lg:h-[calc(100dvh-12rem)] xl:grid-cols-[20rem_minmax(0,1fr)] xl:grid-rows-1">
+			<div className="min-h-0 overflow-hidden">
+				<CopilotSessionRail
+					activeConversationId={(resolvedConversationId as string | null) ?? null}
+					deleteError={deleteConversationMutation.error ?? null}
+					deletePendingConversationId={
+						deleteConversationMutation.isPending
+							? (deleteConversationMutation.variables?.conversationId ?? null)
+							: null
+					}
+					editTitle={editTitle}
+					editingConversationId={editingConversationId}
+					isCreating={createConversationMutation.isPending}
+					isRenaming={renameConversationMutation.isPending}
+					onCreateConversation={() => createConversationMutation.mutate({})}
+					onDeleteConversation={deleteSession}
+					onRenameCancel={() => {
+						setEditingConversationId(null);
+						setEditTitle("");
+					}}
+					onRenameChange={setEditTitle}
+					onRenameConversation={commitRename}
+					onRenameStart={startRenameSession}
+					onSelectConversation={(conversationId) => {
+						setEditingConversationId(null);
+						setEditTitle("");
+						void navigate({
+							search: (current) => ({
+								...current,
+								conversation: conversationId,
+							}),
+						});
+					}}
+					renameError={renameConversationMutation.error ?? null}
+					sessions={sessions}
+				/>
+			</div>
 
-			<div className="relative rounded-lg border border-zinc-950/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+			<div className="relative flex min-h-0 flex-col overflow-hidden rounded-lg border border-zinc-950/5 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
 				<div className="mb-4 flex items-center justify-between gap-3 border-b border-zinc-950/5 pb-4 dark:border-white/10">
 					<div>
 						<p className="text-xs font-semibold uppercase tracking-[0.22em] text-zinc-400 dark:text-zinc-500">

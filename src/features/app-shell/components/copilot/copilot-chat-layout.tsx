@@ -10,7 +10,7 @@ export function CopilotChatLayout({
 	threadRef: RefObject<HTMLDivElement | null>;
 }) {
 	return (
-		<div className="flex h-[calc(100dvh-6rem)] flex-col">
+		<div className="flex min-h-0 flex-1 flex-col">
 			<div className="min-h-0 flex-1 overflow-y-auto" ref={threadRef}>
 				{children}
 			</div>

@@ -64,7 +64,7 @@ export function CopilotSessionRail({
 }) {
 	return (
 		<Panel
-			className="flex h-full min-h-[18rem] flex-col"
+			className="flex h-full min-h-0 max-h-none flex-col overflow-hidden"
 			description="Start a fresh chat, jump back into prior threads, or clean up stale conversations."
 			title="Sessions"
 		>
