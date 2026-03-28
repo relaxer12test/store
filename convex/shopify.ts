@@ -10,7 +10,7 @@ import {
 } from "@/shared/contracts/storefront-widget";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalMutation, internalQuery } from "./_generated/server";
+import { action, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
 import {
 	createShopifyClient,
 	SHOPIFY_API_VERSION,
@@ -37,6 +37,31 @@ const BOOTSTRAP_QUERY = `
 		}
 	}
 `;
+
+const SHOPIFY_ADMIN_TOKEN_PROBE_QUERY = `
+	query ShopifyAdminTokenProbe {
+		shop {
+			id
+		}
+	}
+`;
+
+const shopifyInstallationStatusValidator = v.union(
+	v.literal("pending"),
+	v.literal("connected"),
+	v.literal("inactive"),
+	v.literal("token_refresh_failed"),
+);
+
+type ShopifyInstallationAccessState = {
+	accessToken?: string;
+	accessTokenExpiresAt?: number;
+	domain: string;
+	refreshToken?: string;
+	refreshTokenExpiresAt?: number;
+	scopes: string[];
+	status: "pending" | "connected" | "inactive" | "token_refresh_failed";
+};
 
 function getInitials(name: string) {
 	const words = name.trim().split(/\s+/).filter(Boolean).slice(0, 2);
@@ -251,6 +276,25 @@ export function sessionToInstallation(session: Session) {
 	};
 }
 
+function isInvalidShopifyAdminAccessError(error: unknown) {
+	return (
+		error instanceof Error &&
+		/invalid api key or access token|unrecognized login or wrong password/i.test(error.message)
+	);
+}
+
+async function probeShopifyAdminAccessToken(args: { accessToken: string; shopDomain: string }) {
+	await shopifyAdminGraphqlRequest<{
+		shop?: {
+			id?: string | null;
+		} | null;
+	}>({
+		accessToken: args.accessToken,
+		query: SHOPIFY_ADMIN_TOKEN_PROBE_QUERY,
+		shop: args.shopDomain,
+	});
+}
+
 async function fetchBootstrapMetadata(shop: string, accessToken: string) {
 	const payload = await shopifyAdminGraphqlRequest<{
 		currentAppInstallation?: {
@@ -288,6 +332,229 @@ async function fetchBootstrapMetadata(shop: string, accessToken: string) {
 				.filter((scope): scope is string => Boolean(scope)) ?? [],
 		shopifyShopId: shopData.id,
 	};
+}
+
+export const getInstallationAccessState = internalQuery({
+	args: {
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args): Promise<ShopifyInstallationAccessState | null> => {
+		const installation = await ctx.db
+			.query("shopifyInstallations")
+			.withIndex("by_shop", (query) => query.eq("shopId", args.shopId))
+			.unique();
+
+		if (!installation) {
+			return null;
+		}
+
+		return {
+			accessToken: installation.accessToken ?? undefined,
+			accessTokenExpiresAt: installation.accessTokenExpiresAt ?? undefined,
+			domain: installation.domain,
+			refreshToken: installation.refreshToken ?? undefined,
+			refreshTokenExpiresAt: installation.refreshTokenExpiresAt ?? undefined,
+			scopes: installation.scopes,
+			status: installation.status,
+		};
+	},
+});
+
+export const updateInstallationAccessState = internalMutation({
+	args: {
+		accessToken: v.optional(v.string()),
+		accessTokenExpiresAt: v.optional(v.number()),
+		domain: v.string(),
+		refreshToken: v.optional(v.string()),
+		refreshTokenExpiresAt: v.optional(v.number()),
+		scopes: v.array(v.string()),
+		shopId: v.id("shops"),
+		status: shopifyInstallationStatusValidator,
+	},
+	handler: async (ctx, args) => {
+		const installation = await ctx.db
+			.query("shopifyInstallations")
+			.withIndex("by_shop", (query) => query.eq("shopId", args.shopId))
+			.unique();
+
+		if (!installation) {
+			return null;
+		}
+
+		await ctx.db.replace("shopifyInstallations", installation._id, {
+			...(args.accessToken !== undefined ? { accessToken: args.accessToken } : {}),
+			...(args.accessTokenExpiresAt !== undefined
+				? { accessTokenExpiresAt: args.accessTokenExpiresAt }
+				: {}),
+			apiVersion: installation.apiVersion,
+			createdAt: installation.createdAt,
+			domain: args.domain,
+			lastTokenExchangeAt: Date.now(),
+			...(args.refreshToken !== undefined ? { refreshToken: args.refreshToken } : {}),
+			...(args.refreshTokenExpiresAt !== undefined
+				? { refreshTokenExpiresAt: args.refreshTokenExpiresAt }
+				: {}),
+			scopes: args.scopes,
+			shopId: installation.shopId,
+			status: args.status,
+		});
+
+		return installation._id;
+	},
+});
+
+async function refreshStoredInstallationAccessToken(
+	ctx: ActionCtx,
+	args: {
+		installation: ShopifyInstallationAccessState;
+		shopDomain: string;
+		shopId: Id<"shops">;
+	},
+) {
+	if (!args.installation.refreshToken) {
+		throw new Error("Shopify installation is missing a refresh token.");
+	}
+
+	const shopify = createShopifyClient();
+	const refreshedInstallation = sessionToInstallation(
+		(
+			await shopify.auth.refreshToken({
+				refreshToken: args.installation.refreshToken,
+				shop: args.shopDomain,
+			})
+		).session,
+	);
+
+	if (!refreshedInstallation.accessToken) {
+		throw new Error("Shopify refresh did not return an offline Admin API token.");
+	}
+
+	const nextInstallation: ShopifyInstallationAccessState = {
+		accessToken: refreshedInstallation.accessToken,
+		accessTokenExpiresAt: refreshedInstallation.accessTokenExpiresAt ?? undefined,
+		domain: args.shopDomain,
+		refreshToken: refreshedInstallation.refreshToken ?? args.installation.refreshToken,
+		refreshTokenExpiresAt:
+			refreshedInstallation.refreshTokenExpiresAt ?? args.installation.refreshTokenExpiresAt,
+		scopes:
+			refreshedInstallation.scopes.length > 0
+				? refreshedInstallation.scopes
+				: args.installation.scopes,
+		status: "connected",
+	};
+
+	await ctx.runMutation(internal.shopify.updateInstallationAccessState, {
+		...nextInstallation,
+		shopId: args.shopId,
+	});
+
+	return nextInstallation;
+}
+
+async function markInstallationTokenRefreshFailed(
+	ctx: ActionCtx,
+	args: {
+		installation: ShopifyInstallationAccessState;
+		shopDomain: string;
+		shopId: Id<"shops">;
+	},
+) {
+	await ctx.runMutation(internal.shopify.updateInstallationAccessState, {
+		accessToken: undefined,
+		accessTokenExpiresAt: undefined,
+		domain: args.shopDomain,
+		refreshToken: args.installation.refreshToken,
+		refreshTokenExpiresAt: args.installation.refreshTokenExpiresAt,
+		scopes: args.installation.scopes,
+		shopId: args.shopId,
+		status: "token_refresh_failed",
+	});
+}
+
+export async function resolveUsableInstallationAccessToken(
+	ctx: ActionCtx,
+	args: {
+		shopDomain: string;
+		shopId: Id<"shops">;
+	},
+) {
+	let installation: ShopifyInstallationAccessState | null = await ctx.runQuery(
+		internal.shopify.getInstallationAccessState,
+		{
+			shopId: args.shopId,
+		},
+	);
+
+	if (!installation || installation.status === "inactive") {
+		return null;
+	}
+
+	if (
+		(!installation.accessToken || shouldRefreshInstallation(installation)) &&
+		installation.refreshToken
+	) {
+		try {
+			installation = await refreshStoredInstallationAccessToken(ctx, {
+				installation,
+				shopDomain: args.shopDomain,
+				shopId: args.shopId,
+			});
+		} catch {
+			if (!installation.accessToken) {
+				await markInstallationTokenRefreshFailed(ctx, {
+					installation,
+					shopDomain: args.shopDomain,
+					shopId: args.shopId,
+				});
+				return null;
+			}
+		}
+	}
+
+	if (!installation.accessToken) {
+		return null;
+	}
+
+	try {
+		await probeShopifyAdminAccessToken({
+			accessToken: installation.accessToken,
+			shopDomain: args.shopDomain,
+		});
+		return installation.accessToken;
+	} catch (error) {
+		if (!isInvalidShopifyAdminAccessError(error)) {
+			throw error;
+		}
+
+		if (!installation.refreshToken) {
+			await markInstallationTokenRefreshFailed(ctx, {
+				installation,
+				shopDomain: args.shopDomain,
+				shopId: args.shopId,
+			});
+			return null;
+		}
+
+		try {
+			installation = await refreshStoredInstallationAccessToken(ctx, {
+				installation,
+				shopDomain: args.shopDomain,
+				shopId: args.shopId,
+			});
+			await probeShopifyAdminAccessToken({
+				accessToken: installation.accessToken!,
+				shopDomain: args.shopDomain,
+			});
+			return installation.accessToken!;
+		} catch {
+			await markInstallationTokenRefreshFailed(ctx, {
+				installation,
+				shopDomain: args.shopDomain,
+				shopId: args.shopId,
+			});
+			return null;
+		}
+	}
 }
 
 async function getOnlineUserSession(sessionToken: string) {

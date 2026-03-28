@@ -12,7 +12,7 @@ import {
 	TableRow,
 } from "@/components/ui/cata/table";
 import { Text } from "@/components/ui/cata/text";
-import { EmptyState, StatusPill } from "@/components/ui/feedback";
+import { EmptyState } from "@/components/ui/feedback";
 
 export interface ResourcePageInfo {
 	continueCursor: string | null;
@@ -49,38 +49,33 @@ export function ResourceToolbar({
 	sortValue: string;
 }) {
 	return (
-		<div className="flex flex-col gap-3 rounded-[2rem] border border-zinc-950/6 bg-white px-5 py-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
-			<div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-				{onSearchChange ? (
-					<Input
-						className="lg:max-w-sm"
-						onChange={(event) => onSearchChange(event.target.value)}
-						placeholder={searchPlaceholder ?? "Search"}
-						value={searchValue ?? ""}
-					/>
-				) : null}
-
-				<div className="grid gap-3 sm:grid-cols-2">
-					<Select onChange={(event) => onSortChange(event.target.value)} value={sortValue}>
-						{sortOptions.map((option) => (
-							<option key={option.value} value={option.value}>
-								{option.label}
-							</option>
-						))}
-					</Select>
-					<Select
-						onChange={(event) => onPageSizeChange(Number(event.target.value))}
-						value={String(pageSize)}
-					>
-						{pageSizeOptions.map((value) => (
-							<option key={value} value={value}>
-								{`${value} rows`}
-							</option>
-						))}
-					</Select>
-				</div>
-			</div>
-			{children ? <div className="flex flex-wrap items-center gap-3">{children}</div> : null}
+		<div className="flex flex-wrap items-center gap-2 [&>[data-slot=control]]:w-auto">
+			{onSearchChange ? (
+				<Input
+					className="!w-full sm:!w-auto sm:min-w-44"
+					onChange={(event) => onSearchChange(event.target.value)}
+					placeholder={searchPlaceholder ?? "Search"}
+					value={searchValue ?? ""}
+				/>
+			) : null}
+			<Select onChange={(event) => onSortChange(event.target.value)} value={sortValue}>
+				{sortOptions.map((option) => (
+					<option key={option.value} value={option.value}>
+						{option.label}
+					</option>
+				))}
+			</Select>
+			<Select
+				onChange={(event) => onPageSizeChange(Number(event.target.value))}
+				value={String(pageSize)}
+			>
+				{pageSizeOptions.map((value) => (
+					<option key={value} value={value}>
+						{`${value} rows`}
+					</option>
+				))}
+			</Select>
+			{children}
 		</div>
 	);
 }
@@ -94,7 +89,7 @@ export function ResourceTable<TRow>({
 	getRowLabel,
 	onNext,
 	onPrevious,
-	pageInfo,
+	pageInfo: _pageInfo,
 	rows,
 }: {
 	columns: ResourceTableColumn<TRow>[];
@@ -109,54 +104,43 @@ export function ResourceTable<TRow>({
 	rows: TRow[];
 }) {
 	return (
-		<div className="grid gap-4">
-			<div className="overflow-hidden rounded-[2rem] border border-zinc-950/6 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
-				{rows.length === 0 ? (
-					<div className="p-5">
-						<EmptyState body={emptyBody} title={emptyTitle} />
-					</div>
-				) : (
-					<Table dense>
-						<TableHead>
-							<TableRow>
+		<div className="[--gutter:--spacing(6)] sm:[--gutter:--spacing(8)]">
+			{rows.length === 0 ? (
+				<div className="rounded-xl border border-zinc-950/6 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+					<EmptyState body={emptyBody} title={emptyTitle} />
+				</div>
+			) : (
+				<Table bleed>
+					<TableHead>
+						<TableRow>
+							{columns.map((column) => (
+								<TableHeader
+									className={
+										column.className ?? "text-[0.68rem] font-semibold uppercase tracking-[0.22em]"
+									}
+									key={column.header}
+								>
+									{column.header}
+								</TableHeader>
+							))}
+						</TableRow>
+					</TableHead>
+					<TableBody>
+						{rows.map((row) => (
+							<TableRow href={getRowHref(row)} key={getRowKey(row)} title={getRowLabel(row)}>
 								{columns.map((column) => (
-									<TableHeader
-										className={
-											column.className ?? "text-[0.68rem] font-semibold uppercase tracking-[0.22em]"
-										}
-										key={column.header}
-									>
-										{column.header}
-									</TableHeader>
+									<TableCell className="align-top" key={column.header}>
+										{column.cell(row)}
+									</TableCell>
 								))}
 							</TableRow>
-						</TableHead>
-						<TableBody>
-							{rows.map((row) => (
-								<TableRow href={getRowHref(row)} key={getRowKey(row)} title={getRowLabel(row)}>
-									{columns.map((column) => (
-										<TableCell className="align-top" key={column.header}>
-											{column.cell(row)}
-										</TableCell>
-									))}
-								</TableRow>
-							))}
-						</TableBody>
-					</Table>
-				)}
-			</div>
+						))}
+					</TableBody>
+				</Table>
+			)}
 
-			<div className="flex flex-col gap-3 rounded-[2rem] border border-zinc-950/6 bg-white px-5 py-4 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:flex-row sm:items-center sm:justify-between">
-				<div className="flex flex-wrap items-center gap-2">
-					<StatusPill tone="neutral">{`${rows.length} visible`}</StatusPill>
-					{pageInfo.isDone ? (
-						<StatusPill tone="success">End of results</StatusPill>
-					) : (
-						<StatusPill tone="accent">More rows available</StatusPill>
-					)}
-				</div>
-
-				<div className="flex items-center gap-3">
+			{onPrevious || onNext ? (
+				<div className="flex items-center justify-end gap-2 border-t border-zinc-950/5 px-[--gutter] py-3 dark:border-white/5">
 					<Button disabled={!onPrevious} outline onClick={onPrevious ?? undefined}>
 						Newer
 					</Button>
@@ -164,7 +148,7 @@ export function ResourceTable<TRow>({
 						Older
 					</Button>
 				</div>
-			</div>
+			) : null}
 		</div>
 	);
 }
@@ -175,7 +159,7 @@ export function ResourceDetailCard({
 	title,
 }: React.PropsWithChildren<{ eyebrow?: string; title: string }>) {
 	return (
-		<section className="rounded-[2rem] border border-zinc-950/6 bg-white px-6 py-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+		<section className="rounded-xl border border-zinc-950/6 bg-white px-5 py-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
 			<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.22em] text-zinc-500">
 				{eyebrow}
 			</Text>
@@ -202,8 +186,8 @@ export function ResourceDetailPage({
 	title: string;
 }>) {
 	return (
-		<div className="grid gap-5">
-			<header className="rounded-[2rem] border border-zinc-950/6 bg-white px-6 py-6 shadow-sm dark:border-white/10 dark:bg-zinc-900">
+		<div className="grid gap-4">
+			<header className="rounded-xl border border-zinc-950/6 bg-white px-5 py-5 shadow-sm dark:border-white/10 dark:bg-zinc-900">
 				<div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
 					<div className="max-w-3xl">
 						{backHref ? (
@@ -223,7 +207,7 @@ export function ResourceDetailPage({
 				</div>
 			</header>
 
-			<div className="grid gap-5">{children}</div>
+			<div className="grid gap-4">{children}</div>
 		</div>
 	);
 }

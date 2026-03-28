@@ -19,6 +19,7 @@ import { internal } from "./_generated/api";
 import type { Doc } from "./_generated/dataModel";
 import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
 import { requireMerchantActor, requireMerchantClaims } from "./auth";
+import { resolveUsableInstallationAccessToken } from "./shopify";
 import { hasConnectedShopifyAccess } from "./shopifyAccess";
 import {
 	fetchThemeAppEmbedDiagnostics,
@@ -575,10 +576,19 @@ async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSetting
 		mainThemeName: null,
 		status: "unavailable",
 	};
-	const installationAccessToken = state.installation?.accessToken;
+	const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+		shopDomain: state.shop.domain,
+		shopId: state.shop._id,
+	});
 
 	if (
-		hasConnectedShopifyAccess({ installation: state.installation, shop: state.shop }) &&
+		hasConnectedShopifyAccess({
+			installation:
+				installationAccessToken && state.installation
+					? { ...state.installation, accessToken: installationAccessToken, status: "connected" }
+					: state.installation,
+			shop: state.shop,
+		}) &&
 		installationAccessToken
 	) {
 		try {

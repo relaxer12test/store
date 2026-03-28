@@ -38,19 +38,19 @@ function NavigationSidebar({
 	return (
 		<Sidebar
 			aria-label="Console navigation"
-			className="h-full rounded-[2rem] border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80"
+			className="h-full rounded-xl border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80"
 		>
-			<SidebarHeader className="border-b border-zinc-950/6 px-5 py-5 dark:border-white/10">
+			<SidebarHeader className="border-b border-zinc-950/6 px-4 py-3 dark:border-white/10">
 				{navEyebrow ? (
 					<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">
 						{navEyebrow}
 					</Text>
 				) : null}
-				<Heading className="mt-2 text-xl/7">{navTitle}</Heading>
-				{navDescription ? <Text className="mt-2">{navDescription}</Text> : null}
+				<Heading className="mt-1 text-base/6">{navTitle}</Heading>
+				{navDescription ? <Text className="mt-1 text-xs/5">{navDescription}</Text> : null}
 			</SidebarHeader>
 
-			<SidebarBody className="px-4 py-5">
+			<SidebarBody className="px-3 py-3">
 				<SidebarSection>
 					{items.map((item) => {
 						const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
@@ -64,7 +64,7 @@ function NavigationSidebar({
 							>
 								<div className="min-w-0">
 									<SidebarLabel>{item.label}</SidebarLabel>
-									<Text className="mt-1 truncate text-xs/5 text-zinc-500 dark:text-zinc-400">
+									<Text className="truncate text-xs/4 text-zinc-500 dark:text-zinc-400">
 										{item.description}
 									</Text>
 								</div>
@@ -79,8 +79,6 @@ function NavigationSidebar({
 
 export function SidebarConsoleLayout({
 	children,
-	description,
-	eyebrow,
 	items,
 	mobileMenuLabel = "Sections",
 	navDescription,
@@ -88,7 +86,7 @@ export function SidebarConsoleLayout({
 	navTitle,
 	title,
 }: React.PropsWithChildren<{
-	description: string;
+	description?: string;
 	eyebrow?: string;
 	items: SidebarConsoleNavItem[];
 	mobileMenuLabel?: string;
@@ -116,23 +114,7 @@ export function SidebarConsoleLayout({
 				/>
 			}
 		>
-			<div className="grid gap-5">
-				<header className="flex flex-col gap-4 rounded-[2rem] border border-zinc-950/6 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(244,244,245,0.94))] px-4 py-4 shadow-sm sm:px-6 sm:py-6 dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.98),rgba(9,9,11,0.94))]">
-					<div className="flex items-start justify-between gap-4">
-						<div className="max-w-3xl">
-							{eyebrow ? (
-								<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-zinc-500">
-									{eyebrow}
-								</Text>
-							) : null}
-							<Heading className="mt-2 text-2xl/8 sm:mt-3 sm:text-3xl/10">{title}</Heading>
-							<Text className="mt-2 max-w-2xl sm:mt-3">{description}</Text>
-						</div>
-					</div>
-				</header>
-
-				<div className="min-w-0">{children}</div>
-			</div>
+			{children}
 		</SidebarLayout>
 	);
 }

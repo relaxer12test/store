@@ -13,6 +13,7 @@ import {
 	CodeValue,
 	formatTimestampLabel,
 	ResourceDetailCard,
+	ResourceDetailPage,
 	StatusValue,
 } from "@/components/ui/resource";
 import {
@@ -55,9 +56,13 @@ function InternalUserDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="User detail unavailable">
+			<ResourceDetailPage
+				backHref="/internal/users"
+				backLabel="Back to users"
+				title="User detail unavailable"
+			>
 				<EmptyState body="The selected Better Auth user could not be loaded." title="Unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
@@ -65,62 +70,72 @@ function InternalUserDetailRoute() {
 	const nextRole = user.role === "admin" ? "user" : "admin";
 
 	return (
-		<ResourceDetailCard title={user.name}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={user.role ?? "user"} />
-				<StatusValue value={user.banned ? "banned" : "active"} />
-			</div>
+		<ResourceDetailPage
+			actions={
+				<div className="flex flex-wrap items-center gap-3">
+					<Button
+						color="dark/zinc"
+						disabled={setRoleMutation.isPending}
+						onClick={() => setRoleMutation.mutate(nextRole)}
+					>
+						{setRoleMutation.isPending
+							? "Updating role..."
+							: nextRole === "admin"
+								? "Make admin"
+								: "Revoke admin"}
+					</Button>
+					{setRoleMutation.error ? (
+						<Text className="text-red-600 dark:text-red-400">{setRoleMutation.error.message}</Text>
+					) : null}
+				</div>
+			}
+			backHref="/internal/users"
+			backLabel="Back to users"
+			description={user.email}
+			title={user.name}
+		>
+			<ResourceDetailCard title={user.name} eyebrow="Profile">
+				<div className="flex flex-wrap items-center gap-2">
+					<StatusValue value={user.role ?? "user"} />
+					<StatusValue value={user.banned ? "banned" : "active"} />
+				</div>
 
-			<DescriptionList>
-				<DescriptionTerm>Email</DescriptionTerm>
-				<DescriptionDetails>{user.email}</DescriptionDetails>
-				<DescriptionTerm>User id</DescriptionTerm>
-				<DescriptionDetails>
-					<CodeValue value={user.id} />
-				</DescriptionDetails>
-				<DescriptionTerm>Created</DescriptionTerm>
-				<DescriptionDetails>{formatTimestampLabel(user.createdAt)}</DescriptionDetails>
-				<DescriptionTerm>Updated</DescriptionTerm>
-				<DescriptionDetails>{formatTimestampLabel(user.updatedAt)}</DescriptionDetails>
-				<DescriptionTerm>Active org</DescriptionTerm>
-				<DescriptionDetails>
-					<CodeValue value={user.activeOrganizationId} />
-				</DescriptionDetails>
-				<DescriptionTerm>Recent sessions</DescriptionTerm>
-				<DescriptionDetails>{String(user.sessionCount)}</DescriptionDetails>
-			</DescriptionList>
-
-			<div className="flex flex-wrap items-center gap-3">
-				<Button
-					color="dark/zinc"
-					disabled={setRoleMutation.isPending}
-					onClick={() => setRoleMutation.mutate(nextRole)}
-				>
-					{setRoleMutation.isPending
-						? "Updating role..."
-						: nextRole === "admin"
-							? "Make admin"
-							: "Revoke admin"}
-				</Button>
-				{setRoleMutation.error ? (
-					<Text className="text-red-600 dark:text-red-400">{setRoleMutation.error.message}</Text>
-				) : null}
-			</div>
+				<DescriptionList>
+					<DescriptionTerm>Email</DescriptionTerm>
+					<DescriptionDetails>{user.email}</DescriptionDetails>
+					<DescriptionTerm>User id</DescriptionTerm>
+					<DescriptionDetails>
+						<CodeValue value={user.id} />
+					</DescriptionDetails>
+					<DescriptionTerm>Created</DescriptionTerm>
+					<DescriptionDetails>{formatTimestampLabel(user.createdAt)}</DescriptionDetails>
+					<DescriptionTerm>Updated</DescriptionTerm>
+					<DescriptionDetails>{formatTimestampLabel(user.updatedAt)}</DescriptionDetails>
+					<DescriptionTerm>Active org</DescriptionTerm>
+					<DescriptionDetails>
+						<CodeValue value={user.activeOrganizationId} />
+					</DescriptionDetails>
+					<DescriptionTerm>Recent sessions</DescriptionTerm>
+					<DescriptionDetails>{String(user.sessionCount)}</DescriptionDetails>
+				</DescriptionList>
+			</ResourceDetailCard>
 
 			<Panel title="Memberships">
 				{user.memberships.length === 0 ? (
 					<Text>No Better Auth memberships were found for this user.</Text>
 				) : (
-					<ul className="space-y-3">
+					<ul className="space-y-2">
 						{user.memberships.map((membership) => (
 							<li
-								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
 								key={membership.memberId}
 							>
 								<div className="flex flex-wrap items-center gap-2">
 									<StatusValue value={membership.role ?? "member"} />
+									<Text className="text-sm text-zinc-600 dark:text-zinc-400">
+										{membership.shopDomain ?? "No linked shop"}
+									</Text>
 								</div>
-								<Text className="mt-2">{membership.shopDomain ?? "No linked shop"}</Text>
 								<CodeValue value={membership.organizationId} />
 							</li>
 						))}
@@ -132,10 +147,10 @@ function InternalUserDetailRoute() {
 				{user.recentSessions.length === 0 ? (
 					<Text>No recent sessions were found for this user.</Text>
 				) : (
-					<ul className="space-y-3">
+					<ul className="space-y-2">
 						{user.recentSessions.map((session) => (
 							<li
-								className="rounded-lg border border-zinc-950/6 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900"
+								className="rounded-lg border border-zinc-950/6 bg-zinc-50 px-4 py-3 dark:border-white/10 dark:bg-zinc-800"
 								key={session.id}
 							>
 								<Text>{formatTimestampLabel(session.updatedAt)}</Text>
@@ -145,6 +160,6 @@ function InternalUserDetailRoute() {
 					</ul>
 				)}
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

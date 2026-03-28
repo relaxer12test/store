@@ -851,15 +851,6 @@ async function readMerchantContextFromDb(
 	return (await readMerchantContextResolutionFromDb(ctx, identity)).lookup;
 }
 
-async function resolveMerchantContext(
-	ctx: AuthCtx,
-	identity: UserIdentity,
-): Promise<MerchantLookup> {
-	return "db" in ctx
-		? await readMerchantContextFromDb(ctx, identity)
-		: await ctx.runQuery(internal.auth.readMerchantContext, {});
-}
-
 type MerchantBridgeEndpointCtx = {
 	context: Parameters<typeof getOrgAdapter>[0];
 };
@@ -1285,10 +1276,11 @@ export async function requireAdmin(ctx: AuthCtx) {
 	throw new Error("Internal diagnostics require an authenticated admin session.");
 }
 
-export const readMerchantContext = internalQuery({
+export const readMerchantClaims = internalQuery({
 	args: {},
-	handler: async (ctx): Promise<MerchantLookup> => {
+	handler: async (ctx): Promise<MerchantClaims> => {
 		const identity = await ctx.auth.getUserIdentity();
+		const authUser = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
 
 		if (!identity) {
 			throw new Error(
@@ -1296,15 +1288,53 @@ export const readMerchantContext = internalQuery({
 			);
 		}
 
-		return await readMerchantContextFromDb(ctx, identity);
+		return toMerchantClaims({
+			identity,
+			includeAdmin: authUser?.role === "admin",
+			lookup: await readMerchantContextFromDb(ctx, identity),
+		});
 	},
 });
 
-export const readAdminMerchantContext = internalQuery({
+async function resolveAdminMerchantContext(
+	ctx: MerchantDbCtx,
+	user: BetterAuthUserRecord,
+): Promise<MerchantLookup | null> {
+	return (
+		(
+			await readAdminMerchantContextFromDb(ctx, {
+				isAdmin: user.role === "admin",
+				user,
+			})
+		)?.lookup ?? null
+	);
+}
+
+function toMerchantClaims(args: {
+	identity: UserIdentity | null;
+	includeAdmin: boolean;
+	lookup: MerchantLookup;
+}): MerchantClaims {
+	return {
+		actorId: args.lookup.actor.id,
+		organizationId: args.lookup.actor.organizationId,
+		roles: getMerchantRoles({
+			identity: args.identity,
+			includeAdmin: args.includeAdmin,
+			memberRole: args.lookup.member.role,
+		}),
+		shopDomain: args.lookup.shop.domain,
+		shopId: args.lookup.shop._id,
+		shopifyUserId: args.lookup.actor.shopifyUserId,
+		userId: args.lookup.actor.userId,
+	};
+}
+
+export const readAdminMerchantClaims = internalQuery({
 	args: {
 		userId: v.string(),
 	},
-	handler: async (ctx, args): Promise<MerchantLookup> => {
+	handler: async (ctx, args): Promise<MerchantClaims> => {
 		const user = await findAdapterRecord<BetterAuthUserRecord>(ctx, {
 			model: "user",
 			where: [
@@ -1315,12 +1345,12 @@ export const readAdminMerchantContext = internalQuery({
 			],
 		});
 
-		if (!user || user.role !== "admin") {
+		if (!user) {
 			throw new Error("Internal merchant access requires an authenticated admin user.");
 		}
 
 		const resolved = await readAdminMerchantContextFromDb(ctx, {
-			isAdmin: true,
+			isAdmin: user.role === "admin",
 			user,
 		});
 
@@ -1328,65 +1358,55 @@ export const readAdminMerchantContext = internalQuery({
 			throw new Error("No connected merchant shop is available for this admin session.");
 		}
 
-		return resolved.lookup;
+		return toMerchantClaims({
+			identity: null,
+			includeAdmin: true,
+			lookup: resolved.lookup,
+		});
 	},
 });
-
-async function resolveAdminMerchantContext(
-	ctx: AuthCtx,
-	user: BetterAuthUserRecord,
-): Promise<MerchantLookup | null> {
-	if (user.role !== "admin") {
-		return null;
-	}
-
-	if ("db" in ctx) {
-		return (
-			(
-				await readAdminMerchantContextFromDb(ctx, {
-					isAdmin: user.role === "admin",
-					user,
-				})
-			)?.lookup ?? null
-		);
-	}
-
-	try {
-		return await ctx.runQuery(internal.auth.readAdminMerchantContext, {
-			userId: user.id,
-		});
-	} catch {
-		return null;
-	}
-}
 
 export async function requireMerchantClaims(ctx: AuthCtx): Promise<MerchantClaims> {
 	const identity = await ctx.auth.getUserIdentity();
 	const authUser = (await authComponent.safeGetAuthUser(ctx)) as BetterAuthUserRecord | undefined;
-	const resolved =
-		identity !== null
-			? await resolveMerchantContext(ctx, identity)
-			: authUser
-				? await resolveAdminMerchantContext(ctx, authUser)
-				: null;
 
-	if (!resolved) {
+	if (identity !== null) {
+		if ("db" in ctx) {
+			return toMerchantClaims({
+				identity,
+				includeAdmin: authUser?.role === "admin",
+				lookup: await readMerchantContextFromDb(ctx, identity),
+			});
+		}
+
+		return await ctx.runQuery(internal.auth.readMerchantClaims, {});
+	}
+
+	if (!authUser) {
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
 
-	return {
-		actorId: resolved.actor.id,
-		organizationId: resolved.actor.organizationId,
-		roles: getMerchantRoles({
-			identity,
-			includeAdmin: authUser?.role === "admin",
-			memberRole: resolved.member.role,
-		}),
-		shopDomain: resolved.shop.domain,
-		shopId: resolved.shop._id,
-		shopifyUserId: resolved.actor.shopifyUserId,
-		userId: resolved.actor.userId,
-	};
+	if ("db" in ctx) {
+		const resolved = await resolveAdminMerchantContext(ctx, authUser);
+
+		if (resolved) {
+			return toMerchantClaims({
+				identity: null,
+				includeAdmin: authUser.role === "admin",
+				lookup: resolved,
+			});
+		}
+	} else {
+		try {
+			return await ctx.runQuery(internal.auth.readAdminMerchantClaims, {
+				userId: authUser.id,
+			});
+		} catch {
+			// Fall through to the shared auth error below.
+		}
+	}
+
+	throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 }
 
 export async function requireMerchantActor(ctx: MerchantDbCtx): Promise<MerchantContext> {

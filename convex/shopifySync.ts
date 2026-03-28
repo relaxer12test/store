@@ -10,6 +10,7 @@ import {
 	type MutationCtx,
 	type QueryCtx,
 } from "./_generated/server";
+import { resolveUsableInstallationAccessToken } from "./shopify";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 
 const PUBLIC_CATALOG_CACHE_KEY = "public_catalog_index";
@@ -878,12 +879,12 @@ async function runReconciliationScan(ctx: ActionCtx, job: Doc<"syncJobs">, shop:
 	const state = await ctx.runQuery(internal.shopifySync.getReconciliationContext, {
 		shopId: shop._id,
 	});
+	const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+		shopDomain: shop.domain,
+		shopId: shop._id,
+	});
 
-	if (
-		!state ||
-		shop.installStatus !== "connected" ||
-		state.installation?.accessToken === undefined
-	) {
+	if (!state || shop.installStatus !== "connected" || !accessToken) {
 		await ctx.runMutation(internal.shopifySync.completeJob, {
 			jobId: job._id,
 			payloadPreview: "Skipped reconciliation because the shop is not fully connected yet.",
@@ -1718,24 +1719,34 @@ export const runJob = internalAction({
 			return null;
 		}
 
-		const { installation, job, shop } = claimed;
+		const { job, shop } = claimed;
 
 		try {
 			switch (job.type) {
 				case CATALOG_INDEX_REBUILD_JOB: {
-					if (!installation?.accessToken) {
+					const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+						shopDomain: shop.domain,
+						shopId: shop._id,
+					});
+
+					if (!accessToken) {
 						throw new Error("Catalog index rebuild requires a connected offline Shopify token.");
 					}
 
-					await runCatalogIndexRebuild(ctx, job, shop, installation.accessToken);
+					await runCatalogIndexRebuild(ctx, job, shop, accessToken);
 					break;
 				}
 				case METRICS_CACHE_REFRESH_JOB: {
-					if (!installation?.accessToken) {
+					const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+						shopDomain: shop.domain,
+						shopId: shop._id,
+					});
+
+					if (!accessToken) {
 						throw new Error("Metrics cache refresh requires a connected offline Shopify token.");
 					}
 
-					await runMetricsCacheRefresh(ctx, job, shop, installation.accessToken);
+					await runMetricsCacheRefresh(ctx, job, shop, accessToken);
 					break;
 				}
 				case RECONCILIATION_SCAN_JOB: {

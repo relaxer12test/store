@@ -30,6 +30,7 @@ import {
 	requireMerchantClaims,
 	type MerchantActorRecord,
 } from "./auth";
+import { resolveUsableInstallationAccessToken } from "./shopify";
 import { getShopifyAccessFailureReason } from "./shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
 
@@ -1972,6 +1973,10 @@ export const overview = action({
 			shopDomain: claims.shopDomain,
 			shopId: claims.shopId,
 		});
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
 		const [documents, workflowRecords, conversationState] = await Promise.all([
 			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(api.merchantWorkspace.workflows, {}),
@@ -1987,9 +1992,9 @@ export const overview = action({
 		let lowStockRows: Array<Record<string, string | number | null>> = [];
 		const citations: MerchantCitation[] = [];
 
-		if (runtime.installation?.accessToken) {
+		if (installationAccessToken) {
 			const snapshot = await fetchShopifyOverview({
-				accessToken: runtime.installation.accessToken,
+				accessToken: installationAccessToken,
 				shopDomain: runtime.shop.domain,
 			});
 			const orders = snapshot.recentOrders?.nodes ?? [];
@@ -2050,6 +2055,10 @@ export const explorer = action({
 			shopDomain: claims.shopDomain,
 			shopId: claims.shopId,
 		});
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
 		const [documents, recentAudits] = await Promise.all([
 			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
 			ctx.runQuery(internal.merchantWorkspace.getRecentAuditRows, {
@@ -2060,15 +2069,15 @@ export const explorer = action({
 		let products: ProductSearchNode[] = [];
 		let orders: OrderNode[] = [];
 
-		if (runtime.installation?.accessToken) {
+		if (installationAccessToken) {
 			[products, orders] = await Promise.all([
 				searchShopifyProducts({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					query: "status:active",
 					shopDomain: runtime.shop.domain,
 				}),
 				searchShopifyOrders({
-					accessToken: runtime.installation.accessToken,
+					accessToken: installationAccessToken,
 					query: recentOrdersQuery(),
 					shopDomain: runtime.shop.domain,
 				}),
@@ -2185,12 +2194,17 @@ export const askCopilot = action({
 		let body = "";
 		let dashboard: DashboardSpec | null = null;
 		let citations: MerchantCitation[] = [];
-		const installationAccessToken = runtime.installation?.accessToken;
-		const shopifyAccessFailure = getShopifyAccessFailureReason({
-			actionLabel: "use the merchant copilot",
-			installation: runtime.installation,
-			shop: runtime.shop,
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
 		});
+		const shopifyAccessFailure = installationAccessToken
+			? null
+			: getShopifyAccessFailureReason({
+					actionLabel: "use the merchant copilot",
+					installation: null,
+					shop: runtime.shop,
+				});
 
 		if (shopifyAccessFailure || !installationAccessToken) {
 			body = `${shopifyAccessFailure} Re-run embedded bootstrap from Shopify admin after reinstalling the app if needed.`;
@@ -2666,7 +2680,12 @@ async function executeApprovedAction(
 		shop: Doc<"shops">;
 	},
 ) {
-	if (!state.installation?.accessToken) {
+	const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+		shopDomain: state.shop.domain,
+		shopId: state.shop._id,
+	});
+
+	if (!accessToken) {
 		throw new Error("No connected offline Shopify token is available for this approval.");
 	}
 
@@ -2684,7 +2703,7 @@ async function executeApprovedAction(
 					userErrors?: Array<{ message?: string | null }> | null;
 				} | null;
 			}>({
-				accessToken: state.installation.accessToken,
+				accessToken,
 				query: PRODUCT_UPDATE_MUTATION,
 				shop: shop.domain,
 				variables: {
@@ -2710,7 +2729,7 @@ async function executeApprovedAction(
 					userErrors?: Array<{ message?: string | null }> | null;
 				} | null;
 			}>({
-				accessToken: state.installation.accessToken,
+				accessToken,
 				query: PRODUCT_UPDATE_MUTATION,
 				shop: shop.domain,
 				variables: {
@@ -2741,7 +2760,7 @@ async function executeApprovedAction(
 					userErrors?: Array<{ message?: string | null }> | null;
 				} | null;
 			}>({
-				accessToken: state.installation.accessToken,
+				accessToken,
 				query,
 				shop: shop.domain,
 				variables: {
@@ -2765,7 +2784,7 @@ async function executeApprovedAction(
 					userErrors?: Array<{ code?: string | null; message?: string | null }> | null;
 				} | null;
 			}>({
-				accessToken: state.installation.accessToken,
+				accessToken,
 				query: METAFIELDS_SET_MUTATION,
 				shop: shop.domain,
 				variables: {
@@ -2795,7 +2814,7 @@ async function executeApprovedAction(
 					userErrors?: Array<{ message?: string | null }> | null;
 				} | null;
 			}>({
-				accessToken: state.installation.accessToken,
+				accessToken,
 				query: INVENTORY_ADJUST_MUTATION,
 				shop: shop.domain,
 				variables: {

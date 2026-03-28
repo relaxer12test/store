@@ -2,10 +2,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -80,16 +78,7 @@ function InternalUsersIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalUsersQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Auth</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} users`}</StatusPill>
-				</>
-			}
-			description="Users, roles, and recent sessions."
-			title="Users"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -172,6 +161,6 @@ function InternalUsersIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

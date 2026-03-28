@@ -51,6 +51,38 @@ interface ThemeEmbedDiagnosticsResponse {
 	};
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function normalizeShopifyErrorMessages(value: unknown): string[] {
+	if (typeof value === "string") {
+		const message = value.trim();
+		return message ? [message] : [];
+	}
+
+	if (Array.isArray(value)) {
+		return value.flatMap((entry) => normalizeShopifyErrorMessages(entry));
+	}
+
+	if (!isRecord(value)) {
+		return [];
+	}
+
+	const directMessage = typeof value.message === "string" ? value.message.trim() : null;
+
+	if (directMessage) {
+		return [directMessage];
+	}
+
+	return Object.values(value).flatMap((entry) => normalizeShopifyErrorMessages(entry));
+}
+
+function summarizeResponseBody(body: string) {
+	const summary = body.trim().replace(/\s+/g, " ");
+	return summary ? summary.slice(0, 280) : null;
+}
+
 function getProcessEnv() {
 	return (
 		globalThis as typeof globalThis & {
@@ -107,20 +139,31 @@ export async function shopifyAdminGraphqlRequest<TData>({
 		}),
 	});
 
-	const payload = (await response.json()) as {
-		data?: TData;
-		errors?: Array<{
-			message?: string | null;
-		}>;
-	};
+	const responseBody = await response.text();
+	let payload: {
+		data?: TData | null;
+		errors?: unknown;
+	} | null = null;
 
-	if (!response.ok || payload.errors?.length || !payload.data) {
-		throw new Error(
-			payload.errors
-				?.map((error) => error.message)
-				.filter((message): message is string => Boolean(message))
-				.join("; ") || `Shopify Admin API request failed with status ${response.status}.`,
-		);
+	if (responseBody) {
+		try {
+			payload = JSON.parse(responseBody) as {
+				data?: TData | null;
+				errors?: unknown;
+			};
+		} catch {
+			payload = null;
+		}
+	}
+
+	const errorMessages = Array.from(new Set(normalizeShopifyErrorMessages(payload?.errors)));
+
+	if (!response.ok || errorMessages.length > 0 || payload?.data == null) {
+		const fallbackMessage =
+			summarizeResponseBody(responseBody) ??
+			`Shopify Admin API request failed with status ${response.status}.`;
+
+		throw new Error(errorMessages.join("; ") || fallbackMessage);
 	}
 
 	return payload.data;
