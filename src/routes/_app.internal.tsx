@@ -6,7 +6,7 @@ import { hasAdminViewer } from "@/shared/contracts/auth";
 const internalNavItems = [
 	{
 		description: "System health and active alerts.",
-		href: "/internal",
+		href: "/internal/overview",
 		label: "Overview",
 	},
 	{

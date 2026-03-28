@@ -1,19 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { MerchantHome } from "@/features/app-shell/components/merchant-home";
-import {
-	merchantOverviewQuery,
-	useMerchantOverview,
-} from "@/features/app-shell/merchant-workspace";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/app/")({
-	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(merchantOverviewQuery);
+	beforeLoad: async () => {
+		throw redirect({
+			to: "/app/overview",
+		});
 	},
-	component: MerchantOverviewRoute,
 });
-
-function MerchantOverviewRoute() {
-	const { data } = useMerchantOverview();
-
-	return <MerchantHome overview={data} />;
-}

@@ -8,7 +8,7 @@ import { hasAdminViewer, hasMerchantAppAccess } from "@/shared/contracts/auth";
 const appNav: SidebarConsoleNavItem[] = [
 	{
 		description: "Store health and recent activity.",
-		href: "/app",
+		href: "/app/overview",
 		label: "Overview",
 	},
 	{

@@ -26,11 +26,13 @@ import { Route as AppInternalWorkflowsRouteImport } from './routes/_app.internal
 import { Route as AppInternalWebhooksRouteImport } from './routes/_app.internal.webhooks'
 import { Route as AppInternalUsersRouteImport } from './routes/_app.internal.users'
 import { Route as AppInternalShopsRouteImport } from './routes/_app.internal.shops'
+import { Route as AppInternalOverviewRouteImport } from './routes/_app.internal.overview'
 import { Route as AppInternalCacheRouteImport } from './routes/_app.internal.cache'
 import { Route as AppInternalAuditsRouteImport } from './routes/_app.internal.audits'
 import { Route as AppInternalAiSessionsRouteImport } from './routes/_app.internal.ai-sessions'
 import { Route as AppAppWorkflowsRouteImport } from './routes/_app.app.workflows'
 import { Route as AppAppSettingsRouteImport } from './routes/_app.app.settings'
+import { Route as AppAppOverviewRouteImport } from './routes/_app.app.overview'
 import { Route as AppAppExplorerRouteImport } from './routes/_app.app.explorer'
 import { Route as AppAppCopilotRouteImport } from './routes/_app.app.copilot'
 import { Route as AppInternalWorkflowsIndexRouteImport } from './routes/_app.internal.workflows.index'
@@ -132,6 +134,11 @@ const AppInternalShopsRoute = AppInternalShopsRouteImport.update({
   path: '/shops',
   getParentRoute: () => AppInternalRoute,
 } as any)
+const AppInternalOverviewRoute = AppInternalOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
+  getParentRoute: () => AppInternalRoute,
+} as any)
 const AppInternalCacheRoute = AppInternalCacheRouteImport.update({
   id: '/cache',
   path: '/cache',
@@ -155,6 +162,11 @@ const AppAppWorkflowsRoute = AppAppWorkflowsRouteImport.update({
 const AppAppSettingsRoute = AppAppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppAppRoute,
+} as any)
+const AppAppOverviewRoute = AppAppOverviewRouteImport.update({
+  id: '/overview',
+  path: '/overview',
   getParentRoute: () => AppAppRoute,
 } as any)
 const AppAppExplorerRoute = AppAppExplorerRouteImport.update({
@@ -259,11 +271,13 @@ export interface FileRoutesByFullPath {
   '/auth/': typeof AuthIndexRoute
   '/app/copilot': typeof AppAppCopilotRoute
   '/app/explorer': typeof AppAppExplorerRoute
+  '/app/overview': typeof AppAppOverviewRoute
   '/app/settings': typeof AppAppSettingsRoute
   '/app/workflows': typeof AppAppWorkflowsRoute
   '/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
   '/internal/audits': typeof AppInternalAuditsRouteWithChildren
   '/internal/cache': typeof AppInternalCacheRouteWithChildren
+  '/internal/overview': typeof AppInternalOverviewRoute
   '/internal/shops': typeof AppInternalShopsRouteWithChildren
   '/internal/users': typeof AppInternalUsersRouteWithChildren
   '/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
@@ -295,8 +309,10 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthIndexRoute
   '/app/copilot': typeof AppAppCopilotRoute
   '/app/explorer': typeof AppAppExplorerRoute
+  '/app/overview': typeof AppAppOverviewRoute
   '/app/settings': typeof AppAppSettingsRoute
   '/app/workflows': typeof AppAppWorkflowsRoute
+  '/internal/overview': typeof AppInternalOverviewRoute
   '/app': typeof AppAppIndexRoute
   '/internal': typeof AppInternalIndexRoute
   '/internal/ai-sessions/$sessionDocumentId': typeof AppInternalAiSessionsSessionDocumentIdRoute
@@ -329,11 +345,13 @@ export interface FileRoutesById {
   '/auth/': typeof AuthIndexRoute
   '/_app/app/copilot': typeof AppAppCopilotRoute
   '/_app/app/explorer': typeof AppAppExplorerRoute
+  '/_app/app/overview': typeof AppAppOverviewRoute
   '/_app/app/settings': typeof AppAppSettingsRoute
   '/_app/app/workflows': typeof AppAppWorkflowsRoute
   '/_app/internal/ai-sessions': typeof AppInternalAiSessionsRouteWithChildren
   '/_app/internal/audits': typeof AppInternalAuditsRouteWithChildren
   '/_app/internal/cache': typeof AppInternalCacheRouteWithChildren
+  '/_app/internal/overview': typeof AppInternalOverviewRoute
   '/_app/internal/shops': typeof AppInternalShopsRouteWithChildren
   '/_app/internal/users': typeof AppInternalUsersRouteWithChildren
   '/_app/internal/webhooks': typeof AppInternalWebhooksRouteWithChildren
@@ -370,11 +388,13 @@ export interface FileRouteTypes {
     | '/auth/'
     | '/app/copilot'
     | '/app/explorer'
+    | '/app/overview'
     | '/app/settings'
     | '/app/workflows'
     | '/internal/ai-sessions'
     | '/internal/audits'
     | '/internal/cache'
+    | '/internal/overview'
     | '/internal/shops'
     | '/internal/users'
     | '/internal/webhooks'
@@ -406,8 +426,10 @@ export interface FileRouteTypes {
     | '/auth'
     | '/app/copilot'
     | '/app/explorer'
+    | '/app/overview'
     | '/app/settings'
     | '/app/workflows'
+    | '/internal/overview'
     | '/app'
     | '/internal'
     | '/internal/ai-sessions/$sessionDocumentId'
@@ -439,11 +461,13 @@ export interface FileRouteTypes {
     | '/auth/'
     | '/_app/app/copilot'
     | '/_app/app/explorer'
+    | '/_app/app/overview'
     | '/_app/app/settings'
     | '/_app/app/workflows'
     | '/_app/internal/ai-sessions'
     | '/_app/internal/audits'
     | '/_app/internal/cache'
+    | '/_app/internal/overview'
     | '/_app/internal/shops'
     | '/_app/internal/users'
     | '/_app/internal/webhooks'
@@ -592,6 +616,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppInternalShopsRouteImport
       parentRoute: typeof AppInternalRoute
     }
+    '/_app/internal/overview': {
+      id: '/_app/internal/overview'
+      path: '/overview'
+      fullPath: '/internal/overview'
+      preLoaderRoute: typeof AppInternalOverviewRouteImport
+      parentRoute: typeof AppInternalRoute
+    }
     '/_app/internal/cache': {
       id: '/_app/internal/cache'
       path: '/cache'
@@ -625,6 +656,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppAppSettingsRouteImport
+      parentRoute: typeof AppAppRoute
+    }
+    '/_app/app/overview': {
+      id: '/_app/app/overview'
+      path: '/overview'
+      fullPath: '/app/overview'
+      preLoaderRoute: typeof AppAppOverviewRouteImport
       parentRoute: typeof AppAppRoute
     }
     '/_app/app/explorer': {
@@ -745,6 +783,7 @@ declare module '@tanstack/react-router' {
 interface AppAppRouteChildren {
   AppAppCopilotRoute: typeof AppAppCopilotRoute
   AppAppExplorerRoute: typeof AppAppExplorerRoute
+  AppAppOverviewRoute: typeof AppAppOverviewRoute
   AppAppSettingsRoute: typeof AppAppSettingsRoute
   AppAppWorkflowsRoute: typeof AppAppWorkflowsRoute
   AppAppIndexRoute: typeof AppAppIndexRoute
@@ -753,6 +792,7 @@ interface AppAppRouteChildren {
 const AppAppRouteChildren: AppAppRouteChildren = {
   AppAppCopilotRoute: AppAppCopilotRoute,
   AppAppExplorerRoute: AppAppExplorerRoute,
+  AppAppOverviewRoute: AppAppOverviewRoute,
   AppAppSettingsRoute: AppAppSettingsRoute,
   AppAppWorkflowsRoute: AppAppWorkflowsRoute,
   AppAppIndexRoute: AppAppIndexRoute,
@@ -859,6 +899,7 @@ interface AppInternalRouteChildren {
   AppInternalAiSessionsRoute: typeof AppInternalAiSessionsRouteWithChildren
   AppInternalAuditsRoute: typeof AppInternalAuditsRouteWithChildren
   AppInternalCacheRoute: typeof AppInternalCacheRouteWithChildren
+  AppInternalOverviewRoute: typeof AppInternalOverviewRoute
   AppInternalShopsRoute: typeof AppInternalShopsRouteWithChildren
   AppInternalUsersRoute: typeof AppInternalUsersRouteWithChildren
   AppInternalWebhooksRoute: typeof AppInternalWebhooksRouteWithChildren
@@ -870,6 +911,7 @@ const AppInternalRouteChildren: AppInternalRouteChildren = {
   AppInternalAiSessionsRoute: AppInternalAiSessionsRouteWithChildren,
   AppInternalAuditsRoute: AppInternalAuditsRouteWithChildren,
   AppInternalCacheRoute: AppInternalCacheRouteWithChildren,
+  AppInternalOverviewRoute: AppInternalOverviewRoute,
   AppInternalShopsRoute: AppInternalShopsRouteWithChildren,
   AppInternalUsersRoute: AppInternalUsersRouteWithChildren,
   AppInternalWebhooksRoute: AppInternalWebhooksRouteWithChildren,

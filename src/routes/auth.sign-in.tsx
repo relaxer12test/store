@@ -61,7 +61,7 @@ function SignInRoute() {
 
 			await router.invalidate();
 			await navigate({
-				to: "/internal",
+				to: "/internal/overview",
 			});
 		},
 	});

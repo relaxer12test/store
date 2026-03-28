@@ -25,7 +25,7 @@ async function signInAsAdmin(page: Page, context: BrowserContext) {
 	await emailInput.fill(adminEmail!);
 	await passwordInput.fill(adminPassword!);
 	await submitButton.click();
-	await page.waitForURL("**/internal", {
+	await page.waitForURL("**/internal/overview", {
 		timeout: 15_000,
 	});
 }
@@ -59,13 +59,18 @@ test.describe("navigation active states", () => {
 		const shellHeader = getShellHeader(page);
 		const merchantAppLink = shellHeader.getByRole("link", { name: "Merchant app", exact: true });
 		const consoleNavigation = page.getByRole("navigation", { name: "Console navigation" });
-		const overviewLink = consoleNavigation.getByRole("link", { name: /^Overview/ });
 		const settingsLink = consoleNavigation.getByRole("link", { name: /^Settings/ });
 
 		await expect(merchantAppLink).toHaveAttribute("aria-current", "page");
 		await expect(merchantAppLink).toHaveAttribute("data-active-state", "current");
-		await expect(overviewLink).toHaveAttribute("data-active-state", "ancestor");
-		await expect(overviewLink).not.toHaveAttribute("aria-current", "page");
+		await expect(consoleNavigation.getByRole("link", { name: /^Overview/ })).not.toHaveAttribute(
+			"data-active-state",
+			"ancestor",
+		);
+		await expect(consoleNavigation.getByRole("link", { name: /^Overview/ })).not.toHaveAttribute(
+			"aria-current",
+			"page",
+		);
 		await expect(settingsLink).toHaveAttribute("aria-current", "page");
 		await expect(settingsLink).toHaveAttribute("data-active-state", "current");
 	});
@@ -81,13 +86,18 @@ test.describe("navigation active states", () => {
 		const shellHeader = getShellHeader(page);
 		const internalLink = shellHeader.getByRole("link", { name: "Internal", exact: true });
 		const consoleNavigation = page.getByRole("navigation", { name: "Console navigation" });
-		const overviewLink = consoleNavigation.getByRole("link", { name: /^Overview/ });
 		const cacheLink = consoleNavigation.getByRole("link", { name: /^Cache/ });
 
 		await expect(internalLink).toHaveAttribute("aria-current", "page");
 		await expect(internalLink).toHaveAttribute("data-active-state", "current");
-		await expect(overviewLink).toHaveAttribute("data-active-state", "ancestor");
-		await expect(overviewLink).not.toHaveAttribute("aria-current", "page");
+		await expect(consoleNavigation.getByRole("link", { name: /^Overview/ })).not.toHaveAttribute(
+			"data-active-state",
+			"ancestor",
+		);
+		await expect(consoleNavigation.getByRole("link", { name: /^Overview/ })).not.toHaveAttribute(
+			"aria-current",
+			"page",
+		);
 		await expect(cacheLink).toHaveAttribute("aria-current", "page");
 		await expect(cacheLink).toHaveAttribute("data-active-state", "current");
 	});

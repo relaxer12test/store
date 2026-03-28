@@ -7,7 +7,7 @@ export const Route = createFileRoute("/auth")({
 	beforeLoad: async () => {
 		if (hasAdminViewer(await getCurrentViewerServer())) {
 			throw redirect({
-				to: "/internal",
+				to: "/internal/overview",
 			});
 		}
 	},

@@ -19,7 +19,7 @@ async function signInAsAdmin(page: Page, context: BrowserContext) {
 	await expect(passwordInput).toHaveValue(adminPassword!);
 	await submitButton.click();
 
-	await page.waitForURL("**/internal", {
+	await page.waitForURL("**/internal/overview", {
 		timeout: 15_000,
 	});
 }

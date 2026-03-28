@@ -1,17 +1,9 @@
-import { useSuspenseQuery } from "@tanstack/react-query";
-import { createFileRoute } from "@tanstack/react-router";
-import { InternalHome } from "@/features/internal/components/internal-home";
-import { internalOverviewQuery } from "@/features/internal/internal-admin-queries";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/_app/internal/")({
-	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(internalOverviewQuery);
+	beforeLoad: async () => {
+		throw redirect({
+			to: "/internal/overview",
+		});
 	},
-	component: InternalOverviewRoute,
 });
-
-function InternalOverviewRoute() {
-	const { data } = useSuspenseQuery(internalOverviewQuery);
-
-	return <InternalHome snapshot={data} />;
-}

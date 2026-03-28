@@ -18,7 +18,7 @@ async function signInAsAdmin(page: Page, context: BrowserContext) {
 	await expect(emailInput).toHaveValue(adminEmail!);
 	await expect(passwordInput).toHaveValue(adminPassword!);
 	await submitButton.click();
-	await page.waitForURL("**/internal", {
+	await page.waitForURL("**/internal/overview", {
 		timeout: 15_000,
 	});
 }
@@ -55,15 +55,15 @@ test.describe("internal admin merchant access", () => {
 	}) => {
 		await signInAsAdmin(page, context);
 
-		for (const route of [
-			"/app",
-			"/app/copilot",
-			"/app/explorer",
-			"/app/workflows",
-			"/app/settings",
+		for (const { expectedPath, route } of [
+			{ expectedPath: "/app/overview", route: "/app" },
+			{ expectedPath: "/app/copilot", route: "/app/copilot" },
+			{ expectedPath: "/app/explorer", route: "/app/explorer" },
+			{ expectedPath: "/app/workflows", route: "/app/workflows" },
+			{ expectedPath: "/app/settings", route: "/app/settings" },
 		]) {
 			await page.goto(route);
-			await expect(page).toHaveURL(new RegExp(`${route.replaceAll("/", "\\/")}$`));
+			await expect(page).toHaveURL(new RegExp(`${expectedPath.replaceAll("/", "\\/")}$`));
 			await expect(page.getByText("This route failed to load")).toHaveCount(0);
 		}
 	});
