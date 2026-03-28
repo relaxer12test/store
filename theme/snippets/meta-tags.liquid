@@ -3,6 +3,29 @@
   assign og_url = canonical_url | default: request.origin
   assign og_type = 'website'
   assign og_description = page_description | default: shop.description | default: shop.name
+  assign favicon_href = settings.favicon | image_url: width: 32, height: 32
+  assign favicon_type = blank
+
+  if favicon_href == blank
+    assign favicon_href = shop.brand.favicon_url | image_url
+  endif
+
+  if favicon_href == blank
+    assign favicon_href = shop.brand.square_logo | image_url: width: 32, height: 32
+  endif
+
+  if favicon_href == blank
+    assign favicon_href = settings.logo | image_url: width: 32, height: 32
+  endif
+
+  if favicon_href == blank
+    assign favicon_href = shop.brand.logo | image_url: width: 32, height: 32
+  endif
+
+  if favicon_href == blank
+    assign favicon_href = 'logo.svg' | asset_url
+    assign favicon_type = 'image/svg+xml'
+  endif
 
   if request.page_type == 'product'
     assign og_type = 'product'
@@ -12,6 +35,9 @@
     assign og_url = request.origin
   endif
 %}
+
+<link rel="icon" href="{{ favicon_href }}"{% if favicon_type != blank %} type="{{ favicon_type }}"{% endif %}>
+<link rel="shortcut icon" href="{{ favicon_href }}"{% if favicon_type != blank %} type="{{ favicon_type }}"{% endif %}>
 
 <meta property="og:site_name" content="{{ shop.name }}">
 <meta property="og:url" content="{{ og_url }}">

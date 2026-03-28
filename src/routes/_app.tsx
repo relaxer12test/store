@@ -11,12 +11,16 @@ function ChromeLayout() {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
-	const isInternalRoute = pathname === "/internal" || pathname.startsWith("/internal/");
+	const isSidebarRoute =
+		pathname === "/internal" ||
+		pathname.startsWith("/internal/") ||
+		pathname === "/app" ||
+		pathname.startsWith("/app/");
 
 	return (
 		<StackedLayout
-			contentSurface={isInternalRoute ? "plain" : "card"}
-			contentWidth={isInternalRoute ? "full" : "constrained"}
+			contentSurface={isSidebarRoute ? "plain" : "card"}
+			contentWidth={isSidebarRoute ? "full" : "constrained"}
 			navbar={<AppNavbar />}
 			sidebar={<AppSidebar />}
 		>
