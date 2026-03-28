@@ -21,6 +21,7 @@ import { runMerchantCopilotTurn } from "@convex/merchantCopilotRuntime";
 import { resolveUsableInstallationAccessToken } from "@convex/shopify";
 import { getShopifyAccessFailureReason } from "@convex/shopifyAccess";
 import { shopifyAdminGraphqlRequest } from "@convex/shopifyAdmin";
+import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 import {
 	dashboardSpecSchema,
@@ -29,10 +30,14 @@ import {
 	type MerchantCopilotConversation,
 	type MerchantCopilotSessionsData,
 	type MerchantCopilotSessionSummary,
-	type MerchantExplorerDataset,
 	type MerchantExplorerDatasetKey,
 	type MerchantDocumentRecord,
-	type MerchantExplorerData,
+	type MerchantExplorerDetailData,
+	type MerchantExplorerPageData,
+	type MerchantExplorerPageInfo,
+	type MerchantExplorerSource,
+	type MerchantExplorerSummary,
+	type MerchantExplorerSyncState,
 	type MerchantOverviewData,
 	type MerchantWorkflowLog,
 	type MerchantWorkflowRecord,
@@ -43,6 +48,9 @@ const DEFAULT_CONVERSATION_TITLE = "Merchant copilot";
 const DEFAULT_ORDER_WINDOW_DAYS = 30;
 const DEFAULT_SALES_TREND_DAYS = 14;
 const LOW_STOCK_THRESHOLD = 8;
+const MERCHANT_CATALOG_CACHE_KEY = "merchant_catalog_index";
+const MERCHANT_CATALOG_INDEX_REBUILD_JOB = "merchant_catalog_index_rebuild";
+const MERCHANT_EXPLORER_PAGE_SIZE = 50;
 const COPILOT_MESSAGE_LIMIT = 40;
 const DOCUMENT_PREVIEW_LIMIT = 320;
 const DOCUMENT_SUMMARY_LIMIT = 220;
@@ -58,6 +66,7 @@ const WORKFLOW_TYPE_LABELS: Record<string, string> = {
 	catalog_index_rebuild: "Catalog index rebuild",
 	dashboard_regeneration: "Dashboard regeneration",
 	document_reindex: "Document re-index",
+	merchant_catalog_index_rebuild: "Merchant catalog index rebuild",
 	metrics_cache_refresh: "Metrics cache refresh",
 	reconciliation_scan: "Sync reconciliation scan",
 	shop_uninstall_cleanup: "Shop uninstall cleanup",
@@ -87,15 +96,15 @@ const EXPLORER_DATASET_META: Record<
 		title: "Documents",
 	},
 	inventory: {
-		description: "Variant inventory view focused on low-stock operational review.",
+		description: "Full variant inventory browser sourced live from Shopify Admin.",
 		title: "Inventory",
 	},
 	orders: {
-		description: "Recent order window aligned with the take-home demo scope.",
+		description: "Full order browser sourced live from Shopify Admin.",
 		title: "Orders",
 	},
 	products: {
-		description: "Current product search surface backed by the cached Shopify catalog projection.",
+		description: "Full merchant product browser backed by a dedicated Shopify sync snapshot.",
 		title: "Products",
 	},
 };
@@ -227,6 +236,110 @@ const SEARCH_ORDERS_QUERY = `
 						currencyCode
 					}
 				}
+			}
+		}
+	}
+`;
+
+const EXPLORER_ORDERS_QUERY = `
+	query ExplorerOrdersPage($cursor: String, $query: String) {
+		orders(first: 50, after: $cursor, reverse: true, sortKey: PROCESSED_AT, query: $query) {
+			nodes {
+				id
+				name
+				processedAt
+				displayFinancialStatus
+				displayFulfillmentStatus
+				currentTotalPriceSet {
+					shopMoney {
+						amount
+						currencyCode
+					}
+				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+`;
+
+const EXPLORER_ORDER_DETAIL_QUERY = `
+	query ExplorerOrderDetail($id: ID!) {
+		order(id: $id) {
+			id
+			name
+			email
+			displayFinancialStatus
+			displayFulfillmentStatus
+			processedAt
+			currentTotalPriceSet {
+				shopMoney {
+					amount
+					currencyCode
+				}
+			}
+			lineItems(first: 20) {
+				nodes {
+					title
+					quantity
+					variantTitle
+				}
+			}
+		}
+	}
+`;
+
+const EXPLORER_INVENTORY_QUERY = `
+	query ExplorerInventoryPage($cursor: String, $query: String, $sortKey: ProductVariantSortKeys!) {
+		productVariants(first: 50, after: $cursor, query: $query, sortKey: $sortKey) {
+			nodes {
+				id
+				title
+				sku
+				inventoryQuantity
+				updatedAt
+				inventoryItem {
+					id
+					sku
+					tracked
+				}
+				product {
+					handle
+					status
+					title
+				}
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+`;
+
+const EXPLORER_INVENTORY_DETAIL_QUERY = `
+	query ExplorerInventoryDetail($id: ID!) {
+		productVariant(id: $id) {
+			id
+			title
+			sku
+			price
+			inventoryQuantity
+			updatedAt
+			inventoryItem {
+				id
+				sku
+				tracked
+			}
+			product {
+				id
+				handle
+				status
+				title
+				vendor
+				productType
 			}
 		}
 	}
@@ -450,6 +563,88 @@ type OrderSearchResponse = {
 	} | null;
 };
 
+type ShopifyConnectionPageInfo = {
+	endCursor?: string | null;
+	hasNextPage?: boolean | null;
+};
+
+type ExplorerInventoryNode = {
+	id?: string | null;
+	inventoryItem?: {
+		id?: string | null;
+		sku?: string | null;
+		tracked?: boolean | null;
+	} | null;
+	inventoryQuantity?: number | null;
+	product?: {
+		handle?: string | null;
+		status?: string | null;
+		title?: string | null;
+	} | null;
+	sku?: string | null;
+	title?: string | null;
+	updatedAt?: string | null;
+};
+
+type ExplorerInventoryPageResponse = {
+	productVariants?: {
+		nodes?: ExplorerInventoryNode[] | null;
+		pageInfo?: ShopifyConnectionPageInfo | null;
+	} | null;
+};
+
+type ExplorerOrderPageResponse = {
+	orders?: {
+		nodes?: OrderNode[] | null;
+		pageInfo?: ShopifyConnectionPageInfo | null;
+	} | null;
+};
+
+type ExplorerOrderDetailResponse = {
+	order?: {
+		currentTotalPriceSet?: MoneyBag | null;
+		displayFinancialStatus?: string | null;
+		displayFulfillmentStatus?: string | null;
+		email?: string | null;
+		id?: string | null;
+		lineItems?: {
+			nodes?: Array<{
+				quantity?: number | null;
+				title?: string | null;
+				variantTitle?: string | null;
+			}> | null;
+		} | null;
+		name?: string | null;
+		processedAt?: string | null;
+	} | null;
+};
+
+type ExplorerInventoryDetailResponse = {
+	productVariant?: {
+		id?: string | null;
+		inventoryItem?: {
+			id?: string | null;
+			sku?: string | null;
+			tracked?: boolean | null;
+		} | null;
+		inventoryQuantity?: number | null;
+		price?: string | null;
+		product?: {
+			handle?: string | null;
+			id?: string | null;
+			productType?: string | null;
+			status?: string | null;
+			title?: string | null;
+			vendor?: string | null;
+		} | null;
+		sku?: string | null;
+		title?: string | null;
+		updatedAt?: string | null;
+	} | null;
+};
+
+type MerchantCatalogRow = Doc<"shopifyMerchantCatalogProducts">;
+
 type ProductEditContextResponse = {
 	locations?: {
 		nodes?: Array<{
@@ -620,6 +815,107 @@ function compactNumber(value: number) {
 		maximumFractionDigits: value >= 100 ? 0 : 1,
 		notation: "compact",
 	}).format(value);
+}
+
+function formatExplorerPageInfo(result: {
+	continueCursor?: string | null;
+	isDone?: boolean | null;
+}): MerchantExplorerPageInfo {
+	return {
+		continueCursor: result.isDone ? null : (result.continueCursor ?? null),
+		isDone: Boolean(result.isDone),
+	};
+}
+
+function formatShopifyPageInfo(
+	pageInfo?: ShopifyConnectionPageInfo | null,
+): MerchantExplorerPageInfo {
+	return {
+		continueCursor: pageInfo?.hasNextPage && pageInfo.endCursor ? pageInfo.endCursor : null,
+		isDone: !pageInfo?.hasNextPage,
+	};
+}
+
+function toExplorerSummary(
+	key: MerchantExplorerDatasetKey,
+	resultLabel: string | null,
+): MerchantExplorerSummary {
+	const meta = EXPLORER_DATASET_META[key];
+
+	return {
+		description: meta.description,
+		resultLabel,
+		title: meta.title,
+	};
+}
+
+function toExplorerSource(
+	kind: MerchantExplorerSource["kind"],
+	label: string,
+): MerchantExplorerSource {
+	return {
+		kind,
+		label,
+	};
+}
+
+function toExplorerDetailData(args: {
+	description?: string | null;
+	fields: MerchantExplorerDetailData["fields"];
+	sections?: MerchantExplorerDetailData["sections"];
+	source: MerchantExplorerSource;
+	title: string;
+}): MerchantExplorerDetailData {
+	return {
+		description: args.description ?? null,
+		fields: args.fields,
+		generatedAt: new Date().toISOString(),
+		sections: args.sections ?? [],
+		source: args.source,
+		title: args.title,
+	};
+}
+
+function getCacheStaleWarning(cacheState: Doc<"shopifyCacheStates"> | null, now: number) {
+	if (!cacheState) {
+		return "No cached merchant catalog snapshot has been built yet.";
+	}
+
+	if (cacheState.status === "error" && cacheState.lastError) {
+		return cacheState.lastError;
+	}
+
+	if (
+		cacheState.lastWebhookAt &&
+		cacheState.lastCompletedAt &&
+		cacheState.lastWebhookAt > cacheState.lastCompletedAt
+	) {
+		return "A newer Shopify webhook arrived after the last completed merchant catalog sync.";
+	}
+
+	if (cacheState.staleAfterAt && cacheState.staleAfterAt <= now) {
+		return "The merchant catalog snapshot is older than the current freshness window.";
+	}
+
+	return null;
+}
+
+async function countWorkflowJobsByStatus(
+	ctx: QueryCtx,
+	options: {
+		shopId: Id<"shops">;
+		status: "pending" | "running";
+		type: string;
+	},
+) {
+	return (
+		await ctx.db
+			.query("syncJobs")
+			.withIndex("by_shop_and_type_and_status", (query) =>
+				query.eq("shopId", options.shopId).eq("type", options.type).eq("status", options.status),
+			)
+			.take(MERCHANT_EXPLORER_PAGE_SIZE)
+	).length;
 }
 
 function getInitials(name: string) {
@@ -1447,6 +1743,52 @@ async function searchShopifyOrders(args: {
 	return payload.orders?.nodes ?? [];
 }
 
+async function fetchExplorerInventoryPage(args: {
+	accessToken: string;
+	cursor?: string | null;
+	query?: string;
+	shopDomain: string;
+}) {
+	const queryText = args.query?.trim();
+	const payload = await shopifyAdminGraphqlRequest<ExplorerInventoryPageResponse>({
+		accessToken: args.accessToken,
+		query: EXPLORER_INVENTORY_QUERY,
+		shop: args.shopDomain,
+		variables: {
+			cursor: args.cursor ?? undefined,
+			query: queryText || undefined,
+			sortKey: queryText ? "RELEVANCE" : "INVENTORY_QUANTITY",
+		},
+	});
+
+	return {
+		pageInfo: formatShopifyPageInfo(payload.productVariants?.pageInfo),
+		rows: buildInventoryPageRows(payload.productVariants?.nodes ?? []),
+	};
+}
+
+async function fetchExplorerOrdersPage(args: {
+	accessToken: string;
+	cursor?: string | null;
+	query?: string;
+	shopDomain: string;
+}) {
+	const payload = await shopifyAdminGraphqlRequest<ExplorerOrderPageResponse>({
+		accessToken: args.accessToken,
+		query: EXPLORER_ORDERS_QUERY,
+		shop: args.shopDomain,
+		variables: {
+			cursor: args.cursor ?? undefined,
+			query: args.query?.trim() || undefined,
+		},
+	});
+
+	return {
+		pageInfo: formatShopifyPageInfo(payload.orders?.pageInfo),
+		rows: buildOrderRows(payload.orders?.nodes ?? []),
+	};
+}
+
 async function getProductEditContext(args: {
 	accessToken: string;
 	productId: string;
@@ -1471,52 +1813,36 @@ function buildShopifyCitation(label: string, detail: string): MerchantCitation {
 	};
 }
 
-function buildExplorerDataset(
-	key: MerchantExplorerDatasetKey,
-	rows: MerchantExplorerDataset["rows"],
-): MerchantExplorerDataset {
-	const meta = EXPLORER_DATASET_META[key];
-
-	return {
-		description: meta.description,
-		key,
-		rows,
-		title: meta.title,
-	};
-}
-
-function buildCatalogProductRows(rows: Doc<"shopifyCatalogProducts">[]) {
+function buildMerchantCatalogRows(rows: MerchantCatalogRow[]) {
 	return rows.map((row) => ({
-		availability: row.availableForSale ? "available" : "unavailable",
+		_row_id: row.shopifyProductId,
+		availability: row.onlineStoreUrl || row.publishedAt ? "published" : "not published",
 		handle: row.handle,
 		product_type: row.productType ?? null,
 		status: row.sourceStatus,
-		summary: row.summary,
 		title: row.title,
 		updated_at: new Date(row.sourceUpdatedAt).toISOString(),
-		variant_count: row.variantTitles.length,
+		variant_count: row.variantCount ?? null,
 		vendor: row.vendor ?? null,
 	}));
 }
 
-function buildInventoryRows(rows: ProductSearchNode[]) {
-	const flattened = rows.flatMap((row) =>
-		(row.variants?.nodes ?? []).map((variant) => ({
-			inventory: variant.inventoryQuantity ?? 0,
-			product: row.title ?? "Untitled product",
-			sku: variant.sku ?? variant.inventoryItem?.sku ?? null,
-			status: row.status ?? null,
-			variant: variant.title ?? "Default",
-		})),
-	);
-
-	return flattened
-		.sort((left, right) => Number(left.inventory) - Number(right.inventory))
-		.slice(0, 25);
+function buildInventoryPageRows(rows: ExplorerInventoryNode[]) {
+	return rows.map((row) => ({
+		_row_id: row.id ?? null,
+		inventory: row.inventoryQuantity ?? 0,
+		product: row.product?.title ?? "Untitled product",
+		sku: row.sku ?? row.inventoryItem?.sku ?? null,
+		status: row.product?.status ?? null,
+		tracked: row.inventoryItem?.tracked ? "tracked" : "not tracked",
+		updated_at: formatFromString(row.updatedAt) ?? row.updatedAt ?? null,
+		variant: row.title ?? "Default",
+	}));
 }
 
 function buildOrderRows(rows: OrderNode[]) {
 	return rows.map((row) => ({
+		_row_id: row.id ?? null,
 		financial_status: row.displayFinancialStatus ?? null,
 		fulfillment_status: row.displayFulfillmentStatus ?? null,
 		order: row.name ?? null,
@@ -1530,7 +1856,9 @@ function buildOrderRows(rows: OrderNode[]) {
 
 function buildAuditRows(rows: Doc<"auditLogs">[]) {
 	return rows.map((row) => ({
+		_row_id: row._id,
 		action: row.action,
+		actor: row.actorId ?? "system",
 		created_at: new Date(row.createdAt).toISOString(),
 		detail: row.detail ?? null,
 		status: row.status ?? null,
@@ -2499,74 +2827,407 @@ export const overview = action({
 	},
 });
 
-export const explorer = action({
+function normalizeExplorerSearch(value: string | undefined) {
+	const trimmed = value?.trim();
+
+	return trimmed ? trimmed : undefined;
+}
+
+function toMerchantCatalogSourceStatus(status: "active" | "all" | "archived" | "draft") {
+	switch (status) {
+		case "active":
+			return "ACTIVE";
+		case "archived":
+			return "ARCHIVED";
+		case "draft":
+			return "DRAFT";
+		default:
+			return null;
+	}
+}
+
+type ProductExplorerSyncSnapshot = {
+	productCount: number | null;
+	syncState: MerchantExplorerSyncState;
+};
+
+export const getExplorerProductSyncStateInternal = internalQuery({
 	args: {
-		dataset: v.optional(
-			v.union(
-				v.literal("audit_logs"),
-				v.literal("documents"),
-				v.literal("inventory"),
-				v.literal("orders"),
-				v.literal("products"),
-			),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args): Promise<ProductExplorerSyncSnapshot> => {
+		const [cacheState, metricsCache, workflowState] = await Promise.all([
+			ctx.db
+				.query("shopifyCacheStates")
+				.withIndex("by_shop_and_cache_key", (query) =>
+					query.eq("shopId", args.shopId).eq("cacheKey", MERCHANT_CATALOG_CACHE_KEY),
+				)
+				.unique(),
+			ctx.db
+				.query("shopifyMetricsCaches")
+				.withIndex("by_shop", (query) => query.eq("shopId", args.shopId))
+				.unique(),
+			ctx.runQuery(internal.merchantCatalogWorkflow.getMerchantCatalogWorkflowProgress, {
+				shopId: args.shopId,
+			}),
+		]);
+		const now = Date.now();
+		const staleWarning = getCacheStaleWarning(cacheState, now);
+
+		return {
+			productCount: metricsCache?.productCount ?? null,
+			syncState: {
+				activeJobCount: workflowState.status === "inProgress" ? 1 : 0,
+				canResume: workflowState.status === "failed",
+				cacheKey: MERCHANT_CATALOG_CACHE_KEY,
+				completedStepCount: workflowState.completedStepCount,
+				hasSnapshot: Boolean(cacheState?.lastCompletedAt),
+				isStale: staleWarning !== null,
+				lastCompletedAt: formatIso(cacheState?.lastCompletedAt),
+				lastError: cacheState?.lastError ?? null,
+				lastRequestedAt: formatIso(cacheState?.lastRequestedAt),
+				lastWebhookAt: formatIso(cacheState?.lastWebhookAt),
+				pendingReason: cacheState?.pendingReason ?? null,
+				processedCount: cacheState?.processedCount ?? null,
+				progressMessage: cacheState?.progressMessage ?? null,
+				recordCount: cacheState?.recordCount ?? null,
+				staleWarning,
+				status: cacheState?.status ?? "missing",
+				totalStepCount: workflowState.totalStepCount,
+				workflowId: workflowState.workflowId,
+				workflowStatus: workflowState.status,
+			},
+		};
+	},
+});
+
+export const getExplorerProductRowsInternal = internalQuery({
+	args: {
+		paginationOpts: paginationOptsValidator,
+		q: v.optional(v.string()),
+		shopId: v.id("shops"),
+		status: v.union(
+			v.literal("active"),
+			v.literal("all"),
+			v.literal("archived"),
+			v.literal("draft"),
 		),
 	},
-	handler: async (ctx, args): Promise<MerchantExplorerData> => {
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
+		const queryText = normalizeExplorerSearch(args.q);
+		const sourceStatus = toMerchantCatalogSourceStatus(args.status);
+		const result =
+			queryText && queryText.length >= 2
+				? await ctx.db
+						.query("shopifyMerchantCatalogProducts")
+						.withSearchIndex("search_text", (query) => {
+							const scoped = query.search("searchText", queryText).eq("shopId", args.shopId);
+							return sourceStatus ? scoped.eq("sourceStatus", sourceStatus) : scoped;
+						})
+						.paginate(args.paginationOpts)
+				: sourceStatus
+					? await ctx.db
+							.query("shopifyMerchantCatalogProducts")
+							.withIndex("by_shop_and_source_status_and_source_updated_at", (query) =>
+								query.eq("shopId", args.shopId).eq("sourceStatus", sourceStatus),
+							)
+							.order("desc")
+							.paginate(args.paginationOpts)
+					: await ctx.db
+							.query("shopifyMerchantCatalogProducts")
+							.withIndex("by_shop_and_source_updated_at", (query) =>
+								query.eq("shopId", args.shopId),
+							)
+							.order("desc")
+							.paginate(args.paginationOpts);
+
+		return {
+			generatedAt: new Date().toISOString(),
+			pageInfo: formatExplorerPageInfo(result),
+			rows: buildMerchantCatalogRows(result.page as MerchantCatalogRow[]),
+			source: toExplorerSource("shopify_cached", "Cached Shopify"),
+			summary: toExplorerSummary("products", null),
+			syncState: null,
+		};
+	},
+});
+
+export const explorerProductsPage = action({
+	args: {
+		paginationOpts: paginationOptsValidator,
+		q: v.optional(v.string()),
+		status: v.optional(
+			v.union(v.literal("active"), v.literal("all"), v.literal("archived"), v.literal("draft")),
+		),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
 		const claims = await requireMerchantClaims(ctx);
-		const activeDataset = args.dataset ?? "products";
 		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
 			actorId: claims.actorId,
 			shopDomain: claims.shopDomain,
 			shopId: claims.shopId,
 		});
-		let dataset: MerchantExplorerDataset;
+		const requestedStatus = args.status ?? "all";
+		const currentSync = await ctx.runQuery(
+			internal.merchantWorkspace.getExplorerProductSyncStateInternal,
+			{
+				shopId: runtime.shop._id,
+			},
+		);
 
-		switch (activeDataset) {
-			case "audit_logs":
-			case "documents":
-			case "products":
-				dataset = await ctx.runQuery(internal.merchantWorkspace.getExplorerDatasetInternal, {
-					dataset: activeDataset,
-					shopId: runtime.shop._id,
-				});
-				break;
-			case "inventory": {
-				const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-				});
-				const products = installationAccessToken
-					? await searchShopifyProducts({
-							accessToken: installationAccessToken,
-							query: "status:active",
-							shopDomain: runtime.shop.domain,
-						})
-					: [];
-
-				dataset = buildExplorerDataset("inventory", buildInventoryRows(products));
-				break;
-			}
-			case "orders": {
-				const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
-					shopDomain: runtime.shop.domain,
-					shopId: runtime.shop._id,
-				});
-				const orders = installationAccessToken
-					? await searchShopifyOrders({
-							accessToken: installationAccessToken,
-							query: recentOrdersQuery(),
-							shopDomain: runtime.shop.domain,
-						})
-					: [];
-
-				dataset = buildExplorerDataset("orders", buildOrderRows(orders));
-				break;
-			}
+		if (
+			(currentSync.syncState.isStale || !currentSync.syncState.hasSnapshot) &&
+			currentSync.syncState.activeJobCount === 0
+		) {
+			await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+				pendingReason: "Explorer requested a fresh merchant catalog snapshot.",
+				shopId: runtime.shop._id,
+				shopDomain: runtime.shop.domain,
+			});
 		}
 
+		const [page, latestSync] = await Promise.all([
+			ctx.runQuery(internal.merchantWorkspace.getExplorerProductRowsInternal, {
+				paginationOpts: args.paginationOpts,
+				q: args.q,
+				shopId: runtime.shop._id,
+				status: requestedStatus,
+			}),
+			ctx.runQuery(internal.merchantWorkspace.getExplorerProductSyncStateInternal, {
+				shopId: runtime.shop._id,
+			}),
+		]);
+		const resultLabel =
+			latestSync.productCount !== null
+				? `${compactNumber(latestSync.productCount)} Shopify product${latestSync.productCount === 1 ? "" : "s"}`
+				: latestSync.syncState.recordCount !== null
+					? `${compactNumber(latestSync.syncState.recordCount)} cached product${latestSync.syncState.recordCount === 1 ? "" : "s"}`
+					: null;
+
 		return {
-			datasets: [dataset],
+			...page,
+			summary: toExplorerSummary("products", resultLabel),
+			syncState: latestSync.syncState,
+		};
+	},
+});
+
+export const refreshExplorerProducts = mutation({
+	args: {},
+	handler: async (ctx): Promise<{ jobId: Id<"syncJobs">; ok: true }> => {
+		const { actor, shop } = await requireMerchantActor(ctx);
+		const workflowId = await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+			pendingReason: "Merchant requested a fresh Shopify product sync for Explorer.",
+			shopId: shop._id,
+			shopDomain: shop.domain,
+		});
+
+		await auditAction(ctx, {
+			action: "merchant.explorer.product_refresh_requested",
+			actorId: actor.id,
+			detail: "Merchant requested a Shopify product refresh from Explorer.",
+			payload: {
+				workflowId,
+			},
+			shopId: shop._id,
+			status: "pending",
+		});
+
+		return {
+			jobId: workflowId as unknown as Id<"syncJobs">,
+			ok: true,
+		};
+	},
+});
+
+export const explorerInventoryPage = action({
+	args: {
+		cursor: v.optional(v.string()),
+		q: v.optional(v.string()),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
+		const claims = await requireMerchantClaims(ctx);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for inventory browsing.");
+		}
+
+		const page = await fetchExplorerInventoryPage({
+			accessToken: installationAccessToken,
+			cursor: args.cursor,
+			query: args.q,
+			shopDomain: runtime.shop.domain,
+		});
+
+		return {
 			generatedAt: new Date().toISOString(),
+			pageInfo: page.pageInfo,
+			rows: page.rows,
+			source: toExplorerSource("shopify_live", "Live Shopify"),
+			summary: toExplorerSummary(
+				"inventory",
+				args.q ? "Search results from live Shopify inventory." : "Live Shopify variant inventory.",
+			),
+			syncState: null,
+		};
+	},
+});
+
+export const explorerOrdersPage = action({
+	args: {
+		cursor: v.optional(v.string()),
+		q: v.optional(v.string()),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
+		const claims = await requireMerchantClaims(ctx);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
+		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
+
+		if (!installationAccessToken) {
+			throw new Error("No connected offline Shopify token is available for order browsing.");
+		}
+
+		const page = await fetchExplorerOrdersPage({
+			accessToken: installationAccessToken,
+			cursor: args.cursor,
+			query: args.q,
+			shopDomain: runtime.shop.domain,
+		});
+
+		return {
+			generatedAt: new Date().toISOString(),
+			pageInfo: page.pageInfo,
+			rows: page.rows,
+			source: toExplorerSource("shopify_live", "Live Shopify"),
+			summary: toExplorerSummary(
+				"orders",
+				args.q ? "Search results from live Shopify orders." : "Newest live Shopify orders.",
+			),
+			syncState: null,
+		};
+	},
+});
+
+export const explorerDocumentsPage = query({
+	args: {
+		paginationOpts: paginationOptsValidator,
+		q: v.optional(v.string()),
+		status: v.optional(
+			v.union(v.literal("all"), v.literal("failed"), v.literal("processing"), v.literal("ready")),
+		),
+		visibility: v.optional(
+			v.union(v.literal("all"), v.literal("public"), v.literal("shop_private")),
+		),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
+		const { shop } = await requireMerchantActor(ctx);
+		const queryText = normalizeExplorerSearch(args.q);
+		const status = args.status ?? "all";
+		const visibility = args.visibility ?? "all";
+		const result =
+			queryText && queryText.length >= 2
+				? await ctx.db
+						.query("merchantDocuments")
+						.withSearchIndex("search_text", (query) => {
+							let scoped = query.search("searchText", queryText).eq("shopId", shop._id);
+
+							if (status !== "all") {
+								scoped = scoped.eq("status", status);
+							}
+
+							if (visibility !== "all") {
+								scoped = scoped.eq("visibility", visibility);
+							}
+
+							return scoped;
+						})
+						.paginate(args.paginationOpts)
+				: status !== "all" && visibility !== "all"
+					? await ctx.db
+							.query("merchantDocuments")
+							.withIndex("by_shop_and_visibility_and_status_and_updated_at", (query) =>
+								query.eq("shopId", shop._id).eq("visibility", visibility).eq("status", status),
+							)
+							.order("desc")
+							.paginate(args.paginationOpts)
+					: status !== "all"
+						? await ctx.db
+								.query("merchantDocuments")
+								.withIndex("by_shop_and_status_and_updated_at", (query) =>
+									query.eq("shopId", shop._id).eq("status", status),
+								)
+								.order("desc")
+								.paginate(args.paginationOpts)
+						: visibility !== "all"
+							? await ctx.db
+									.query("merchantDocuments")
+									.withIndex("by_shop_and_visibility_and_updated_at", (query) =>
+										query.eq("shopId", shop._id).eq("visibility", visibility),
+									)
+									.order("desc")
+									.paginate(args.paginationOpts)
+							: await ctx.db
+									.query("merchantDocuments")
+									.withIndex("by_shop_and_updated_at", (query) => query.eq("shopId", shop._id))
+									.order("desc")
+									.paginate(args.paginationOpts);
+
+		return {
+			generatedAt: new Date().toISOString(),
+			pageInfo: formatExplorerPageInfo(result),
+			rows: result.page.map((document) => ({
+				_row_id: document._id,
+				file_name: document.fileName ?? null,
+				status: document.status,
+				title: document.title,
+				updated_at: new Date(document.updatedAt).toISOString(),
+				visibility: document.visibility,
+			})),
+			source: toExplorerSource("convex", "Convex"),
+			summary: toExplorerSummary(
+				"documents",
+				queryText ? "Matching merchant documents." : "Merchant knowledge documents.",
+			),
+			syncState: null,
+		};
+	},
+});
+
+export const explorerAuditLogsPage = query({
+	args: {
+		paginationOpts: paginationOptsValidator,
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerPageData> => {
+		const { shop } = await requireMerchantActor(ctx);
+		const result = await ctx.db
+			.query("auditLogs")
+			.withIndex("by_shop_created_at", (query) => query.eq("shopId", shop._id))
+			.order("desc")
+			.paginate(args.paginationOpts);
+
+		return {
+			generatedAt: new Date().toISOString(),
+			pageInfo: formatExplorerPageInfo(result),
+			rows: buildAuditRows(result.page),
+			source: toExplorerSource("convex", "Convex"),
+			summary: toExplorerSummary("audit_logs", "Merchant audit history."),
+			syncState: null,
 		};
 	},
 });
@@ -2631,51 +3292,6 @@ export const getRecentWorkflowRecordsInternal = internalQuery({
 			recordLimit: args.limit,
 			shopId: args.shopId,
 		});
-	},
-});
-
-export const getExplorerDatasetInternal = internalQuery({
-	args: {
-		dataset: v.union(v.literal("audit_logs"), v.literal("documents"), v.literal("products")),
-		shopId: v.id("shops"),
-	},
-	handler: async (ctx, args): Promise<MerchantExplorerDataset> => {
-		switch (args.dataset) {
-			case "audit_logs": {
-				const rows = await ctx.db
-					.query("auditLogs")
-					.withIndex("by_shop_created_at", (query) => query.eq("shopId", args.shopId))
-					.order("desc")
-					.take(EXPLORER_RECORD_LIMIT);
-
-				return buildExplorerDataset("audit_logs", buildAuditRows(rows));
-			}
-			case "documents": {
-				const documents = await listDocumentsByShop(ctx, {
-					shopId: args.shopId,
-				});
-
-				return buildExplorerDataset(
-					"documents",
-					documents.slice(0, EXPLORER_RECORD_LIMIT).map((document) => ({
-						file_name: document.fileName ?? null,
-						status: document.status,
-						title: document.title,
-						updated_at: new Date(document.updatedAt).toISOString(),
-						visibility: document.visibility,
-					})),
-				);
-			}
-			case "products": {
-				const rows = await ctx.db
-					.query("shopifyCatalogProducts")
-					.withIndex("by_shop_and_source_updated_at", (query) => query.eq("shopId", args.shopId))
-					.order("desc")
-					.take(EXPLORER_RECORD_LIMIT);
-
-				return buildExplorerDataset("products", buildCatalogProductRows(rows));
-			}
-		}
 	},
 });
 

@@ -1,3 +1,11 @@
+import { internal } from "@convex/_generated/api";
+import type { Id } from "@convex/_generated/dataModel";
+import { action, internalMutation, internalQuery, type ActionCtx } from "@convex/_generated/server";
+import {
+	createShopifyClient,
+	SHOPIFY_API_VERSION,
+	shopifyAdminGraphqlRequest,
+} from "@convex/shopifyAdmin";
 import { RequestedTokenType, type Session } from "@shopify/shopify-api";
 import { v } from "convex/values";
 import type { ShopSummary } from "@/shared/contracts/auth";
@@ -8,14 +16,6 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POLICY_ANSWERS,
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 } from "@/shared/contracts/storefront-widget";
-import { internal } from "./_generated/api";
-import type { Id } from "./_generated/dataModel";
-import { action, internalMutation, internalQuery, type ActionCtx } from "./_generated/server";
-import {
-	createShopifyClient,
-	SHOPIFY_API_VERSION,
-	shopifyAdminGraphqlRequest,
-} from "./shopifyAdmin";
 
 const ACCESS_TOKEN_REFRESH_BUFFER_MS = 1000 * 60 * 5;
 const WEBHOOK_PAYLOAD_PREVIEW_LIMIT = 16_000;
@@ -153,6 +153,14 @@ export function getWebhookSyncPlans(topic: string) {
 	}
 
 	return plans;
+}
+
+function shouldQueueMerchantCatalogSync(topic: string) {
+	return (
+		topic.startsWith("products/") ||
+		topic.startsWith("collections/") ||
+		topic === "inventory_levels/update"
+	);
 }
 
 function getActorName(options: {
@@ -1083,6 +1091,14 @@ export const ingestWebhook = internalMutation({
 				triggeredByDeliveryId: deliveryId,
 				type: plan.type,
 				webhookReceivedAt: now,
+			});
+		}
+
+		if (shouldQueueMerchantCatalogSync(args.topic)) {
+			await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+				pendingReason: `Webhook ${args.topic} requested a merchant catalog index rebuild.`,
+				shopId: shop._id,
+				shopDomain: shop.domain,
 			});
 		}
 

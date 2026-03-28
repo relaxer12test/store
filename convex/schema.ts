@@ -123,11 +123,14 @@ export default defineSchema({
 		lastStartedAt: v.optional(v.number()),
 		lastWebhookAt: v.optional(v.number()),
 		pendingReason: v.optional(v.string()),
+		processedCount: v.optional(v.number()),
+		progressMessage: v.optional(v.string()),
 		recordCount: v.optional(v.number()),
 		shopId: v.id("shops"),
 		staleAfterAt: v.optional(v.number()),
 		status: v.string(),
 		updatedAt: v.number(),
+		workflowId: v.optional(v.string()),
 	})
 		.index("by_shop_and_cache_key", ["shopId", "cacheKey"])
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
@@ -196,6 +199,39 @@ export default defineSchema({
 		.index("by_shop_and_source_updated_at", ["shopId", "sourceUpdatedAt"])
 		.searchIndex("search_text", {
 			filterFields: ["shopId"],
+			searchField: "searchText",
+		}),
+
+	shopifyMerchantCatalogProducts: defineTable({
+		domain: v.string(),
+		handle: v.string(),
+		lastRefreshedAt: v.number(),
+		onlineStoreUrl: v.optional(v.string()),
+		productType: v.optional(v.string()),
+		publishedAt: v.optional(v.number()),
+		searchText: v.string(),
+		shopId: v.id("shops"),
+		shopifyLegacyProductId: v.optional(v.string()),
+		shopifyProductId: v.string(),
+		sourceStatus: v.string(),
+		sourceUpdatedAt: v.number(),
+		summary: v.string(),
+		title: v.string(),
+		totalInventory: v.optional(v.number()),
+		variantCount: v.optional(v.number()),
+		vendor: v.optional(v.string()),
+	})
+		.index("by_shop_and_handle", ["shopId", "handle"])
+		.index("by_shop_and_last_refreshed_at", ["shopId", "lastRefreshedAt"])
+		.index("by_shop_and_shopify_product_id", ["shopId", "shopifyProductId"])
+		.index("by_shop_and_source_status_and_source_updated_at", [
+			"shopId",
+			"sourceStatus",
+			"sourceUpdatedAt",
+		])
+		.index("by_shop_and_source_updated_at", ["shopId", "sourceUpdatedAt"])
+		.searchIndex("search_text", {
+			filterFields: ["shopId", "sourceStatus"],
 			searchField: "searchText",
 		}),
 
@@ -452,6 +488,12 @@ export default defineSchema({
 	})
 		.index("by_shop_and_updated_at", ["shopId", "updatedAt"])
 		.index("by_shop_and_status_and_updated_at", ["shopId", "status", "updatedAt"])
+		.index("by_shop_and_visibility_and_status_and_updated_at", [
+			"shopId",
+			"visibility",
+			"status",
+			"updatedAt",
+		])
 		.index("by_shop_and_visibility_and_updated_at", ["shopId", "visibility", "updatedAt"])
 		.searchIndex("search_text", {
 			filterFields: ["shopId", "status", "visibility"],

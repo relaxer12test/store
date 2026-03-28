@@ -160,6 +160,74 @@ export interface MerchantExplorerData {
 	generatedAt: string;
 }
 
+export interface MerchantExplorerPageInfo {
+	continueCursor: string | null;
+	isDone: boolean;
+}
+
+export interface MerchantExplorerSummary {
+	description: string;
+	resultLabel: string | null;
+	title: string;
+}
+
+export interface MerchantExplorerSource {
+	kind: "convex" | "shopify_cached" | "shopify_live";
+	label: string;
+}
+
+export interface MerchantExplorerSyncState {
+	activeJobCount: number;
+	canResume: boolean;
+	cacheKey: string;
+	completedStepCount: number;
+	hasSnapshot: boolean;
+	isStale: boolean;
+	lastCompletedAt: string | null;
+	lastError: string | null;
+	lastRequestedAt: string | null;
+	lastWebhookAt: string | null;
+	pendingReason: string | null;
+	processedCount: number | null;
+	progressMessage: string | null;
+	recordCount: number | null;
+	staleWarning: string | null;
+	status: string;
+	totalStepCount: number | null;
+	workflowId: string | null;
+	workflowStatus: "canceled" | "completed" | "failed" | "inProgress" | "missing";
+}
+
+export interface MerchantExplorerPageData {
+	generatedAt: string;
+	pageInfo: MerchantExplorerPageInfo;
+	rows: Array<Record<string, string | number | null>>;
+	source: MerchantExplorerSource;
+	summary: MerchantExplorerSummary;
+	syncState?: MerchantExplorerSyncState | null;
+}
+
+export interface MerchantExplorerDetailField {
+	label: string;
+	tone?: "code" | "neutral" | "status";
+	value: string | null;
+}
+
+export interface MerchantExplorerDetailSection {
+	body: string;
+	title: string;
+	tone?: "neutral" | "code";
+}
+
+export interface MerchantExplorerDetailData {
+	description: string | null;
+	fields: MerchantExplorerDetailField[];
+	generatedAt: string;
+	sections: MerchantExplorerDetailSection[];
+	source: MerchantExplorerSource;
+	title: string;
+}
+
 export interface MerchantWorkflowLog {
 	createdAt: string;
 	detail: string | null;

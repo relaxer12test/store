@@ -1,6 +1,5 @@
-import { v } from "convex/values";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
 import {
 	type ActionCtx,
 	internalAction,
@@ -9,13 +8,16 @@ import {
 	query,
 	type MutationCtx,
 	type QueryCtx,
-} from "./_generated/server";
-import { resolveUsableInstallationAccessToken } from "./shopify";
-import { shopifyAdminGraphqlRequest } from "./shopifyAdmin";
+} from "@convex/_generated/server";
+import { resolveUsableInstallationAccessToken } from "@convex/shopify";
+import { shopifyAdminGraphqlRequest } from "@convex/shopifyAdmin";
+import { v } from "convex/values";
 
+const MERCHANT_CATALOG_CACHE_KEY = "merchant_catalog_index";
 const PUBLIC_CATALOG_CACHE_KEY = "public_catalog_index";
 const MERCHANT_METRICS_CACHE_KEY = "merchant_metrics_cache";
 
+const MERCHANT_CATALOG_INDEX_REBUILD_JOB = "merchant_catalog_index_rebuild";
 const CATALOG_INDEX_REBUILD_JOB = "catalog_index_rebuild";
 const DASHBOARD_REGENERATION_JOB = "dashboard_regeneration";
 const DOCUMENT_REINDEX_JOB = "document_reindex";
@@ -34,6 +36,7 @@ const CACHE_STATUS_READY = "ready";
 const CACHE_STATUS_ERROR = "error";
 const CACHE_STATUS_DISABLED = "disabled";
 
+const MERCHANT_CATALOG_STALE_MS = 1000 * 60 * 30;
 const PUBLIC_CATALOG_STALE_MS = 1000 * 60 * 30;
 const MERCHANT_METRICS_STALE_MS = 1000 * 60 * 15;
 const RECENT_ORDER_WINDOW_DAYS = 30;
@@ -105,6 +108,34 @@ const PUBLIC_COLLECTIONS_QUERY = `
 					count
 				}
 				updatedAt
+			}
+			pageInfo {
+				hasNextPage
+				endCursor
+			}
+		}
+	}
+`;
+
+const MERCHANT_CATALOG_QUERY = `
+	query MerchantCatalogPage($cursor: String) {
+		products(first: 100, after: $cursor, sortKey: UPDATED_AT) {
+			nodes {
+				id
+				legacyResourceId
+				title
+				handle
+				vendor
+				productType
+				status
+				updatedAt
+				publishedAt
+				onlineStoreUrl
+				totalInventory
+				description(truncateAt: 220)
+				variantsCount {
+					count
+				}
 			}
 			pageInfo {
 				hasNextPage
@@ -193,6 +224,23 @@ const sanitizedCatalogCollectionValidator = v.object({
 	title: v.string(),
 });
 
+const sanitizedMerchantCatalogProductValidator = v.object({
+	handle: v.string(),
+	onlineStoreUrl: v.optional(v.string()),
+	productType: v.optional(v.string()),
+	publishedAt: v.optional(v.number()),
+	searchText: v.string(),
+	shopifyLegacyProductId: v.optional(v.string()),
+	shopifyProductId: v.string(),
+	sourceStatus: v.string(),
+	sourceUpdatedAt: v.number(),
+	summary: v.string(),
+	title: v.string(),
+	totalInventory: v.optional(v.number()),
+	variantCount: v.optional(v.number()),
+	vendor: v.optional(v.string()),
+});
+
 type ShopifyCount = {
 	count?: number | null;
 	precision?: string | null;
@@ -224,7 +272,9 @@ type CatalogPageResponse = {
 			status?: string | null;
 			tags?: string[] | null;
 			title?: string | null;
+			totalInventory?: number | null;
 			updatedAt?: string | null;
+			variantsCount?: ShopifyCount | null;
 			variants?: {
 				nodes?: Array<{
 					availableForSale?: boolean | null;
@@ -317,6 +367,23 @@ type SanitizedCatalogCollection = {
 	sourceUpdatedAt: number;
 	summary: string;
 	title: string;
+};
+
+type SanitizedMerchantCatalogProduct = {
+	handle: string;
+	onlineStoreUrl?: string;
+	productType?: string;
+	publishedAt?: number;
+	searchText: string;
+	shopifyLegacyProductId?: string;
+	shopifyProductId: string;
+	sourceStatus: string;
+	sourceUpdatedAt: number;
+	summary: string;
+	title: string;
+	totalInventory?: number;
+	variantCount?: number;
+	vendor?: string;
 };
 
 function withoutUndefined<T extends Record<string, unknown>>(value: T) {
@@ -416,6 +483,22 @@ function buildCollectionSearchText(
 	return [collection.title, collection.description].filter(Boolean).join(" ");
 }
 
+function buildMerchantCatalogSearchText(
+	product: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary">,
+	description?: string,
+) {
+	return [
+		product.title,
+		product.handle,
+		product.vendor,
+		product.productType,
+		product.sourceStatus,
+		description,
+	]
+		.filter(Boolean)
+		.join(" ");
+}
+
 function buildCatalogSummary(
 	product: Omit<SanitizedCatalogProduct, "searchText" | "summary">,
 	description?: string,
@@ -430,6 +513,29 @@ function buildCatalogSummary(
 		product.productType,
 		formatPriceLabel(product.minPrice, product.maxPrice, product.currencyCode),
 		product.availableForSale ? "Available online" : "Currently unavailable",
+	];
+
+	return parts.filter(Boolean).join(" · ");
+}
+
+function buildMerchantCatalogSummary(
+	product: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary">,
+	description?: string,
+) {
+	if (description) {
+		return description;
+	}
+
+	const parts = [
+		product.title,
+		product.vendor,
+		product.productType,
+		product.sourceStatus,
+		product.publishedAt || product.onlineStoreUrl ? "Published" : "Not published",
+		product.totalInventory === undefined ? null : `${product.totalInventory} in stock`,
+		product.variantCount === undefined
+			? null
+			: `${product.variantCount} variant${product.variantCount === 1 ? "" : "s"}`,
 	];
 
 	return parts.filter(Boolean).join(" · ");
@@ -463,6 +569,8 @@ function chunkItems<T>(items: T[], size: number) {
 
 function getCacheStaleAfter(cacheKey: string, now: number) {
 	switch (cacheKey) {
+		case MERCHANT_CATALOG_CACHE_KEY:
+			return now + MERCHANT_CATALOG_STALE_MS;
 		case PUBLIC_CATALOG_CACHE_KEY:
 			return now + PUBLIC_CATALOG_STALE_MS;
 		case MERCHANT_METRICS_CACHE_KEY:
@@ -673,6 +781,51 @@ function sanitizeCatalogCollection(
 	};
 }
 
+function sanitizeMerchantCatalogProduct(
+	product: NonNullable<NonNullable<CatalogPageResponse["products"]>["nodes"]>[number],
+) {
+	const title = product.title?.trim();
+	const handle = product.handle?.trim();
+	const productId = product.id?.trim();
+	const sourceUpdatedAt = parseTimestamp(product.updatedAt);
+
+	if (!title || !handle || !productId || sourceUpdatedAt === undefined) {
+		return null;
+	}
+
+	const description = normalizeCatalogDescription(product.description);
+	const sanitized: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary"> = {
+		handle,
+		onlineStoreUrl: product.onlineStoreUrl ?? undefined,
+		productType: product.productType?.trim() || undefined,
+		publishedAt: parseTimestamp(product.publishedAt),
+		shopifyLegacyProductId:
+			product.legacyResourceId !== undefined && product.legacyResourceId !== null
+				? String(product.legacyResourceId)
+				: undefined,
+		shopifyProductId: productId,
+		sourceStatus: product.status ?? "ACTIVE",
+		sourceUpdatedAt,
+		title,
+		totalInventory:
+			typeof product.totalInventory === "number" && Number.isFinite(product.totalInventory)
+				? product.totalInventory
+				: undefined,
+		variantCount:
+			typeof product.variantsCount?.count === "number" &&
+			Number.isFinite(product.variantsCount.count)
+				? product.variantsCount.count
+				: undefined,
+		vendor: product.vendor?.trim() || undefined,
+	};
+
+	return {
+		...sanitized,
+		searchText: buildMerchantCatalogSearchText(sanitized, description),
+		summary: buildMerchantCatalogSummary(sanitized, description),
+	};
+}
+
 async function fetchPublicCatalogProducts({
 	accessToken,
 	shopDomain,
@@ -696,6 +849,45 @@ async function fetchPublicCatalogProducts({
 
 		for (const node of connection?.nodes ?? []) {
 			const product = sanitizeCatalogProduct(node);
+
+			if (product) {
+				products.push(product);
+			}
+		}
+
+		if (!connection?.pageInfo?.hasNextPage || !connection.pageInfo.endCursor) {
+			break;
+		}
+
+		cursor = connection.pageInfo.endCursor;
+	}
+
+	return products;
+}
+
+async function fetchMerchantCatalogProducts({
+	accessToken,
+	shopDomain,
+}: {
+	accessToken: string;
+	shopDomain: string;
+}) {
+	const products: SanitizedMerchantCatalogProduct[] = [];
+	let cursor: string | undefined;
+
+	while (true) {
+		const payload = await shopifyAdminGraphqlRequest<CatalogPageResponse>({
+			accessToken,
+			query: MERCHANT_CATALOG_QUERY,
+			shop: shopDomain,
+			variables: {
+				cursor,
+			},
+		});
+		const connection = payload.products;
+
+		for (const node of connection?.nodes ?? []) {
+			const product = sanitizeMerchantCatalogProduct(node);
 
 			if (product) {
 				products.push(product);
@@ -847,6 +1039,56 @@ async function runCatalogIndexRebuild(
 	});
 }
 
+async function runMerchantCatalogIndexRebuild(
+	ctx: ActionCtx,
+	job: Doc<"syncJobs">,
+	shop: Doc<"shops">,
+	accessToken: string,
+) {
+	const refreshedAt = Date.now();
+	const products = await fetchMerchantCatalogProducts({
+		accessToken,
+		shopDomain: shop.domain,
+	});
+
+	for (const batch of chunkItems(products, MAX_CATALOG_BATCH_SIZE)) {
+		await ctx.runMutation(internal.shopifySync.upsertMerchantCatalogBatch, {
+			domain: shop.domain,
+			products: batch,
+			refreshedAt,
+			shopId: shop._id,
+		});
+	}
+
+	while (true) {
+		const deletedCount: number = await ctx.runMutation(
+			internal.shopifySync.deleteStaleMerchantCatalogBatch,
+			{
+				refreshedAt,
+				shopId: shop._id,
+			},
+		);
+
+		if (deletedCount === 0) {
+			break;
+		}
+	}
+
+	await ctx.runMutation(internal.shopifySync.completeJob, {
+		jobId: job._id,
+		payloadPreview: `Indexed ${products.length} merchant products from Shopify.`,
+		recordCount: products.length,
+		resultSummary: `Merchant catalog index rebuilt with ${products.length} product row(s).`,
+		sourceUpdatedAt: products.reduce<number | undefined>((latest, record) => {
+			if (latest === undefined || record.sourceUpdatedAt > latest) {
+				return record.sourceUpdatedAt;
+			}
+
+			return latest;
+		}, undefined),
+	});
+}
+
 async function runMetricsCacheRefresh(
 	ctx: ActionCtx,
 	job: Doc<"syncJobs">,
@@ -893,6 +1135,10 @@ async function runReconciliationScan(ctx: ActionCtx, job: Doc<"syncJobs">, shop:
 	}
 
 	const now = Date.now();
+	const shouldRefreshMerchantCatalog = isCacheRefreshRequired(state.merchantCatalogCacheState, {
+		hasBackingRecord: Boolean(state.merchantCatalogCacheState?.lastCompletedAt),
+		now,
+	});
 	const shouldRefreshCatalog = isCacheRefreshRequired(state.catalogCacheState, {
 		hasBackingRecord: Boolean(state.catalogCacheState?.lastCompletedAt),
 		now,
@@ -901,6 +1147,14 @@ async function runReconciliationScan(ctx: ActionCtx, job: Doc<"syncJobs">, shop:
 		hasBackingRecord: state.hasMetricsCache,
 		now,
 	});
+
+	if (shouldRefreshMerchantCatalog) {
+		await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+			pendingReason: "Reconciliation marked the merchant catalog cache stale or missing.",
+			shopDomain: shop.domain,
+			shopId: shop._id,
+		});
+	}
 
 	if (shouldRefreshCatalog) {
 		await ctx.runMutation(internal.shopifySync.queueSyncJob, {
@@ -927,11 +1181,11 @@ async function runReconciliationScan(ctx: ActionCtx, job: Doc<"syncJobs">, shop:
 	await ctx.runMutation(internal.shopifySync.completeJob, {
 		jobId: job._id,
 		payloadPreview:
-			shouldRefreshCatalog || shouldRefreshMetrics
+			shouldRefreshMerchantCatalog || shouldRefreshCatalog || shouldRefreshMetrics
 				? "Queued follow-up cache refresh work from reconciliation."
 				: "Reconciliation confirmed the current cache state is fresh enough.",
 		resultSummary:
-			shouldRefreshCatalog || shouldRefreshMetrics
+			shouldRefreshMerchantCatalog || shouldRefreshCatalog || shouldRefreshMetrics
 				? "Reconciliation queued follow-up cache refresh work."
 				: "Reconciliation confirmed existing cache state is fresh enough.",
 	});
@@ -1054,11 +1308,18 @@ export const getReconciliationContext = internalQuery({
 		shopId: v.id("shops"),
 	},
 	handler: async (ctx, args) => {
-		const [installation, catalogCacheState, metricsCacheState, metricsCache] = await Promise.all([
+		const [
+			installation,
+			merchantCatalogCacheState,
+			catalogCacheState,
+			metricsCacheState,
+			metricsCache,
+		] = await Promise.all([
 			ctx.db
 				.query("shopifyInstallations")
 				.withIndex("by_shop", (query) => query.eq("shopId", args.shopId))
 				.unique(),
+			getCacheState(ctx, args.shopId, MERCHANT_CATALOG_CACHE_KEY),
 			getCacheState(ctx, args.shopId, PUBLIC_CATALOG_CACHE_KEY),
 			getCacheState(ctx, args.shopId, MERCHANT_METRICS_CACHE_KEY),
 			ctx.db
@@ -1071,6 +1332,7 @@ export const getReconciliationContext = internalQuery({
 			catalogCacheState,
 			hasMetricsCache: Boolean(metricsCache),
 			installation,
+			merchantCatalogCacheState,
 			metricsCacheState,
 		};
 	},
@@ -1315,6 +1577,55 @@ export const upsertCatalogBatch = internalMutation({
 	},
 });
 
+export const upsertMerchantCatalogBatch = internalMutation({
+	args: {
+		domain: v.string(),
+		products: v.array(sanitizedMerchantCatalogProductValidator),
+		refreshedAt: v.number(),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		for (const product of args.products) {
+			const existing = await ctx.db
+				.query("shopifyMerchantCatalogProducts")
+				.withIndex("by_shop_and_shopify_product_id", (query) =>
+					query.eq("shopId", args.shopId).eq("shopifyProductId", product.shopifyProductId),
+				)
+				.unique();
+
+			const patch = withoutUndefined({
+				domain: args.domain,
+				handle: product.handle,
+				lastRefreshedAt: args.refreshedAt,
+				onlineStoreUrl: product.onlineStoreUrl,
+				productType: product.productType,
+				publishedAt: product.publishedAt,
+				searchText: product.searchText,
+				shopId: args.shopId,
+				shopifyLegacyProductId: product.shopifyLegacyProductId,
+				shopifyProductId: product.shopifyProductId,
+				sourceStatus: product.sourceStatus,
+				sourceUpdatedAt: product.sourceUpdatedAt,
+				summary: product.summary,
+				title: product.title,
+				totalInventory: product.totalInventory,
+				variantCount: product.variantCount,
+				vendor: product.vendor,
+			});
+
+			if (existing) {
+				await ctx.db.patch(existing._id, patch);
+			} else {
+				await ctx.db.insert("shopifyMerchantCatalogProducts", patch);
+			}
+		}
+
+		return {
+			ok: true,
+		};
+	},
+});
+
 export const upsertCollectionBatch = internalMutation({
 	args: {
 		collections: v.array(sanitizedCatalogCollectionValidator),
@@ -1355,6 +1666,27 @@ export const upsertCollectionBatch = internalMutation({
 		return {
 			ok: true,
 		};
+	},
+});
+
+export const deleteStaleMerchantCatalogBatch = internalMutation({
+	args: {
+		refreshedAt: v.number(),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		const staleProducts = await ctx.db
+			.query("shopifyMerchantCatalogProducts")
+			.withIndex("by_shop_and_last_refreshed_at", (query) =>
+				query.eq("shopId", args.shopId).lt("lastRefreshedAt", args.refreshedAt),
+			)
+			.take(SHOPIFY_PAGE_SIZE);
+
+		for (const row of staleProducts) {
+			await ctx.db.delete(row._id);
+		}
+
+		return staleProducts.length;
 	},
 });
 
@@ -1629,6 +1961,10 @@ export const cleanupShopDataBatch = internalMutation({
 			.query("shopifyCatalogProducts")
 			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
 			.take(SHOPIFY_PAGE_SIZE);
+		const merchantCatalogRows = await ctx.db
+			.query("shopifyMerchantCatalogProducts")
+			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+			.take(SHOPIFY_PAGE_SIZE);
 		const collectionRows = await ctx.db
 			.query("shopifyCatalogCollections")
 			.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
@@ -1665,6 +2001,10 @@ export const cleanupShopDataBatch = internalMutation({
 			await ctx.db.delete(row._id);
 		}
 
+		for (const row of merchantCatalogRows) {
+			await ctx.db.delete(row._id);
+		}
+
 		for (const row of collectionRows) {
 			await ctx.db.delete(row._id);
 		}
@@ -1685,23 +2025,31 @@ export const cleanupShopDataBatch = internalMutation({
 			args.jobId,
 			withoutUndefined({
 				lastUpdatedAt: now,
-				payloadPreview: `Deleted ${catalogRows.length} cached product row(s) and ${collectionRows.length} collection row(s) during uninstall cleanup.`,
+				payloadPreview: `Deleted ${catalogRows.length + merchantCatalogRows.length} cached product row(s) and ${collectionRows.length} collection row(s) during uninstall cleanup.`,
 			}),
 		);
 
-		const [remainingCatalogRows, remainingCollectionRows] = await Promise.all([
-			ctx.db
-				.query("shopifyCatalogProducts")
-				.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
-				.take(1),
-			ctx.db
-				.query("shopifyCatalogCollections")
-				.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
-				.take(1),
-		]);
+		const [remainingCatalogRows, remainingMerchantCatalogRows, remainingCollectionRows] =
+			await Promise.all([
+				ctx.db
+					.query("shopifyCatalogProducts")
+					.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+					.take(1),
+				ctx.db
+					.query("shopifyMerchantCatalogProducts")
+					.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+					.take(1),
+				ctx.db
+					.query("shopifyCatalogCollections")
+					.withIndex("by_shop_and_last_refreshed_at", (query) => query.eq("shopId", args.shopId))
+					.take(1),
+			]);
 
 		return {
-			hasMore: remainingCatalogRows.length > 0 || remainingCollectionRows.length > 0,
+			hasMore:
+				remainingCatalogRows.length > 0 ||
+				remainingMerchantCatalogRows.length > 0 ||
+				remainingCollectionRows.length > 0,
 		};
 	},
 });
@@ -1723,6 +2071,19 @@ export const runJob = internalAction({
 
 		try {
 			switch (job.type) {
+				case MERCHANT_CATALOG_INDEX_REBUILD_JOB: {
+					await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+						pendingReason: job.payloadPreview ?? "Queued merchant catalog workflow from legacy sync job.",
+						shopDomain: shop.domain,
+						shopId: shop._id,
+					});
+					await ctx.runMutation(internal.shopifySync.completeJob, {
+						jobId: job._id,
+						payloadPreview: "Started merchant catalog sync workflow.",
+						resultSummary: "Merchant catalog sync workflow started.",
+					});
+					break;
+				}
 				case CATALOG_INDEX_REBUILD_JOB: {
 					const accessToken = await resolveUsableInstallationAccessToken(ctx, {
 						shopDomain: shop.domain,

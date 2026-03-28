@@ -4,12 +4,31 @@ import { resolve } from "node:path";
 const adminEmail = process.env.TEST_ADMIN_EMAIL;
 const adminPassword = process.env.TEST_ADMIN_PASSWORD;
 const fixturePath = resolve(process.cwd(), "e2e/fixtures/restock-reorder-playbook.md");
-const copilotPrompt =
-	"Use my uploaded playbooks to guide a reorder for Northstar Supply. Stock is down to 9 units and there is no open PO. What steps should I follow?";
+
+function buildCopilotPrompt(documentTitle: string) {
+	return `Use the uploaded playbook titled "${documentTitle}" to guide a reorder for Northstar Supply. Stock is down to 9 units and there is no open PO. What steps should I follow?`;
+}
+
+async function gotoWithRetry(page: Page, url: string) {
+	for (let attempt = 0; attempt < 2; attempt += 1) {
+		try {
+			await page.goto(url, {
+				waitUntil: "domcontentloaded",
+			});
+			return;
+		} catch (error) {
+			if (attempt === 1) {
+				throw error;
+			}
+
+			await page.waitForTimeout(500);
+		}
+	}
+}
 
 async function signInAsAdmin(page: Page, context: BrowserContext) {
 	await context.clearCookies();
-	await page.goto("/auth/sign-in");
+	await gotoWithRetry(page, "/auth/sign-in");
 	await page.waitForTimeout(250);
 
 	const emailInput = page.locator('input[name="email"]');
@@ -47,6 +66,7 @@ test.describe("restock reorder playbook demo", () => {
 
 		const runId = Date.now().toString();
 		const documentTitle = `Northstar Supply restock playbook ${runId}`;
+		const copilotPrompt = buildCopilotPrompt(documentTitle);
 		const longTimeout = 90_000;
 
 		await signInAsAdmin(page, context);

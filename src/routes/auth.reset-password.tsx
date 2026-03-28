@@ -87,7 +87,24 @@ function ResetPasswordRoute() {
 			<Heading>Set your new password</Heading>
 			<Text>Enter a new password for your admin account.</Text>
 
-			<div className="mt-8">
+			<form
+				className="mt-8"
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
+						return;
+					}
+
+					event.preventDefault();
+					const formElement = event.currentTarget;
+					queueMicrotask(() => {
+						formElement.requestSubmit();
+					});
+				}}
+				onSubmit={(event) => {
+					event.preventDefault();
+					void form.handleSubmit();
+				}}
+			>
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="newPassword">
@@ -125,16 +142,15 @@ function ResetPasswordRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<div className="mt-6">
-					<Button
-						color="dark/zinc"
-						disabled={resetMutation.isPending}
-						onClick={() => void form.handleSubmit()}
-						type="button"
-					>
-						{resetMutation.isPending ? "Resetting\u2026" : "Reset password"}
-					</Button>
-				</div>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSubmitting) => (
+						<div className="mt-6">
+							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+								{isSubmitting ? "Resetting\u2026" : "Reset password"}
+							</Button>
+						</div>
+					)}
+				</form.Subscribe>
 
 				{resetMutation.error ? (
 					<div className="mt-4">
@@ -143,7 +159,7 @@ function ResetPasswordRoute() {
 						</Text>
 					</div>
 				) : null}
-			</div>
+			</form>
 		</div>
 	);
 }

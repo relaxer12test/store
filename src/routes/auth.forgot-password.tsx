@@ -42,7 +42,7 @@ function ForgotPasswordRoute() {
 				return;
 			}
 
-			void navigate({
+			await navigate({
 				to: "/auth/reset-sent",
 				search: { email: normalizedEmail },
 			});
@@ -54,7 +54,24 @@ function ForgotPasswordRoute() {
 			<Heading>Reset password</Heading>
 			<Text>Enter your admin email and we'll send a reset link.</Text>
 
-			<div className="mt-8">
+			<form
+				className="mt-8"
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
+						return;
+					}
+
+					event.preventDefault();
+					const formElement = event.currentTarget;
+					queueMicrotask(() => {
+						formElement.requestSubmit();
+					});
+				}}
+				onSubmit={(event) => {
+					event.preventDefault();
+					void form.handleSubmit();
+				}}
+			>
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="email">
@@ -77,19 +94,18 @@ function ForgotPasswordRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<div className="mt-6 flex items-center gap-3">
-					<Button
-						color="dark/zinc"
-						disabled={resetMutation.isPending}
-						onClick={() => void form.handleSubmit()}
-						type="button"
-					>
-						{resetMutation.isPending ? "Sending\u2026" : "Send reset link"}
-					</Button>
-					<Button plain onClick={() => void navigate({ to: "/auth/sign-in" })} type="button">
-						Back to sign in
-					</Button>
-				</div>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSubmitting) => (
+						<div className="mt-6 flex items-center gap-3">
+							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+								{isSubmitting ? "Sending\u2026" : "Send reset link"}
+							</Button>
+							<Button plain onClick={() => void navigate({ to: "/auth/sign-in" })} type="button">
+								Back to sign in
+							</Button>
+						</div>
+					)}
+				</form.Subscribe>
 
 				{resetMutation.error ? (
 					<div className="mt-4">
@@ -98,7 +114,7 @@ function ForgotPasswordRoute() {
 						</Text>
 					</div>
 				) : null}
-			</div>
+			</form>
 		</div>
 	);
 }

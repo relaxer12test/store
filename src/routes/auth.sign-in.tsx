@@ -1,6 +1,6 @@
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Button } from "@/components/ui/cata/button";
 import { Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
 import { Heading } from "@/components/ui/cata/heading";
@@ -19,7 +19,6 @@ export const Route = createFileRoute("/auth/sign-in")({
 function SignInRoute() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const router = useRouter();
 	const signInMutation = useMutation({
 		mutationFn: async (values: { email: string; password: string }) => {
 			const result = await authClient.signIn.email(values);
@@ -27,8 +26,6 @@ function SignInRoute() {
 			if (result.error) {
 				throw new Error(getAuthClientErrorMessage(result.error, "Admin authentication failed."));
 			}
-
-			await authClient.getSession();
 
 			const viewer = await getCurrentViewerServer();
 			queryClient.setQueryData(currentViewerQuery.queryKey, viewer);
@@ -59,7 +56,6 @@ function SignInRoute() {
 				return;
 			}
 
-			await router.invalidate();
 			await navigate({
 				to: "/internal/overview",
 			});
@@ -71,7 +67,24 @@ function SignInRoute() {
 			<Heading>Sign in</Heading>
 			<Text>Internal diagnostics require an admin session.</Text>
 
-			<div className="mt-8">
+			<form
+				className="mt-8"
+				onKeyDown={(event) => {
+					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
+						return;
+					}
+
+					event.preventDefault();
+					const formElement = event.currentTarget;
+					queueMicrotask(() => {
+						formElement.requestSubmit();
+					});
+				}}
+				onSubmit={(event) => {
+					event.preventDefault();
+					void form.handleSubmit();
+				}}
+			>
 				<Fieldset>
 					<FieldGroup>
 						<form.Field name="email">
@@ -110,23 +123,22 @@ function SignInRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<div className="mt-6 flex items-center justify-between">
-					<Button
-						color="dark/zinc"
-						disabled={signInMutation.isPending}
-						onClick={() => void form.handleSubmit()}
-						type="button"
-					>
-						{signInMutation.isPending ? "Signing in\u2026" : "Sign in"}
-					</Button>
-					<Button
-						plain
-						onClick={() => void navigate({ to: "/auth/forgot-password" })}
-						type="button"
-					>
-						Forgot password?
-					</Button>
-				</div>
+				<form.Subscribe selector={(state) => state.isSubmitting}>
+					{(isSubmitting) => (
+						<div className="mt-6 flex items-center justify-between">
+							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+								{isSubmitting ? "Signing in\u2026" : "Sign in"}
+							</Button>
+							<Button
+								plain
+								onClick={() => void navigate({ to: "/auth/forgot-password" })}
+								type="button"
+							>
+								Forgot password?
+							</Button>
+						</div>
+					)}
+				</form.Subscribe>
 
 				{signInMutation.error ? (
 					<div className="mt-4">
@@ -135,7 +147,7 @@ function SignInRoute() {
 						</Text>
 					</div>
 				) : null}
-			</div>
+			</form>
 		</div>
 	);
 }
