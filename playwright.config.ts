@@ -38,6 +38,9 @@ function loadEnvFile(filePath: string) {
 
 loadEnvFile(resolve(process.cwd(), ".env.local"));
 
+const e2eSuite = process.env.PLAYWRIGHT_E2E_SUITE ?? "focused";
+const headedSuitePattern = "**/headed/**/*.spec.ts";
+
 export default defineConfig({
 	testDir: "./e2e",
 	fullyParallel: false,
@@ -45,7 +48,8 @@ export default defineConfig({
 	outputDir: "test-results/playwright-artifacts",
 	reporter: [["list"]],
 	retries: 0,
-	testMatch: /.*\.spec\.ts/,
+	testIgnore: e2eSuite === "focused" ? [headedSuitePattern] : undefined,
+	testMatch: e2eSuite === "headed" ? [headedSuitePattern] : /.*\.spec\.ts/,
 	timeout: 30_000,
 	use: {
 		baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "https://storeai.ldev.cloud",

@@ -2,6 +2,17 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const adminEmail = process.env.TEST_ADMIN_EMAIL;
 const adminPassword = process.env.TEST_ADMIN_PASSWORD;
+const internalRoutes = [
+	"/internal/overview",
+	"/internal/shops",
+	"/internal/cache",
+	"/internal/workflows",
+	"/internal/webhooks",
+	"/internal/audits",
+	"/internal/ai-sessions",
+	"/internal/users",
+] as const;
+
 async function openSignInPage(page: Page) {
 	await page.goto("/");
 	const signInLink = page.getByRole("link", { name: "Sign in", exact: true });
@@ -79,7 +90,6 @@ test.describe("internal admin sign-in", () => {
 
 		const emailInput = page.locator('input[name="email"]');
 		const passwordInput = page.locator('input[name="password"]');
-		const submitButton = page.getByRole("button", { name: "Sign in" });
 
 		await emailInput.click();
 		await emailInput.pressSequentially(adminEmail!);
@@ -143,22 +153,15 @@ test.describe("internal admin sign-in", () => {
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
 	});
 
-	test("internal routes render without the generic error boundary", async ({ context, page }) => {
-		await signInAsAdmin(page, context);
-
-		for (const pathname of [
-			"/internal/overview",
-			"/internal/shops",
-			"/internal/cache",
-			"/internal/workflows",
-			"/internal/webhooks",
-			"/internal/audits",
-			"/internal/ai-sessions",
-			"/internal/users",
-		]) {
+	for (const pathname of internalRoutes) {
+		test(`route ${pathname} renders without the generic error boundary`, async ({
+			context,
+			page,
+		}) => {
+			await signInAsAdmin(page, context);
 			await page.goto(pathname);
 			await expect(page.getByText("Something went wrong!")).toHaveCount(0);
 			await expect(page.getByText("This route failed to load")).toHaveCount(0);
-		}
-	});
+		});
+	}
 });

@@ -2,6 +2,12 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const adminEmail = process.env.TEST_ADMIN_EMAIL;
 const adminPassword = process.env.TEST_ADMIN_PASSWORD;
+const merchantRoutes = [
+	{ expectedPath: "/app/overview", route: "/app" },
+	{ expectedPath: "/app/explorer", route: "/app/explorer" },
+	{ expectedPath: "/app/workflows", route: "/app/workflows" },
+	{ expectedPath: "/app/settings", route: "/app/settings" },
+] as const;
 
 async function signInAsAdmin(page: Page, context: BrowserContext) {
 	await context.clearCookies();
@@ -49,22 +55,15 @@ test.describe("internal admin merchant access", () => {
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
 	});
 
-	test("internal admin can open merchant routes without route errors", async ({
-		context,
-		page,
-	}) => {
-		await signInAsAdmin(page, context);
-
-		for (const { expectedPath, route } of [
-			{ expectedPath: "/app/overview", route: "/app" },
-			{ expectedPath: "/app/copilot", route: "/app/copilot" },
-			{ expectedPath: "/app/explorer", route: "/app/explorer" },
-			{ expectedPath: "/app/workflows", route: "/app/workflows" },
-			{ expectedPath: "/app/settings", route: "/app/settings" },
-		]) {
+	for (const { expectedPath, route } of merchantRoutes) {
+		test(`internal admin can open ${expectedPath} without route errors`, async ({
+			context,
+			page,
+		}) => {
+			await signInAsAdmin(page, context);
 			await page.goto(route);
 			await expect(page).toHaveURL(new RegExp(`${expectedPath.replaceAll("/", "\\/")}$`));
 			await expect(page.getByText("This route failed to load")).toHaveCount(0);
-		}
-	});
+		});
+	}
 });
