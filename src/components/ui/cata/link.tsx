@@ -1,5 +1,5 @@
 import * as Headless from "@headlessui/react";
-import { Link as RouterLink } from "@tanstack/react-router";
+import { useLinkProps } from "@tanstack/react-router";
 import type React from "react";
 import { forwardRef } from "react";
 
@@ -17,25 +17,31 @@ function isExternalHref(href: string) {
 }
 
 export const Link = forwardRef<HTMLAnchorElement, LinkProps>(function Link(
-	{ href, rel, target, ...props },
+	{ children, href, rel, target, ...props },
 	ref,
 ) {
+	const explicitAriaCurrent = props["aria-current"];
+	const externalHref = isExternalHref(href);
 	const finalRel = target === "_blank" && !rel ? "noopener noreferrer" : rel;
+	const routerLinkProps = useLinkProps(
+		{
+			...(props as Omit<typeof props, never>),
+			href: externalHref ? href : undefined,
+			preload: externalHref ? false : "intent",
+			rel: finalRel,
+			target,
+			to: externalHref ? undefined : (href as never),
+		},
+		ref,
+	);
+	const { "aria-current": _ariaCurrent, "data-status": _dataStatus, ...safeLinkProps } =
+		routerLinkProps;
 
 	return (
 		<Headless.DataInteractive>
-			{isExternalHref(href) ? (
-				<a {...props} href={href} ref={ref} rel={finalRel} target={target} />
-			) : (
-				<RouterLink
-					{...(props as Omit<typeof props, never>)}
-					preload="intent"
-					ref={ref as never}
-					rel={finalRel}
-					target={target}
-					to={href as never}
-				/>
-			)}
+			<a {...safeLinkProps} aria-current={explicitAriaCurrent}>
+				{children}
+			</a>
 		</Headless.DataInteractive>
 	);
 });

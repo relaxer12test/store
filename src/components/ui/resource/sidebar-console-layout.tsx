@@ -6,12 +6,13 @@ import {
 	Sidebar,
 	SidebarBody,
 	SidebarHeader,
-	SidebarItem,
 	SidebarLabel,
 	SidebarSection,
 } from "@/components/ui/cata/sidebar";
 import { SidebarLayout, useSidebarClose } from "@/components/ui/cata/sidebar-layout";
 import { Text } from "@/components/ui/cata/text";
+import { SidebarNavigationLink } from "@/components/ui/navigation-state";
+import { resolveNavigationItemActiveStates } from "@/lib/navigation";
 
 export interface SidebarConsoleNavItem {
 	description: string;
@@ -33,6 +34,7 @@ function NavigationSidebar({
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const activeStates = resolveNavigationItemActiveStates(pathname, items);
 	const closeSidebar = useSidebarClose();
 
 	return (
@@ -52,12 +54,10 @@ function NavigationSidebar({
 
 			<SidebarBody className="px-3 py-3">
 				<SidebarSection>
-					{items.map((item) => {
-						const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
-
+					{items.map((item, index) => {
 						return (
-							<SidebarItem
-								current={current}
+							<SidebarNavigationLink
+								activeState={activeStates[index]}
 								href={item.href}
 								key={item.href}
 								onClick={closeSidebar ?? undefined}
@@ -68,7 +68,7 @@ function NavigationSidebar({
 										{item.description}
 									</Text>
 								</div>
-							</SidebarItem>
+							</SidebarNavigationLink>
 						);
 					})}
 				</SidebarSection>

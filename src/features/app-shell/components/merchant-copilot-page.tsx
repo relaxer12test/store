@@ -105,10 +105,7 @@ export function MerchantCopilotPage({
 				threadRef={threadRef}
 			>
 				{conversation.messages.length === 0 ? (
-					<CopilotEmptyState
-						onSubmit={submitPrompt}
-						quickPrompts={conversation.quickPrompts}
-					/>
+					<CopilotEmptyState onSubmit={submitPrompt} quickPrompts={conversation.quickPrompts} />
 				) : (
 					<CopilotThread
 						activeApprovalId={activeApprovalId}

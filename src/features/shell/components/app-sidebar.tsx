@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { useTransition } from "react";
 import {
 	Sidebar,
@@ -8,39 +9,42 @@ import {
 	SidebarLabel,
 	SidebarSection,
 } from "@/components/ui/cata/sidebar";
+import { SidebarNavigationLink } from "@/components/ui/navigation-state";
+import { getShellNavigationItems } from "@/features/shell/navigation";
 import { authClient, useAppAuth } from "@/lib/auth-client";
+import { resolveNavigationItemActiveStates } from "@/lib/navigation";
 
 export function AppSidebar() {
 	const auth = useAppAuth();
 	const [isPending, startTransition] = useTransition();
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	});
 	const showInternalNav = auth.isAdmin;
+	const navigationItems = getShellNavigationItems(showInternalNav);
+	const activeStates = resolveNavigationItemActiveStates(pathname, navigationItems);
 
 	return (
 		<Sidebar>
 			<SidebarHeader>
 				<SidebarSection>
-					<SidebarItem href="/">
+					<SidebarNavigationLink activeState="inactive" href="/">
 						<SidebarLabel>Shopify AI Console</SidebarLabel>
-					</SidebarItem>
+					</SidebarNavigationLink>
 				</SidebarSection>
 			</SidebarHeader>
 
 			<SidebarBody>
 				<SidebarSection>
-					<SidebarItem href="/">
-						<SidebarLabel>Marketing</SidebarLabel>
-					</SidebarItem>
-					<SidebarItem href="/install">
-						<SidebarLabel>Install</SidebarLabel>
-					</SidebarItem>
-					<SidebarItem href="/app">
-						<SidebarLabel>Merchant app</SidebarLabel>
-					</SidebarItem>
-					{showInternalNav ? (
-						<SidebarItem href="/internal">
-							<SidebarLabel>Internal</SidebarLabel>
-						</SidebarItem>
-					) : null}
+					{navigationItems.map((item, index) => (
+						<SidebarNavigationLink
+							activeState={activeStates[index]}
+							href={item.href}
+							key={item.href}
+						>
+							<SidebarLabel>{item.label}</SidebarLabel>
+						</SidebarNavigationLink>
+					))}
 				</SidebarSection>
 
 				{showInternalNav ? (

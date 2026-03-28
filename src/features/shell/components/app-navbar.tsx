@@ -1,3 +1,4 @@
+import { useRouterState } from "@tanstack/react-router";
 import { useTransition } from "react";
 import { Avatar } from "@/components/ui/cata/avatar";
 import {
@@ -16,12 +17,20 @@ import {
 	NavbarSection,
 	NavbarSpacer,
 } from "@/components/ui/cata/navbar";
+import { NavbarNavigationLink } from "@/components/ui/navigation-state";
+import { getShellNavigationItems } from "@/features/shell/navigation";
 import { authClient, useAppAuth } from "@/lib/auth-client";
+import { resolveNavigationItemActiveStates } from "@/lib/navigation";
 
 export function AppNavbar() {
 	const auth = useAppAuth();
 	const [isPending, startTransition] = useTransition();
+	const pathname = useRouterState({
+		select: (state) => state.location.pathname,
+	});
 	const showInternalNav = auth.isAdmin;
+	const navigationItems = getShellNavigationItems(showInternalNav);
+	const activeStates = resolveNavigationItemActiveStates(pathname, navigationItems);
 	const displayName = auth.viewer?.viewer.name ?? auth.session.data?.user?.name ?? null;
 	const displayEmail = auth.viewer?.viewer.email ?? auth.session.data?.user?.email ?? null;
 	const displayImage = auth.session.data?.user?.image ?? null;
@@ -38,10 +47,11 @@ export function AppNavbar() {
 			<NavbarSpacer />
 
 			<NavbarSection>
-				<NavbarItem href="/">Marketing</NavbarItem>
-				<NavbarItem href="/install">Install</NavbarItem>
-				<NavbarItem href="/app">Merchant app</NavbarItem>
-				{showInternalNav ? <NavbarItem href="/internal">Internal</NavbarItem> : null}
+				{navigationItems.map((item, index) => (
+					<NavbarNavigationLink activeState={activeStates[index]} href={item.href} key={item.href}>
+						{item.label}
+					</NavbarNavigationLink>
+				))}
 			</NavbarSection>
 
 			<NavbarDivider />
