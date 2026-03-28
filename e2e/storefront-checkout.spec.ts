@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Frame, type Locator, type Page } from "@playwright/test";
 
 const storefrontBaseUrl = process.env.PLAYWRIGHT_STOREFRONT_URL ?? "https://storedev.ldev.cloud";
 const storefrontPassword =
@@ -11,6 +11,13 @@ const shopifyTestCard = {
 	number: process.env.TEST_SHOPIFY_CARD_NUMBER ?? "4242424242424242",
 	expiry: process.env.TEST_SHOPIFY_CARD_EXPIRY ?? "12/34",
 	securityCode: process.env.TEST_SHOPIFY_CARD_SECURITY_CODE ?? "111",
+};
+
+const bogusGatewayCard = {
+	name: process.env.TEST_BOGUS_CARD_NAME ?? "Bogus Gateway",
+	number: process.env.TEST_BOGUS_CARD_NUMBER ?? "1",
+	expiry: process.env.TEST_BOGUS_CARD_EXPIRY ?? "1234",
+	securityCode: process.env.TEST_BOGUS_CARD_SECURITY_CODE ?? "111",
 };
 
 test.use({
@@ -43,11 +50,7 @@ test.describe("storefront checkout", () => {
 
 		const candidateProductUrls =
 			await test.step("Collect live inventory candidates from the storefront", async () => {
-				await page.getByRole("link", { name: "Shop Best Sellers" }).click();
-				await page.waitForURL("**/collections/frontpage", {
-					timeout: 30_000,
-				});
-				await pause(page, 0.75);
+				await openStorefront(page, "/collections/frontpage");
 
 				const bestSellerCandidates = await collectProductUrls(
 					page.locator('a[href*="/products/"]'),
@@ -227,17 +230,43 @@ async function tryAddProductToCart(page: Page, productUrl: string, existingLineI
 	await pause(page, 0.5);
 
 	const productTitle = (await title.textContent())?.trim() ?? productUrl;
+	const variantId = await page
+		.locator('input.product-variant-id, form[data-type="add-to-cart-form"] input[name="id"]')
+		.first()
+		.getAttribute("value")
+		.catch(() => null);
 
-	await addButton.click();
-	await pause(page, 1);
-
-	const inlineError = page.locator(".product-form__error-message").first();
-	const inlineErrorText = ((await inlineError.textContent().catch(() => "")) ?? "").trim();
-
-	if (inlineErrorText) {
+	if (!variantId) {
 		return null;
 	}
 
+	const addResult = await page.evaluate(
+		async ({ variantId: selectedVariantId }) => {
+			const response = await fetch("/cart/add.js", {
+				method: "POST",
+				headers: {
+					Accept: "application/json",
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					items: [{ id: Number(selectedVariantId), quantity: 1 }],
+				}),
+			});
+
+			return {
+				body: await response.text(),
+				ok: response.ok,
+				status: response.status,
+			};
+		},
+		{ variantId },
+	);
+
+	if (!addResult.ok) {
+		return null;
+	}
+
+	await pause(page, 1);
 	await openStorefront(page, "/cart");
 
 	const cartItems = page.locator("#main-cart-items tr.cart-item");
@@ -505,6 +534,13 @@ async function fillPaymentCard(
 		securityCode: string;
 	},
 ) {
+	const activeCard = (await page
+		.getByRole("img", { name: /BOGUS/i })
+		.isVisible()
+		.catch(() => false))
+		? bogusGatewayCard
+		: card;
+
 	const cardNameField = await maybeFindVisibleMainFrameLocator(page, [
 		'input[autocomplete="cc-name"]',
 		'input[name*="card"][name*="name"]',
@@ -514,9 +550,13 @@ async function fillPaymentCard(
 	]);
 
 	if (cardNameField) {
-		await typeSlowly(cardNameField, card.name);
+		await typeSlowly(cardNameField, activeCard.name);
 		await pause(page, 0.5);
 	}
+
+	await fillFrameInput(page, ['input[placeholder*="Name on card"]'], activeCard.name, [
+		/Name on card/i,
+	]);
 
 	await fillFrameInput(
 		page,
@@ -525,18 +565,27 @@ async function fillPaymentCard(
 			'input[name="number"]',
 			'input[placeholder*="Card number"]',
 		],
-		card.number,
+		activeCard.number,
+		[/^Card number$/i],
 	);
-	await fillFrameInput(
-		page,
-		[
-			'input[autocomplete="cc-exp"]',
-			'input[name="expiry"]',
-			'input[placeholder*="Expiration"]',
-			'input[placeholder*="MM / YY"]',
-		],
-		card.expiry,
-	);
+
+	if (activeCard === bogusGatewayCard) {
+		await fillBogusExpiryFields(page, activeCard.expiry);
+	} else {
+		await fillFrameInput(
+			page,
+			[
+				'input[autocomplete="cc-exp"]',
+				'input[name="expiry"]',
+				'input[placeholder*="Expiration"]',
+				'input[placeholder*="MM / YY"]',
+			],
+			activeCard.expiry,
+			[/Expiration date/i, /Expiry date/i],
+			"type",
+		);
+	}
+
 	await fillFrameInput(
 		page,
 		[
@@ -545,23 +594,69 @@ async function fillPaymentCard(
 			'input[placeholder*="Security code"]',
 			'input[placeholder*="CVV"]',
 		],
-		card.securityCode,
+		activeCard.securityCode,
+		[/Security code/i, /CVV/i],
 	);
 }
 
-async function fillFrameInput(page: Page, selectors: string[], value: string) {
-	const locator = await findVisibleFrameLocator(page, selectors);
+async function fillFrameInput(
+	page: Page,
+	selectors: string[],
+	value: string,
+	roleNames: RegExp[] = [],
+	entryMode: "fill" | "type" = "fill",
+) {
+	const locator = await findVisibleFrameLocator(page, selectors, roleNames);
 
-	await typeSlowly(locator, value);
+	if (entryMode === "type") {
+		await typeSlowly(locator, value);
+	} else {
+		await locator.click({
+			force: true,
+		});
+		await locator.fill(value);
+	}
 	await pause(page, 0.5);
 }
 
-async function findVisibleFrameLocator(page: Page, selectors: string[], timeoutMs = 30_000) {
+async function fillBogusExpiryFields(page: Page, expiry: string) {
+	const expiryDigits = expiry.replace(/\D/g, "").padEnd(4, "0").slice(0, 4);
+	const expiryMonth = expiryDigits.slice(0, 2);
+	const expiryYear = expiryDigits.slice(2, 4);
+	const expiryFrame = await findFrameWithTextboxName(page, /Expiration date/i);
+
+	if (!expiryFrame) {
+		throw new Error("Could not find the Bogus expiry frame.");
+	}
+
+	const monthInput = expiryFrame.locator("input").nth(2);
+	const yearInput = expiryFrame.locator("input").nth(3);
+
+	await monthInput.click({
+		force: true,
+	});
+	await monthInput.fill(expiryMonth);
+	await yearInput.click({
+		force: true,
+	});
+	await yearInput.fill(expiryYear);
+	await pause(page, 0.5);
+}
+
+async function findVisibleFrameLocator(
+	page: Page,
+	selectors: string[],
+	roleNames: RegExp[] = [],
+	timeoutMs = 30_000,
+) {
 	const locator = await waitForVisibleLocator(
 		() =>
 			page
 				.frames()
-				.flatMap((frame) => selectors.map((selector) => frame.locator(selector).first())),
+				.flatMap((frame) => [
+					...roleNames.map((roleName) => frame.getByRole("textbox", { name: roleName }).first()),
+					...selectors.map((selector) => frame.locator(selector).first()),
+				]),
 		timeoutMs,
 	);
 
@@ -572,6 +667,27 @@ async function findVisibleFrameLocator(page: Page, selectors: string[], timeoutM
 	}
 
 	return locator;
+}
+
+async function findFrameWithTextboxName(page: Page, roleName: RegExp, timeoutMs = 15_000) {
+	const startedAt = Date.now();
+
+	while (Date.now() - startedAt < timeoutMs) {
+		for (const frame of page.frames()) {
+			const locator = frame.getByRole("textbox", { name: roleName }).first();
+
+			if (
+				(await locator.count().catch(() => 0)) &&
+				(await locator.isVisible().catch(() => false))
+			) {
+				return frame;
+			}
+		}
+
+		await page.waitForTimeout(250);
+	}
+
+	return null as Frame | null;
 }
 
 async function waitForVisibleLocator(getLocators: () => Locator[], timeoutMs: number) {

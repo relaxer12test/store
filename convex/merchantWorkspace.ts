@@ -67,6 +67,7 @@ const QUICK_PROMPTS = [
 	"Show me the dashboard for the last two weeks.",
 	"What products are closest to stocking out right now?",
 	"Search my uploaded documents for the returns SOP.",
+	"Use my uploaded playbooks to guide a reorder workflow for a low-stock SKU.",
 	'Draft an approval to pause product "Unicorn Sparkle Backpack".',
 ];
 

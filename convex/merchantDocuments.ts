@@ -1,10 +1,5 @@
-import { v } from "convex/values";
-import type {
-	MerchantDocumentRecord,
-	MerchantKnowledgeDocumentsData,
-} from "../src/shared/contracts/merchant-workspace";
-import { internal } from "./_generated/api";
-import type { Doc, Id } from "./_generated/dataModel";
+import { internal } from "@convex/_generated/api";
+import type { Doc, Id } from "@convex/_generated/dataModel";
 import {
 	action,
 	internalMutation,
@@ -12,9 +7,9 @@ import {
 	mutation,
 	query,
 	type MutationCtx,
-} from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims } from "./auth";
-import { documentStorage } from "./documentStorage";
+} from "@convex/_generated/server";
+import { requireMerchantActor, requireMerchantClaims } from "@convex/auth";
+import { documentStorage } from "@convex/documentStorage";
 import {
 	MAX_DOCUMENT_UPLOAD_BYTES,
 	MAX_INLINE_DOCUMENT_CHARS,
@@ -26,7 +21,12 @@ import {
 	searchTextForDocument,
 	summarizeDocument,
 	type KnowledgeDocumentVisibility,
-} from "./merchantKnowledgeShared";
+} from "@convex/merchantKnowledgeShared";
+import { v } from "convex/values";
+import type {
+	MerchantDocumentRecord,
+	MerchantKnowledgeDocumentsData,
+} from "@/shared/contracts/merchant-workspace";
 
 const DOCUMENT_REINDEX_JOB = "document_reindex";
 const PROCESSING_PLACEHOLDER_PREVIEW = "Queued for parsing, chunking, and indexing.";
@@ -426,6 +426,27 @@ export const hydrateKnowledgeChunks = internalQuery({
 				text: row.text,
 				visibility: row.visibility,
 			}));
+	},
+});
+
+export const getReadyDocumentContent = internalQuery({
+	args: {
+		documentId: v.id("merchantDocuments"),
+	},
+	handler: async (ctx, args) => {
+		const document = await ctx.db.get(args.documentId);
+
+		if (!document || document.status !== "ready" || !document.content) {
+			return null;
+		}
+
+		return {
+			content: document.content,
+			documentId: document._id,
+			title: document.title,
+			updatedAt: document.updatedAt,
+			visibility: document.visibility,
+		};
 	},
 });
 

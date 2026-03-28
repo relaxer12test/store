@@ -4,6 +4,7 @@ import { api, components, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ActionCtx } from "@convex/_generated/server";
 import { requireMerchantClaims } from "@convex/auth";
+import { normalizeDocumentText } from "@convex/merchantKnowledgeShared";
 import { getShopifyAccessFailureReason } from "@convex/shopifyAccess";
 import type { ToolSet } from "ai";
 import { z } from "zod";
@@ -112,6 +113,18 @@ type RetrievedKnowledgeMatch = {
 	visibility: "public" | "shop_private";
 };
 
+type ReadyWorkflowDocument = {
+	content: string;
+	documentId: Id<"merchantDocuments">;
+	title: string;
+	updatedAt: number;
+	visibility: "public" | "shop_private";
+};
+
+type WorkflowSectionKey = "contacts" | "context" | "escalation" | "requiredInputs" | "steps";
+
+type ParsedWorkflowDocument = Record<WorkflowSectionKey, string[]>;
+
 type ProductCandidate = {
 	handle: string;
 	id: string;
@@ -170,6 +183,7 @@ type WorkflowType =
 const DEFAULT_ANALYTICS_WINDOW_DAYS = 14;
 const PRODUCT_CANDIDATE_LIMIT = 5;
 const MERCHANT_TOOL_STEP_LIMIT = 8;
+const RESTOCK_WORKFLOW_TITLE = "Restock workflow guidance";
 const SAFE_WORKFLOW_TYPES = [
 	"catalog_index_rebuild",
 	"dashboard_regeneration",
@@ -178,6 +192,30 @@ const SAFE_WORKFLOW_TYPES = [
 	"reconciliation_scan",
 ] as const;
 const workflowTypeSchema = z.enum(SAFE_WORKFLOW_TYPES);
+const WORKFLOW_GUIDANCE_TOOL_NAMES = ["workflowGuidance"];
+const WORKFLOW_GUIDANCE_HINTS = [/\bworkflow\b/i, /\bprocess\b/i, /\bsteps?\b/i, /\bplaybook\b/i];
+const RESTOCK_WORKFLOW_HINTS = [
+	/\breorder\b/i,
+	/\brestock\b/i,
+	/\bsupplier\b/i,
+	/\bvendor\b/i,
+	/\bpurchase order\b/i,
+	/\bpo\b/i,
+];
+const WORKFLOW_SECTION_ALIASES: Record<WorkflowSectionKey, string[]> = {
+	contacts: ["contact", "contacts", "owners", "owner", "vendor contact"],
+	context: [
+		"context",
+		"overview",
+		"reorder trigger",
+		"target cover",
+		"use when",
+		"when to reorder",
+	],
+	escalation: ["blockers", "escalate when", "escalation", "escalation and blockers", "risks"],
+	requiredInputs: ["before you start", "inputs", "required inputs"],
+	steps: ["process", "steps", "workflow"],
+};
 
 let merchantAgentSingleton: Agent<MerchantAgentCtx> | null = null;
 
@@ -404,6 +442,243 @@ function buildDocumentMatchesDashboard(matches: RetrievedKnowledgeMatch[]): Dash
 		generatedAt: new Date().toISOString(),
 		title: "Knowledge matches",
 	});
+}
+
+function shouldUseWorkflowGuidance(prompt: string) {
+	return (
+		WORKFLOW_GUIDANCE_HINTS.some((pattern) => pattern.test(prompt)) &&
+		RESTOCK_WORKFLOW_HINTS.some((pattern) => pattern.test(prompt))
+	);
+}
+
+function normalizeWorkflowHeading(value: string) {
+	return value
+		.toLowerCase()
+		.trim()
+		.replace(/^[#\s]+/g, "")
+		.replace(/[.:]+$/g, "")
+		.replace(/\s+/g, " ");
+}
+
+function resolveWorkflowSection(value: string): WorkflowSectionKey | null {
+	for (const [section, aliases] of Object.entries(WORKFLOW_SECTION_ALIASES) as Array<
+		[WorkflowSectionKey, string[]]
+	>) {
+		if (aliases.includes(value)) {
+			return section;
+		}
+	}
+
+	return null;
+}
+
+function cleanWorkflowLine(value: string) {
+	return value
+		.trim()
+		.replace(/^[-*]\s+/, "")
+		.replace(/^\d+\.\s+/, "")
+		.trim();
+}
+
+function parseWorkflowDocument(content: string): ParsedWorkflowDocument | null {
+	const parsed: ParsedWorkflowDocument = {
+		contacts: [],
+		context: [],
+		escalation: [],
+		requiredInputs: [],
+		steps: [],
+	};
+	let currentSection: WorkflowSectionKey | null = null;
+
+	for (const rawLine of normalizeDocumentText(content).split("\n")) {
+		const trimmedLine = rawLine.trim();
+
+		if (!trimmedLine) {
+			continue;
+		}
+
+		const directSection = resolveWorkflowSection(normalizeWorkflowHeading(trimmedLine));
+
+		if (directSection) {
+			currentSection = directSection;
+			continue;
+		}
+
+		const inlineHeadingMatch = trimmedLine.match(/^(.+?):\s*(.+)$/);
+
+		if (inlineHeadingMatch) {
+			const inlineSection = resolveWorkflowSection(
+				normalizeWorkflowHeading(inlineHeadingMatch[1] ?? ""),
+			);
+
+			if (inlineSection) {
+				currentSection = inlineSection;
+				const inlineValue = cleanWorkflowLine(inlineHeadingMatch[2] ?? "");
+
+				if (inlineValue.length > 0) {
+					parsed[inlineSection].push(inlineValue);
+				}
+
+				continue;
+			}
+		}
+
+		if (!currentSection) {
+			continue;
+		}
+
+		const cleanedLine = cleanWorkflowLine(trimmedLine);
+
+		if (
+			cleanedLine.length > 0 &&
+			parsed[currentSection][parsed[currentSection].length - 1] !== cleanedLine
+		) {
+			parsed[currentSection].push(cleanedLine);
+		}
+	}
+
+	if (parsed.steps.length < 3) {
+		return null;
+	}
+
+	if (
+		parsed.context.length === 0 &&
+		parsed.requiredInputs.length === 0 &&
+		parsed.escalation.length === 0
+	) {
+		return null;
+	}
+
+	return parsed;
+}
+
+function buildRestockWorkflowDashboard(parsed: ParsedWorkflowDocument): DashboardSpec {
+	const escalationBullets = [...parsed.escalation, ...parsed.contacts];
+
+	return dashboardSpecSchema.parse({
+		cards: [
+			{
+				bullets:
+					parsed.context.length > 0
+						? parsed.context
+						: ["No workflow context was recorded in the matched document."],
+				description: "When this playbook applies and what target coverage to maintain.",
+				id: "restock-context",
+				tone: parsed.context.length > 0 ? "neutral" : "watch",
+				type: "insight",
+			},
+			{
+				bullets:
+					parsed.requiredInputs.length > 0
+						? parsed.requiredInputs
+						: ["No required inputs were recorded in the matched document."],
+				description: "Inputs to gather before preparing the reorder.",
+				id: "restock-required-inputs",
+				tone: parsed.requiredInputs.length > 0 ? "accent" : "watch",
+				type: "insight",
+			},
+			{
+				bullets: parsed.steps,
+				description: "Deterministic next steps pulled from the uploaded playbook.",
+				id: "restock-recommended-steps",
+				tone: "success",
+				type: "insight",
+			},
+			{
+				bullets:
+					escalationBullets.length > 0
+						? escalationBullets
+						: ["No escalation or blocker guidance was recorded in the matched document."],
+				description: "Escalation rules, blockers, and ownership notes from the playbook.",
+				id: "restock-escalation",
+				tone: escalationBullets.length > 0 ? "watch" : "neutral",
+				type: "insight",
+			},
+		],
+		description: "Deterministic workflow guidance from the strongest matching merchant document.",
+		generatedAt: new Date().toISOString(),
+		title: RESTOCK_WORKFLOW_TITLE,
+	});
+}
+
+function buildWorkflowGuidanceBody(
+	document: ReadyWorkflowDocument,
+	parsed: ParsedWorkflowDocument,
+) {
+	return [
+		`Using ${document.title} as the current playbook.`,
+		parsed.context.find((line) => /\bcover\b/i.test(line)) ?? parsed.context[0] ?? null,
+		parsed.steps.slice(0, 5).join(" "),
+		parsed.escalation.slice(0, 2).join(" "),
+	]
+		.filter((value): value is string => Boolean(value))
+		.join(" ")
+		.slice(0, 520)
+		.trim();
+}
+
+async function tryBuildWorkflowGuidanceArtifact(
+	ctx: ActionCtx,
+	args: {
+		prompt: string;
+		shopId: Id<"shops">;
+	},
+): Promise<MerchantArtifact | null> {
+	if (!shouldUseWorkflowGuidance(args.prompt)) {
+		return null;
+	}
+
+	const matches = (await ctx.runAction(internal.merchantDocumentsNode.retrieveKnowledge, {
+		audience: "merchant",
+		limit: 6,
+		query: args.prompt,
+		shopId: args.shopId,
+	})) as RetrievedKnowledgeMatch[];
+
+	if (matches.length === 0) {
+		return null;
+	}
+
+	const prioritizedMatches = matches
+		.map((match, index) => ({
+			index,
+			match,
+		}))
+		.sort((left, right) => {
+			const leftPriority = left.match.visibility === "shop_private" ? 0 : 1;
+			const rightPriority = right.match.visibility === "shop_private" ? 0 : 1;
+
+			return leftPriority === rightPriority
+				? left.index - right.index
+				: leftPriority - rightPriority;
+		})
+		.map(({ match }) => match);
+	const bestMatch = prioritizedMatches[0];
+
+	if (!bestMatch) {
+		return null;
+	}
+
+	const document = (await ctx.runQuery(internal.merchantDocuments.getReadyDocumentContent, {
+		documentId: bestMatch.documentId,
+	})) as ReadyWorkflowDocument | null;
+
+	if (!document || !RESTOCK_WORKFLOW_HINTS.some((pattern) => pattern.test(document.content))) {
+		return null;
+	}
+
+	const parsedDocument = parseWorkflowDocument(document.content);
+
+	if (!parsedDocument) {
+		return null;
+	}
+
+	return {
+		body: buildWorkflowGuidanceBody(document, parsedDocument),
+		citations: prioritizedMatches.slice(0, 4).map((match) => match.citation),
+		dashboard: buildRestockWorkflowDashboard(parsedDocument),
+		kind: "workflow",
+	};
 }
 
 function buildClarificationDashboard(
@@ -1934,6 +2209,32 @@ export async function runMerchantCopilotTurn(
 			role: "assistant",
 			shopId: runtime.shop._id,
 			toolNames: [],
+		});
+
+		return await ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {
+			actorId: runtime.actor.id,
+			conversationId,
+			shopId: runtime.shop._id,
+		});
+	}
+
+	const workflowArtifact = await tryBuildWorkflowGuidanceArtifact(ctx, {
+		prompt,
+		shopId: runtime.shop._id,
+	});
+
+	if (workflowArtifact) {
+		await ctx.runMutation(internal.merchantWorkspace.appendCopilotMessage, {
+			actorId: runtime.actor.id,
+			body: workflowArtifact.body,
+			citationsJson: JSON.stringify(workflowArtifact.citations),
+			conversationId,
+			dashboardSpecJson: workflowArtifact.dashboard
+				? JSON.stringify(workflowArtifact.dashboard)
+				: undefined,
+			role: "assistant",
+			shopId: runtime.shop._id,
+			toolNames: [...WORKFLOW_GUIDANCE_TOOL_NAMES],
 		});
 
 		return await ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {

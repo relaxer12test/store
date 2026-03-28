@@ -85,6 +85,19 @@ function textToKnowledgeSources(value: string) {
 		.filter(Boolean);
 }
 
+function canUploadFileInline(file: File) {
+	const lowerFileName = file.name.toLowerCase();
+
+	return (
+		file.type.startsWith("text/") ||
+		file.type === "application/csv" ||
+		lowerFileName.endsWith(".csv") ||
+		lowerFileName.endsWith(".markdown") ||
+		lowerFileName.endsWith(".md") ||
+		lowerFileName.endsWith(".txt")
+	);
+}
+
 export function MerchantSettingsPage({
 	data,
 	documents,
@@ -170,6 +183,16 @@ export function MerchantSettingsPage({
 			visibility: "public" | "shop_private";
 		}) => {
 			if (value.file) {
+				if (canUploadFileInline(value.file)) {
+					return await uploadInlineDocument({
+						content: await value.file.text(),
+						fileName: value.file.name,
+						mimeType: value.file.type || undefined,
+						title: value.title,
+						visibility: value.visibility,
+					});
+				}
+
 				const upload = await beginDocumentUpload({
 					fileName: value.file.name,
 					mimeType: value.file.type || undefined,
@@ -572,7 +595,7 @@ export function MerchantSettingsPage({
 			</Panel>
 
 			<Panel
-				description="Upload documents to give the copilot store-specific context."
+				description="Upload documents to give the copilot store-specific context for vendor playbooks, reorder SOPs, and operational notes."
 				title="Knowledge documents"
 			>
 				<div className="flex flex-wrap items-center gap-3">
@@ -778,7 +801,7 @@ export function MerchantSettingsPage({
 						))
 					) : (
 						<EmptyState
-							body="Upload documents like SOPs, vendor notes, or product guides to help the copilot answer store-specific questions."
+							body="Upload documents like vendor playbooks, reorder SOPs, support notes, or product guides to help the copilot answer store-specific questions."
 							title="No knowledge documents"
 						/>
 					)}
