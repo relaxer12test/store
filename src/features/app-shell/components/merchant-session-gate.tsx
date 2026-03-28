@@ -1,5 +1,6 @@
 import type { PropsWithChildren, ReactNode } from "react";
 import { useAppAuth } from "@/lib/auth-client";
+import { hasMerchantAppAccess } from "@/shared/contracts/auth";
 
 export function MerchantSessionGate({
 	children,
@@ -7,7 +8,7 @@ export function MerchantSessionGate({
 }: PropsWithChildren<{ fallback?: ReactNode }>) {
 	const auth = useAppAuth();
 
-	if (!auth.isMerchant) {
+	if (!hasMerchantAppAccess(auth.viewer)) {
 		return fallback;
 	}
 

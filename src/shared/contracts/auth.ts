@@ -56,3 +56,9 @@ export function hasAdminViewer(viewer: AppViewerContext | null | undefined) {
 export function hasMerchantViewer(viewer: AppViewerContext | null | undefined) {
 	return Boolean(viewer?.authMode === "embedded" && viewer.activeShop);
 }
+
+export function hasMerchantAppAccess(viewer: AppViewerContext | null | undefined) {
+	return Boolean(
+		viewer?.activeShop && (viewer.authMode === "embedded" || viewer.roles.includes("admin")),
+	);
+}

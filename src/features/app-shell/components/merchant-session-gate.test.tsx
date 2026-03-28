@@ -18,7 +18,7 @@ describe("MerchantSessionGate", () => {
 
 	it("renders the fallback without merchant access", () => {
 		useAppAuthMock.mockReturnValue({
-			isMerchant: false,
+			viewer: null,
 		});
 
 		render(
@@ -33,7 +33,16 @@ describe("MerchantSessionGate", () => {
 
 	it("renders children when merchant access is ready", () => {
 		useAppAuthMock.mockReturnValue({
-			isMerchant: true,
+			viewer: {
+				activeShop: {
+					domain: "acme.myshopify.com",
+					id: "shop_1",
+					installStatus: "connected",
+					name: "Acme",
+				},
+				authMode: "internal",
+				roles: ["admin"],
+			},
 		});
 
 		render(

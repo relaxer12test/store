@@ -5,18 +5,13 @@ import {
 	merchantKnowledgeDocumentsQuery,
 	useMerchantKnowledgeDocuments,
 } from "@/features/app-shell/merchant-workspace";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_app/app/settings")({
 	loader: async ({ context }) => {
-		const viewer = await context.auth.ensureEmbeddedViewer();
-
-		if (hasMerchantViewer(viewer)) {
-			await Promise.all([
-				context.preload.ensureQueryData(merchantSettingsQuery),
-				context.preload.ensureQueryData(merchantKnowledgeDocumentsQuery),
-			]);
-		}
+		await Promise.all([
+			context.preload.ensureQueryData(merchantSettingsQuery),
+			context.preload.ensureQueryData(merchantKnowledgeDocumentsQuery),
+		]);
 	},
 	component: MerchantSettingsRoute,
 });

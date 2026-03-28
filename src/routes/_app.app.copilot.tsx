@@ -4,15 +4,10 @@ import {
 	merchantCopilotStateQuery,
 	useMerchantCopilotState,
 } from "@/features/app-shell/merchant-workspace";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_app/app/copilot")({
 	loader: async ({ context }) => {
-		const viewer = await context.auth.ensureEmbeddedViewer();
-
-		if (hasMerchantViewer(viewer)) {
-			await context.preload.ensureQueryData(merchantCopilotStateQuery);
-		}
+		await context.preload.ensureQueryData(merchantCopilotStateQuery);
 	},
 	component: MerchantCopilotRoute,
 });

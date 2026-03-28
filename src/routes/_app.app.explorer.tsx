@@ -4,18 +4,13 @@ import {
 	merchantExplorerQuery,
 	useMerchantExplorer,
 } from "@/features/app-shell/merchant-workspace";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_app/app/explorer")({
 	validateSearch: (search: Record<string, unknown>) => ({
 		dataset: typeof search.dataset === "string" ? search.dataset : undefined,
 	}),
 	loader: async ({ context }) => {
-		const viewer = await context.auth.ensureEmbeddedViewer();
-
-		if (hasMerchantViewer(viewer)) {
-			await context.preload.ensureQueryData(merchantExplorerQuery);
-		}
+		await context.preload.ensureQueryData(merchantExplorerQuery);
 	},
 	component: MerchantExplorerRoute,
 });

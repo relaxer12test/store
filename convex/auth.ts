@@ -76,6 +76,12 @@ interface MerchantLookup {
 	user: BetterAuthUserRecord;
 }
 
+type MerchantContextSource = "active_organization" | "admin_single_membership";
+type MerchantLookupResolution = {
+	lookup: MerchantLookup;
+	source: MerchantContextSource;
+};
+
 interface BetterAuthUserRecord {
 	_id?: string;
 	createdAt: Date;
@@ -423,10 +429,110 @@ async function findAdapterRecord<T>(
 	return (await ctx.runQuery(components.betterAuth.adapter.findOne, args)) as T | null;
 }
 
-async function readMerchantContextFromDb(
+async function findMerchantMembershipsForUser(
+	ctx: AuthCtx,
+	userId: string,
+): Promise<BetterAuthMemberRecord[]> {
+	const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: "member",
+		paginationOpts: {
+			cursor: null,
+			numItems: 32,
+		},
+		where: [
+			{
+				field: "userId",
+				value: userId,
+			},
+		],
+	})) as {
+		page: BetterAuthMemberRecord[];
+	};
+
+	return result.page;
+}
+
+async function findOrganizationsByIds(
+	ctx: AuthCtx,
+	organizationIds: string[],
+): Promise<Map<string, BetterAuthOrganizationRecord>> {
+	if (organizationIds.length === 0) {
+		return new Map();
+	}
+
+	const result = (await ctx.runQuery(components.betterAuth.adapter.findMany, {
+		model: "organization",
+		paginationOpts: {
+			cursor: null,
+			numItems: organizationIds.length,
+		},
+		where: [
+			{
+				field: "_id",
+				operator: "in",
+				value: organizationIds,
+			},
+		],
+	})) as {
+		page: BetterAuthOrganizationRecord[];
+	};
+
+	return new Map(result.page.map((organization) => [organization.id, organization]));
+}
+
+async function pickAdminFallbackMembership(
+	ctx: MerchantDbCtx,
+	memberships: BetterAuthMemberRecord[],
+): Promise<BetterAuthMemberRecord | null> {
+	const organizationsById = await findOrganizationsByIds(
+		ctx,
+		Array.from(new Set(memberships.map((membership) => membership.organizationId))),
+	);
+
+	const candidates = (
+		await Promise.all(
+			memberships.map(async (membership) => {
+				const organization = organizationsById.get(membership.organizationId);
+				const shopId = toOptionalString(organization?.shopId);
+
+				if (!organization || !shopId) {
+					return null;
+				}
+
+				const shop = await ctx.db.get(shopId as Id<"shops">);
+
+				if (
+					!shop ||
+					shop.domain !== organization.shopDomain ||
+					shop.installStatus !== "connected"
+				) {
+					return null;
+				}
+
+				return {
+					lastAuthenticatedAt: toOptionalNumber(membership.lastAuthenticatedAt) ?? 0,
+					membership,
+				};
+			}),
+		)
+	).filter(
+		(
+			candidate,
+		): candidate is {
+			lastAuthenticatedAt: number;
+			membership: BetterAuthMemberRecord;
+		} => Boolean(candidate),
+	);
+
+	candidates.sort((left, right) => right.lastAuthenticatedAt - left.lastAuthenticatedAt);
+
+	return candidates[0]?.membership ?? null;
+}
+
+async function readMerchantContextResolutionFromDb(
 	ctx: MerchantDbCtx,
 	identity: UserIdentity,
-): Promise<MerchantLookup> {
+): Promise<MerchantLookupResolution> {
 	const sessionId = getSessionId(identity);
 
 	if (!sessionId) {
@@ -452,12 +558,6 @@ async function readMerchantContextFromDb(
 		throw new Error("Protected merchant data requires an authenticated embedded Shopify session.");
 	}
 
-	const organizationId = getActiveOrganizationId(identity) ?? session.activeOrganizationId ?? null;
-
-	if (!organizationId) {
-		throw new Error("Protected merchant data requires an active merchant organization.");
-	}
-
 	const user = await findAdapterRecord<BetterAuthUserRecord>(ctx, {
 		model: "user",
 		where: [
@@ -476,6 +576,27 @@ async function readMerchantContextFromDb(
 
 	if (!userId) {
 		throw new Error("Authenticated Better Auth user id could not be resolved.");
+	}
+
+	const activeOrganizationId =
+		getActiveOrganizationId(identity) ?? session.activeOrganizationId ?? null;
+	let organizationId = activeOrganizationId;
+	let memberFromFallback: BetterAuthMemberRecord | null = null;
+	let source: MerchantContextSource = "active_organization";
+
+	if (!organizationId && (user.role === "admin" || hasAdminIdentity(identity))) {
+		const memberships = await findMerchantMembershipsForUser(ctx, userId);
+		const fallbackMembership = await pickAdminFallbackMembership(ctx, memberships);
+
+		if (fallbackMembership) {
+			organizationId = fallbackMembership.organizationId;
+			memberFromFallback = fallbackMembership;
+			source = "admin_single_membership";
+		}
+	}
+
+	if (!organizationId) {
+		throw new Error("Protected merchant data requires an active merchant organization.");
 	}
 
 	const organization = await findAdapterRecord<BetterAuthOrganizationRecord>(ctx, {
@@ -498,19 +619,22 @@ async function readMerchantContextFromDb(
 		throw new Error("Authenticated merchant organization id could not be resolved.");
 	}
 
-	const member = await findAdapterRecord<BetterAuthMemberRecord>(ctx, {
-		model: "member",
-		where: [
-			{
-				field: "organizationId",
-				value: resolvedOrganizationId,
-			},
-			{
-				field: "userId",
-				value: userId,
-			},
-		],
-	});
+	const member =
+		memberFromFallback && memberFromFallback.organizationId === resolvedOrganizationId
+			? memberFromFallback
+			: await findAdapterRecord<BetterAuthMemberRecord>(ctx, {
+					model: "member",
+					where: [
+						{
+							field: "organizationId",
+							value: resolvedOrganizationId,
+						},
+						{
+							field: "userId",
+							value: userId,
+						},
+					],
+				});
 
 	if (!member) {
 		throw new Error("Authenticated merchant membership could not be found.");
@@ -537,17 +661,27 @@ async function readMerchantContextFromDb(
 	}
 
 	return {
-		actor: buildMerchantActor({
+		lookup: {
+			actor: buildMerchantActor({
+				member,
+				organization,
+				shop,
+				user,
+			}),
 			member,
 			organization,
 			shop,
 			user,
-		}),
-		member,
-		organization,
-		shop,
-		user,
+		},
+		source,
 	};
+}
+
+async function readMerchantContextFromDb(
+	ctx: MerchantDbCtx,
+	identity: UserIdentity,
+): Promise<MerchantLookup> {
+	return (await readMerchantContextResolutionFromDb(ctx, identity)).lookup;
 }
 
 async function resolveMerchantContext(
@@ -1053,7 +1187,10 @@ export const getCurrentViewer = query({
 
 		if (identity && user) {
 			try {
-				const merchant = await readMerchantContextFromDb(ctx, identity);
+				const { lookup: merchant, source } = await readMerchantContextResolutionFromDb(
+					ctx,
+					identity,
+				);
 				const roles = deriveViewerRoles({
 					betterAuthRole: betterAuthRole ?? (hasAdminIdentity(identity) ? "admin" : null),
 					merchantRole: merchant.member.role,
@@ -1066,7 +1203,7 @@ export const getCurrentViewer = query({
 						installStatus: merchant.shop.installStatus,
 						name: merchant.shop.name,
 					},
-					authMode: "embedded",
+					authMode: source === "admin_single_membership" ? "internal" : "embedded",
 					roles,
 					viewer: {
 						email: merchant.user.email,

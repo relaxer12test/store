@@ -4,15 +4,10 @@ import {
 	merchantWorkflowsQuery,
 	useMerchantWorkflows,
 } from "@/features/app-shell/merchant-workspace";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_app/app/workflows")({
 	loader: async ({ context }) => {
-		const viewer = await context.auth.ensureEmbeddedViewer();
-
-		if (hasMerchantViewer(viewer)) {
-			await context.preload.ensureQueryData(merchantWorkflowsQuery);
-		}
+		await context.preload.ensureQueryData(merchantWorkflowsQuery);
 	},
 	component: MerchantWorkflowsRoute,
 });

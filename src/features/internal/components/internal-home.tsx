@@ -30,10 +30,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 					)}
 				</Panel>
 
-				<Panel
-					description="Issues that need attention."
-					title="Current blockers"
-				>
+				<Panel description="Issues that need attention." title="Current blockers">
 					{snapshot.blockers.length > 0 ? (
 						<ul className="space-y-3">
 							{snapshot.blockers.map((blocker) => (

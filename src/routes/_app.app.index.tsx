@@ -4,15 +4,10 @@ import {
 	merchantOverviewQuery,
 	useMerchantOverview,
 } from "@/features/app-shell/merchant-workspace";
-import { hasMerchantViewer } from "@/shared/contracts/auth";
 
 export const Route = createFileRoute("/_app/app/")({
 	loader: async ({ context }) => {
-		const viewer = await context.auth.ensureEmbeddedViewer();
-
-		if (hasMerchantViewer(viewer)) {
-			await context.preload.ensureQueryData(merchantOverviewQuery);
-		}
+		await context.preload.ensureQueryData(merchantOverviewQuery);
 	},
 	component: MerchantOverviewRoute,
 });

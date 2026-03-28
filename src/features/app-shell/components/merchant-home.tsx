@@ -14,10 +14,7 @@ export function MerchantHome({ overview }: { overview: MerchantOverviewData }) {
 			</Panel>
 
 			<div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
-				<Panel
-					description="Actions waiting for your review."
-					title="Pending approvals"
-				>
+				<Panel description="Actions waiting for your review." title="Pending approvals">
 					<MerchantApprovalCards
 						approvals={overview.pendingApprovals}
 						emptyBody="No pending actions. The copilot will suggest changes here."
@@ -25,10 +22,7 @@ export function MerchantHome({ overview }: { overview: MerchantOverviewData }) {
 					/>
 				</Panel>
 
-				<Panel
-					description="Recent background jobs and their status."
-					title="Recent workflows"
-				>
+				<Panel description="Recent background jobs and their status." title="Recent workflows">
 					<MerchantWorkflowCards
 						emptyBody="No recent workflow activity."
 						emptyTitle="No workflow activity"

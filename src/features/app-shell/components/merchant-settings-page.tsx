@@ -247,10 +247,7 @@ export function MerchantSettingsPage({
 	return (
 		<div className="grid gap-5">
 			<div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
-				<Panel
-					description="Current install and webhook status."
-					title="Install and webhook health"
-				>
+				<Panel description="Current install and webhook status." title="Install and webhook health">
 					<div className="flex flex-wrap gap-3">
 						<StatusPill tone={installStatusTone(data.installHealth.installStatus)}>
 							{data.installHealth.installStatus}
@@ -295,18 +292,12 @@ export function MerchantSettingsPage({
 						/>
 						<DetailRow
 							label="Last successful cache refresh"
-							value={
-								data.cacheHealth.lastSuccessfulRefreshAt ??
-								"Not recorded yet"
-							}
+							value={data.cacheHealth.lastSuccessfulRefreshAt ?? "Not recorded yet"}
 						/>
 					</div>
 				</Panel>
 
-				<Panel
-					description="Theme embed status and activation."
-					title="Storefront embed status"
-				>
+				<Panel description="Theme embed status and activation." title="Storefront embed status">
 					<div className="flex flex-wrap items-center gap-3">
 						<StatusPill tone={embedStatusTone(data.extensionStatus.status)}>
 							{data.extensionStatus.status}
@@ -361,10 +352,7 @@ export function MerchantSettingsPage({
 				</Panel>
 			</div>
 
-			<Panel
-				description="Cache health and pending jobs."
-				title="Cache freshness and workflows"
-			>
+			<Panel description="Cache health and pending jobs." title="Cache freshness and workflows">
 				<div className="grid gap-4 md:grid-cols-2">
 					{data.cacheHealth.caches.map((cache) => (
 						<div
@@ -423,10 +411,7 @@ export function MerchantSettingsPage({
 				) : null}
 			</Panel>
 
-			<Panel
-				description="Configure the storefront chat widget."
-				title="Storefront widget controls"
-			>
+			<Panel description="Configure the storefront chat widget." title="Storefront widget controls">
 				<form
 					className="grid gap-5"
 					onSubmit={(event) => {
@@ -661,9 +646,7 @@ export function MerchantSettingsPage({
 											ref={documentFileInputRef}
 											type="file"
 										/>
-										<Description>
-											File uploads take priority over pasted text.
-										</Description>
+										<Description>File uploads take priority over pasted text.</Description>
 										{field.state.value ? (
 											<StatusPill tone="accent">
 												{field.state.value.name} · {(field.state.value.size / 1024).toFixed(1)} KB

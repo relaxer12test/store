@@ -1,8 +1,8 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
+import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
 import type { SidebarConsoleNavItem } from "@/components/ui/resource";
 import { SidebarConsoleLayout } from "@/components/ui/resource";
-import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
-import { MerchantSessionGate } from "@/features/app-shell/components/merchant-session-gate";
+import { currentViewerQuery } from "@/lib/auth-queries";
+import { hasAdminViewer, hasMerchantAppAccess } from "@/shared/contracts/auth";
 
 const appNav: SidebarConsoleNavItem[] = [
 	{
@@ -33,8 +33,19 @@ const appNav: SidebarConsoleNavItem[] = [
 ];
 
 export const Route = createFileRoute("/_app/app")({
-	loader: async ({ context }) => {
-		await context.auth.ensureEmbeddedViewer();
+	beforeLoad: async ({ context }) => {
+		const embeddedViewer = await context.auth.ensureEmbeddedViewer();
+		const viewer = hasMerchantAppAccess(embeddedViewer)
+			? embeddedViewer
+			: await context.queryClient.fetchQuery(currentViewerQuery);
+
+		if (hasMerchantAppAccess(viewer)) {
+			return;
+		}
+
+		throw redirect({
+			to: hasAdminViewer(viewer) ? "/internal" : "/install",
+		});
 	},
 	component: MerchantLayoutRoute,
 });
@@ -48,9 +59,7 @@ function MerchantLayoutRoute() {
 			navTitle="Navigation"
 			title="Your store"
 		>
-			<MerchantSessionGate fallback={<MerchantAccessState />}>
-				<Outlet />
-			</MerchantSessionGate>
+			<Outlet />
 		</SidebarConsoleLayout>
 	);
 }

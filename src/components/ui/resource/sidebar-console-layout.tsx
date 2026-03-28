@@ -36,7 +36,10 @@ function NavigationSidebar({
 	const closeSidebar = useSidebarClose();
 
 	return (
-		<Sidebar aria-label="Console navigation" className="h-full rounded-[2rem] border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80">
+		<Sidebar
+			aria-label="Console navigation"
+			className="h-full rounded-[2rem] border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80"
+		>
 			<SidebarHeader className="border-b border-zinc-950/6 px-5 py-5 dark:border-white/10">
 				{navEyebrow ? (
 					<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">
@@ -53,7 +56,12 @@ function NavigationSidebar({
 						const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
 						return (
-							<SidebarItem current={current} href={item.href} key={item.href} onClick={closeSidebar ?? undefined}>
+							<SidebarItem
+								current={current}
+								href={item.href}
+								key={item.href}
+								onClick={closeSidebar ?? undefined}
+							>
 								<div className="min-w-0">
 									<SidebarLabel>{item.label}</SidebarLabel>
 									<Text className="mt-1 truncate text-xs/5 text-zinc-500 dark:text-zinc-400">
