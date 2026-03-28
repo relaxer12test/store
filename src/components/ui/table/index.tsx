@@ -6,16 +6,20 @@ import {
 	getFacetedRowModel,
 	getFacetedUniqueValues,
 	getFilteredRowModel,
+	getPaginationRowModel,
 	getSortedRowModel,
+	type PaginationState,
 	type SortingState,
 	useReactTable,
 	type VisibilityState,
 } from "@tanstack/react-table";
 import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/cata/button";
 import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
 import { Label } from "@/components/ui/cata/fieldset";
 import { Subheading } from "@/components/ui/cata/heading";
 import { Input } from "@/components/ui/cata/input";
+import { Pagination, PaginationGap, PaginationList } from "@/components/ui/cata/pagination";
 import { Select } from "@/components/ui/cata/select";
 import {
 	Table,
@@ -57,6 +61,34 @@ function isFilterValue(value: unknown): value is string | number {
 	return typeof value === "string" || typeof value === "number";
 }
 
+const EXPLORER_PAGE_SIZE_OPTIONS = [25, 50, 100] as const;
+
+function buildPaginationItems(pageCount: number, currentPage: number) {
+	if (pageCount <= 7) {
+		return Array.from({ length: pageCount }, (_, index) => index + 1);
+	}
+
+	const items: Array<number | null> = [1];
+	const start = Math.max(2, currentPage - 1);
+	const end = Math.min(pageCount - 1, currentPage + 1);
+
+	if (start > 2) {
+		items.push(null);
+	}
+
+	for (let page = start; page <= end; page += 1) {
+		items.push(page);
+	}
+
+	if (end < pageCount - 1) {
+		items.push(null);
+	}
+
+	items.push(pageCount);
+
+	return items;
+}
+
 export function DataTableShell<TData extends Record<string, unknown>>({
 	columns,
 	data,
@@ -71,6 +103,10 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 	const [columnVisibility, setColumnVisibility] = useState<VisibilityState>({});
 	const [filterColumnId, setFilterColumnId] = useState("");
 	const [filterValue, setFilterValue] = useState("all");
+	const [pagination, setPagination] = useState<PaginationState>({
+		pageIndex: 0,
+		pageSize: EXPLORER_PAGE_SIZE_OPTIONS[0],
+	});
 	const [selectedRowId, setSelectedRowId] = useState<string | null>(null);
 
 	const table = useReactTable({
@@ -80,20 +116,24 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 		getFacetedRowModel: getFacetedRowModel(),
 		getFacetedUniqueValues: getFacetedUniqueValues(),
 		getFilteredRowModel: getFilteredRowModel(),
+		getPaginationRowModel: getPaginationRowModel(),
 		getSortedRowModel: getSortedRowModel(),
 		onColumnFiltersChange: setColumnFilters,
 		onColumnVisibilityChange: setColumnVisibility,
 		onGlobalFilterChange: setGlobalFilter,
+		onPaginationChange: setPagination,
 		onSortingChange: setSorting,
 		state: {
 			columnFilters,
 			columnVisibility,
 			globalFilter,
+			pagination,
 			sorting,
 		},
 	});
 
-	const rows = table.getRowModel().rows;
+	const filteredRows = table.getPrePaginationRowModel().rows;
+	const paginatedRows = table.getRowModel().rows;
 	const visibleColumns = table.getVisibleLeafColumns();
 	const filterableColumns = table
 		.getAllLeafColumns()
@@ -114,8 +154,17 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 		"";
 	const activeFilterValues =
 		filterableColumns.find((item) => item.column.id === activeFilterColumnId)?.values ?? [];
-	const selectedRow = rows.find((row) => row.id === selectedRowId) ?? rows[0] ?? null;
+	const pageCount = Math.max(table.getPageCount(), 1);
+	const currentPage = Math.min(pagination.pageIndex, pageCount - 1) + 1;
+	const paginationItems = buildPaginationItems(pageCount, currentPage);
+	const selectedRow =
+		paginatedRows.find((row) => row.id === selectedRowId) ?? paginatedRows[0] ?? null;
 	const selectedRecord = (selectedRow?.original ?? null) as Record<string, unknown> | null;
+	const selectedRowPosition = selectedRow
+		? filteredRows.findIndex((row) => row.id === selectedRow.id) + 1
+		: 0;
+	const pageStart = paginatedRows.length === 0 ? 0 : (currentPage - 1) * pagination.pageSize + 1;
+	const pageEnd = paginatedRows.length === 0 ? 0 : pageStart + paginatedRows.length - 1;
 
 	useEffect(() => {
 		if (activeFilterColumnId.length === 0) {
@@ -157,6 +206,21 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 			setFilterValue("all");
 		}
 	}, [activeFilterValues, filterValue]);
+
+	useEffect(() => {
+		setPagination((current) => (current.pageIndex === 0 ? current : { ...current, pageIndex: 0 }));
+	}, [activeFilterColumnId, filterValue, globalFilter, sorting]);
+
+	useEffect(() => {
+		if (pagination.pageIndex < pageCount) {
+			return;
+		}
+
+		setPagination((current) => ({
+			...current,
+			pageIndex: Math.max(pageCount - 1, 0),
+		}));
+	}, [pageCount, pagination.pageIndex]);
 
 	useEffect(() => {
 		if (!selectedRow) {
@@ -231,7 +295,7 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 				</div>
 			</div>
 
-			{rows.length === 0 ? (
+			{filteredRows.length === 0 ? (
 				<EmptyState body={emptyBody} title={emptyTitle} />
 			) : (
 				<div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
@@ -260,7 +324,7 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 								))}
 							</TableHead>
 							<TableBody>
-								{rows.map((row) => (
+								{paginatedRows.map((row) => (
 									<TableRow
 										className={`cursor-pointer transition ${
 											selectedRow?.id === row.id ? "bg-zinc-100 dark:bg-zinc-800" : ""
@@ -287,15 +351,124 @@ export function DataTableShell<TData extends Record<string, unknown>>({
 								))}
 							</TableBody>
 						</Table>
+
+						<div className="flex flex-col gap-4 border-t border-zinc-950/5 px-4 py-4 dark:border-white/10 sm:px-5">
+							<div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+								<div className="flex flex-wrap items-center gap-3">
+									<Text className="text-sm text-zinc-600 dark:text-zinc-300">
+										Showing {pageStart.toLocaleString()}-{pageEnd.toLocaleString()} of{" "}
+										{filteredRows.length.toLocaleString()} rows
+									</Text>
+									<div className="flex items-center gap-2 [&>[data-slot=control]]:w-auto">
+										<Text className="text-sm text-zinc-600 dark:text-zinc-300">Rows per page</Text>
+										<Select
+											className="min-w-24"
+											onChange={(event) => {
+												setPagination({
+													pageIndex: 0,
+													pageSize: Number(event.target.value),
+												});
+											}}
+											value={String(pagination.pageSize)}
+										>
+											{EXPLORER_PAGE_SIZE_OPTIONS.map((value) => (
+												<option key={value} value={value}>
+													{value}
+												</option>
+											))}
+										</Select>
+									</div>
+								</div>
+
+								<Text className="text-sm text-zinc-600 dark:text-zinc-300">
+									Page {currentPage.toLocaleString()} of {pageCount.toLocaleString()}
+								</Text>
+							</div>
+
+							{pageCount > 1 ? (
+								<Pagination aria-label={`${title} pagination`} className="items-center">
+									<span className="grow basis-0">
+										<Button
+											disabled={!table.getCanPreviousPage()}
+											onClick={() => table.previousPage()}
+											plain
+											aria-label="Previous page"
+										>
+											<svg
+												className="stroke-current"
+												data-slot="icon"
+												viewBox="0 0 16 16"
+												fill="none"
+												aria-hidden="true"
+											>
+												<path
+													d="M2.75 8H13.25M2.75 8L5.25 5.5M2.75 8L5.25 10.5"
+													strokeWidth={1.5}
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+											</svg>
+											Previous
+										</Button>
+									</span>
+
+									<PaginationList>
+										{paginationItems.map((item, index) =>
+											item === null ? (
+												<PaginationGap key={`gap-${index}`} />
+											) : (
+												<Button
+													aria-current={item === currentPage ? "page" : undefined}
+													aria-label={`Page ${item}`}
+													className={`min-w-9 before:absolute before:-inset-px before:rounded-lg ${
+														item === currentPage
+															? "before:bg-zinc-950/5 dark:before:bg-white/10"
+															: ""
+													}`}
+													key={item}
+													onClick={() => table.setPageIndex(item - 1)}
+													plain
+												>
+													<span className="-mx-0.5">{item}</span>
+												</Button>
+											),
+										)}
+									</PaginationList>
+
+									<span className="flex grow basis-0 justify-end">
+										<Button
+											disabled={!table.getCanNextPage()}
+											onClick={() => table.nextPage()}
+											plain
+											aria-label="Next page"
+										>
+											Next
+											<svg
+												className="stroke-current"
+												data-slot="icon"
+												viewBox="0 0 16 16"
+												fill="none"
+												aria-hidden="true"
+											>
+												<path
+													d="M13.25 8L2.75 8M13.25 8L10.75 10.5M13.25 8L10.75 5.5"
+													strokeWidth={1.5}
+													strokeLinecap="round"
+													strokeLinejoin="round"
+												/>
+											</svg>
+										</Button>
+									</span>
+								</Pagination>
+							) : null}
+						</div>
 					</div>
 
 					<aside className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-5 dark:border-white/10 dark:bg-zinc-800">
 						<div className="flex items-center justify-between gap-3">
 							<Text className="font-semibold">Row drill-in</Text>
 							<StatusPill tone="neutral">
-								{selectedRow
-									? `row ${rows.findIndex((row) => row.id === selectedRow.id) + 1}`
-									: "empty"}
+								{selectedRow ? `row ${selectedRowPosition} of ${filteredRows.length}` : "empty"}
 							</StatusPill>
 						</div>
 

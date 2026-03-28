@@ -1,10 +1,22 @@
+import { internal } from "@convex/_generated/api";
+import type { Doc } from "@convex/_generated/dataModel";
+import { action, internalQuery, mutation, query, type ActionCtx } from "@convex/_generated/server";
+import { requireMerchantActor, requireMerchantClaims } from "@convex/auth";
+import { resolveUsableInstallationAccessToken } from "@convex/shopify";
+import { hasConnectedShopifyAccess } from "@convex/shopifyAccess";
+import {
+	fetchThemeAppEmbedDiagnostics,
+	getRequiredShopifyEnv,
+	SHOPIFY_API_VERSION,
+} from "@convex/shopifyAdmin";
 import { v } from "convex/values";
-import type { MetricCard, SignalLine, TableRecord, Tone } from "../src/shared/contracts/app-shell";
+import type { MetricCard, SignalLine, TableRecord, Tone } from "@/shared/contracts/app-shell";
 import type {
 	MerchantAssistantReply,
+	MerchantExtensionStatus,
 	MerchantSettingsData,
 	ThemeAppEmbedStatus,
-} from "../src/shared/contracts/merchant-settings";
+} from "@/shared/contracts/merchant-settings";
 import {
 	DEFAULT_STOREFRONT_WIDGET_ACCENT_COLOR,
 	DEFAULT_STOREFRONT_WIDGET_GREETING,
@@ -13,19 +25,8 @@ import {
 	DEFAULT_STOREFRONT_WIDGET_POSITION,
 	type StorefrontPolicyAnswers,
 	type WidgetPosition,
-} from "../src/shared/contracts/storefront-widget";
-import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status";
-import { internal } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
-import { action, internalQuery, mutation, query, type ActionCtx } from "./_generated/server";
-import { requireMerchantActor, requireMerchantClaims } from "./auth";
-import { resolveUsableInstallationAccessToken } from "./shopify";
-import { hasConnectedShopifyAccess } from "./shopifyAccess";
-import {
-	fetchThemeAppEmbedDiagnostics,
-	getRequiredShopifyEnv,
-	SHOPIFY_API_VERSION,
-} from "./shopifyAdmin";
+} from "@/shared/contracts/storefront-widget";
+import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
 
 type WidgetConfigRecord = Doc<"widgetConfigs"> & {
 	knowledgeSources?: string[];
@@ -545,12 +546,22 @@ export const getSettingsState = internalQuery({
 	},
 });
 
-async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSettingsData> {
-	const claims = await requireMerchantClaims(ctx);
-	const state: MerchantSettingsState = await ctx.runQuery(internal.merchantApp.getSettingsState, {
-		shopDomain: claims.shopDomain,
-		shopId: claims.shopId,
-	});
+function buildUnavailableExtensionStatus(
+	errorMessage: string | null = null,
+): MerchantExtensionStatus {
+	return {
+		activationUrl: null,
+		errorMessage,
+		mainThemeId: null,
+		mainThemeName: null,
+		status: "unavailable",
+	};
+}
+
+function buildMerchantSettingsData(
+	state: MerchantSettingsState,
+	extensionStatus: MerchantExtensionStatus,
+): MerchantSettingsData {
 	const widgetSettings = getWidgetSettingsRecord(state.widgetConfig as WidgetConfigRecord | null);
 	const recentTopics = Array.from(
 		new Set(state.recentWebhookDeliveries.map((delivery) => delivery.topic)),
@@ -569,52 +580,6 @@ async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSetting
 	const successfulRefreshes = state.cacheStates
 		.map((cacheState) => cacheState.lastCompletedAt)
 		.filter((value): value is number => value !== undefined);
-	let extensionStatus: MerchantSettingsData["extensionStatus"] = {
-		activationUrl: null,
-		errorMessage: null,
-		mainThemeId: null,
-		mainThemeName: null,
-		status: "unavailable",
-	};
-	const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
-		shopDomain: state.shop.domain,
-		shopId: state.shop._id,
-	});
-
-	if (
-		hasConnectedShopifyAccess({
-			installation:
-				installationAccessToken && state.installation
-					? { ...state.installation, accessToken: installationAccessToken, status: "connected" }
-					: state.installation,
-			shop: state.shop,
-		}) &&
-		installationAccessToken
-	) {
-		try {
-			const diagnostics = await fetchThemeAppEmbedDiagnostics({
-				accessToken: installationAccessToken,
-				shopDomain: state.shop.domain,
-			});
-
-			extensionStatus = {
-				activationUrl: diagnostics.activationUrl,
-				errorMessage: null,
-				mainThemeId: diagnostics.mainThemeId,
-				mainThemeName: diagnostics.mainThemeName,
-				status: diagnostics.status,
-			};
-		} catch (error) {
-			extensionStatus = {
-				activationUrl: null,
-				errorMessage:
-					error instanceof Error ? error.message : "Theme diagnostics could not be loaded.",
-				mainThemeId: null,
-				mainThemeName: null,
-				status: "unavailable",
-			};
-		}
-	}
 
 	return {
 		cacheHealth: {
@@ -651,9 +616,90 @@ async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSetting
 	};
 }
 
+async function loadMerchantSettingsState(ctx: ActionCtx): Promise<MerchantSettingsState> {
+	const claims = await requireMerchantClaims(ctx);
+
+	return await ctx.runQuery(internal.merchantApp.getSettingsState, {
+		shopDomain: claims.shopDomain,
+		shopId: claims.shopId,
+	});
+}
+
+async function loadThemeDiagnostics(
+	ctx: ActionCtx,
+	state: MerchantSettingsState,
+): Promise<MerchantExtensionStatus> {
+	const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+		shopDomain: state.shop.domain,
+		shopId: state.shop._id,
+	});
+
+	if (
+		hasConnectedShopifyAccess({
+			installation:
+				installationAccessToken && state.installation
+					? { ...state.installation, accessToken: installationAccessToken, status: "connected" }
+					: state.installation,
+			shop: state.shop,
+		}) &&
+		installationAccessToken
+	) {
+		const diagnostics = await fetchThemeAppEmbedDiagnostics({
+			accessToken: installationAccessToken,
+			shopDomain: state.shop.domain,
+		});
+
+		return {
+			activationUrl: diagnostics.activationUrl,
+			errorMessage: null,
+			mainThemeId: diagnostics.mainThemeId,
+			mainThemeName: diagnostics.mainThemeName,
+			status: diagnostics.status,
+		};
+	}
+
+	return buildUnavailableExtensionStatus();
+}
+
+async function loadMerchantSettingsSummaryData(ctx: ActionCtx): Promise<MerchantSettingsData> {
+	const state = await loadMerchantSettingsState(ctx);
+
+	return buildMerchantSettingsData(state, buildUnavailableExtensionStatus());
+}
+
+async function loadMerchantSettingsData(ctx: ActionCtx): Promise<MerchantSettingsData> {
+	const state = await loadMerchantSettingsState(ctx);
+
+	try {
+		return buildMerchantSettingsData(state, await loadThemeDiagnostics(ctx, state));
+	} catch (error) {
+		return buildMerchantSettingsData(
+			state,
+			buildUnavailableExtensionStatus(
+				error instanceof Error ? error.message : "Theme diagnostics could not be loaded.",
+			),
+		);
+	}
+}
+
 export const settings = action({
 	args: {},
-	handler: loadMerchantSettingsData,
+	handler: loadMerchantSettingsSummaryData,
+});
+
+export const refreshThemeDiagnostics = action({
+	args: {},
+	handler: async (ctx): Promise<MerchantExtensionStatus> => {
+		const state = await loadMerchantSettingsState(ctx);
+
+		try {
+			return await loadThemeDiagnostics(ctx, state);
+		} catch (error) {
+			return buildUnavailableExtensionStatus(
+				error instanceof Error ? error.message : "Theme diagnostics could not be loaded.",
+			);
+		}
+	},
 });
 
 export const updateWidgetSettings = mutation({

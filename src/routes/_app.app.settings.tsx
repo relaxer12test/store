@@ -17,20 +17,8 @@ export const Route = createFileRoute("/_app/app/settings")({
 });
 
 function MerchantSettingsRoute() {
-	const { data, isRefetching, refetch } = useMerchantSettings();
+	const { data } = useMerchantSettings();
 	const { data: documents } = useMerchantKnowledgeDocuments();
-	const settingsKey = JSON.stringify({
-		documentsGeneratedAt: documents.generatedAt,
-		widgetSettings: data.widgetSettings,
-	});
 
-	return (
-		<MerchantSettingsPage
-			key={settingsKey}
-			data={data}
-			documents={documents}
-			isRefreshing={isRefetching}
-			onRefresh={() => void refetch()}
-		/>
-	);
+	return <MerchantSettingsPage data={data} documents={documents} />;
 }

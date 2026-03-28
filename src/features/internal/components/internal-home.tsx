@@ -1,9 +1,9 @@
 import { Strong, Text } from "@/components/ui/cata/text";
 import { StatusPill } from "@/components/ui/feedback";
 import { MetricGrid, Panel } from "@/components/ui/layout";
-import type { SystemStatusSnapshot } from "@/shared/contracts/system-status";
+import type { SystemStatusOverview } from "@/shared/contracts/system-status";
 
-export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
+export function InternalHome({ snapshot }: { snapshot: SystemStatusOverview }) {
 	return (
 		<div className="grid gap-5">
 			<MetricGrid metrics={snapshot.metrics} />

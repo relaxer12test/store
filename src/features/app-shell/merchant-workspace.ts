@@ -2,15 +2,22 @@ import { convexAction, convexQuery } from "@convex-dev/react-query";
 import type { Id } from "@convex/_generated/dataModel";
 import { useSuspenseQuery, type QueryClient } from "@tanstack/react-query";
 import { api } from "@/lib/convex-api";
+import type { MerchantExplorerDatasetKey } from "@/shared/contracts/merchant-workspace";
 
 export const merchantOverviewQuery = convexAction(api.merchantWorkspace.overview, {});
+const DEFAULT_MERCHANT_EXPLORER_DATASET: MerchantExplorerDatasetKey = "products";
+
 export function getMerchantCopilotStateQuery(conversationId?: Id<"merchantCopilotConversations">) {
 	return convexQuery(api.merchantWorkspace.copilotState, conversationId ? { conversationId } : {});
 }
 
 export const merchantCopilotStateQuery = getMerchantCopilotStateQuery();
 export const merchantCopilotSessionsQuery = convexQuery(api.merchantWorkspace.copilotSessions, {});
-export const merchantExplorerQuery = convexAction(api.merchantWorkspace.explorer, {});
+export function getMerchantExplorerQuery(dataset = DEFAULT_MERCHANT_EXPLORER_DATASET) {
+	return convexAction(api.merchantWorkspace.explorer, { dataset });
+}
+
+export const merchantExplorerQuery = getMerchantExplorerQuery();
 export const merchantWorkflowsQuery = convexQuery(api.merchantWorkspace.workflows, {});
 export const merchantKnowledgeDocumentsQuery = convexQuery(
 	api.merchantDocuments.knowledgeDocuments,
@@ -32,10 +39,12 @@ export function useMerchantCopilotSessions() {
 	return useSuspenseQuery(merchantCopilotSessionsQuery);
 }
 
-export function useMerchantExplorer() {
+export function useMerchantExplorer(dataset = DEFAULT_MERCHANT_EXPLORER_DATASET) {
+	const query = getMerchantExplorerQuery(dataset);
+
 	return useSuspenseQuery({
-		queryKey: merchantExplorerQuery.queryKey,
-		staleTime: merchantExplorerQuery.staleTime,
+		queryKey: query.queryKey,
+		staleTime: query.staleTime,
 	});
 }
 
@@ -68,7 +77,7 @@ export async function invalidateMerchantWorkspaceQueries(queryClient: QueryClien
 			queryKey: merchantCopilotSessionsQuery.queryKey,
 		}),
 		queryClient.invalidateQueries({
-			queryKey: merchantExplorerQuery.queryKey,
+			queryKey: merchantExplorerQuery.queryKey.slice(0, -1),
 		}),
 		queryClient.invalidateQueries({
 			queryKey: merchantWorkflowsQuery.queryKey,

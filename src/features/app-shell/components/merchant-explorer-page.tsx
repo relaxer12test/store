@@ -2,19 +2,32 @@ import { Button } from "@/components/ui/cata/button";
 import { Panel } from "@/components/ui/layout";
 import { DataTableShell } from "@/components/ui/table";
 import { buildExplorerColumns } from "@/features/app-shell/components/merchant-workspace-ui";
-import type { MerchantExplorerData } from "@/shared/contracts/merchant-workspace";
+import type {
+	MerchantExplorerData,
+	MerchantExplorerDatasetKey,
+} from "@/shared/contracts/merchant-workspace";
+
+const merchantExplorerTabs: Array<{
+	key: MerchantExplorerDatasetKey;
+	label: string;
+}> = [
+	{ key: "products", label: "Products" },
+	{ key: "orders", label: "Orders" },
+	{ key: "inventory", label: "Inventory" },
+	{ key: "documents", label: "Documents" },
+	{ key: "audit_logs", label: "Audit log" },
+];
 
 export function MerchantExplorerPage({
 	activeDatasetKey,
 	data,
 	onDatasetChange,
 }: {
-	activeDatasetKey: MerchantExplorerData["datasets"][number]["key"] | "";
+	activeDatasetKey: MerchantExplorerDatasetKey;
 	data: MerchantExplorerData;
-	onDatasetChange: (dataset: MerchantExplorerData["datasets"][number]["key"]) => void;
+	onDatasetChange: (dataset: MerchantExplorerDatasetKey) => void;
 }) {
-	const activeDataset =
-		data.datasets.find((dataset) => dataset.key === activeDatasetKey) ?? data.datasets[0] ?? null;
+	const activeDataset = data.datasets[0] ?? null;
 
 	return (
 		<div className="grid gap-4">
@@ -23,15 +36,15 @@ export function MerchantExplorerPage({
 				title="Explorer datasets"
 			>
 				<div className="flex flex-wrap gap-3">
-					{data.datasets.map((dataset) => (
+					{merchantExplorerTabs.map((dataset) => (
 						<Button
 							key={dataset.key}
-							{...(dataset.key === activeDataset?.key
+							{...(dataset.key === activeDatasetKey
 								? { color: "dark/zinc" as const }
 								: { outline: true as const })}
 							onClick={() => onDatasetChange(dataset.key)}
 						>
-							{dataset.title}
+							{dataset.label}
 						</Button>
 					))}
 				</div>
@@ -44,6 +57,7 @@ export function MerchantExplorerPage({
 					description={activeDataset.description}
 					emptyBody={`No ${activeDataset.title.toLowerCase()} rows are available for this shop yet.`}
 					emptyTitle={`No ${activeDataset.title.toLowerCase()} rows`}
+					key={activeDataset.key}
 					title={activeDataset.title}
 				/>
 			) : null}

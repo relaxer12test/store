@@ -1,16 +1,29 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { MerchantExplorerPage } from "@/features/app-shell/components/merchant-explorer-page";
 import {
-	merchantExplorerQuery,
+	getMerchantExplorerQuery,
 	useMerchantExplorer,
 } from "@/features/app-shell/merchant-workspace";
+import {
+	merchantExplorerDatasetKeys,
+	type MerchantExplorerDatasetKey,
+} from "@/shared/contracts/merchant-workspace";
+
+const DEFAULT_MERCHANT_EXPLORER_DATASET = merchantExplorerDatasetKeys[0];
 
 export const Route = createFileRoute("/_app/app/explorer")({
 	validateSearch: (search: Record<string, unknown>) => ({
-		dataset: typeof search.dataset === "string" ? search.dataset : undefined,
+		dataset:
+			typeof search.dataset === "string" &&
+			merchantExplorerDatasetKeys.includes(search.dataset as MerchantExplorerDatasetKey)
+				? (search.dataset as MerchantExplorerDatasetKey)
+				: undefined,
 	}),
-	loader: async ({ context }) => {
-		await context.preload.ensureQueryData(merchantExplorerQuery);
+	loaderDeps: ({ search }) => ({
+		dataset: search.dataset ?? DEFAULT_MERCHANT_EXPLORER_DATASET,
+	}),
+	loader: async ({ context, deps }) => {
+		await context.preload.ensureQueryData(getMerchantExplorerQuery(deps.dataset));
 	},
 	component: MerchantExplorerRoute,
 });
@@ -20,11 +33,8 @@ function MerchantExplorerRoute() {
 		from: Route.fullPath,
 	});
 	const search = Route.useSearch();
-	const { data } = useMerchantExplorer();
-	const activeDatasetKey =
-		data.datasets.find((dataset) => dataset.key === search.dataset)?.key ??
-		data.datasets[0]?.key ??
-		"";
+	const activeDatasetKey = search.dataset ?? DEFAULT_MERCHANT_EXPLORER_DATASET;
+	const { data } = useMerchantExplorer(activeDatasetKey);
 
 	return (
 		<MerchantExplorerPage

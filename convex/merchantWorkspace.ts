@@ -1,4 +1,4 @@
-import { api, components, internal } from "@convex/_generated/api";
+import { components, internal } from "@convex/_generated/api";
 import type { Doc, Id } from "@convex/_generated/dataModel";
 import {
 	action,
@@ -29,8 +29,9 @@ import {
 	type MerchantCopilotConversation,
 	type MerchantCopilotSessionsData,
 	type MerchantCopilotSessionSummary,
+	type MerchantExplorerDataset,
+	type MerchantExplorerDatasetKey,
 	type MerchantDocumentRecord,
-	type MerchantKnowledgeDocumentsData,
 	type MerchantExplorerData,
 	type MerchantOverviewData,
 	type MerchantWorkflowLog,
@@ -45,6 +46,13 @@ const LOW_STOCK_THRESHOLD = 8;
 const COPILOT_MESSAGE_LIMIT = 40;
 const DOCUMENT_PREVIEW_LIMIT = 320;
 const DOCUMENT_SUMMARY_LIMIT = 220;
+const EXPLORER_RECORD_LIMIT = 25;
+const OVERVIEW_PENDING_APPROVAL_LIMIT = 6;
+const OVERVIEW_WORKFLOW_LOG_LIMIT = 4;
+const OVERVIEW_WORKFLOW_RECORD_LIMIT = 6;
+const PENDING_APPROVAL_SCAN_LIMIT = 128;
+const WORKFLOW_LOG_LIMIT = 8;
+const WORKFLOW_RECORD_LIMIT = 20;
 
 const WORKFLOW_TYPE_LABELS: Record<string, string> = {
 	catalog_index_rebuild: "Catalog index rebuild",
@@ -61,6 +69,35 @@ const QUICK_PROMPTS = [
 	"Search my uploaded documents for the returns SOP.",
 	'Draft an approval to pause product "Unicorn Sparkle Backpack".',
 ];
+
+const EXPLORER_DATASET_META: Record<
+	MerchantExplorerDatasetKey,
+	{
+		description: string;
+		title: string;
+	}
+> = {
+	audit_logs: {
+		description: "Recent merchant audit trail for approvals and operational actions.",
+		title: "Audit log",
+	},
+	documents: {
+		description: "Uploaded merchant-private and public knowledge records.",
+		title: "Documents",
+	},
+	inventory: {
+		description: "Variant inventory view focused on low-stock operational review.",
+		title: "Inventory",
+	},
+	orders: {
+		description: "Recent order window aligned with the take-home demo scope.",
+		title: "Orders",
+	},
+	products: {
+		description: "Current product search surface backed by the cached Shopify catalog projection.",
+		title: "Products",
+	},
+};
 
 const MERCHANT_OVERVIEW_QUERY = `
 	query MerchantOverview($recentOrdersQuery: String!) {
@@ -1069,23 +1106,64 @@ async function listCopilotConversations(
 		.take(25);
 }
 
-async function countPendingApprovalsForConversation(
+async function listPendingApprovalsByShop(
 	ctx: QueryCtx,
 	options: {
-		conversationId: Id<"merchantCopilotConversations">;
+		limit: number;
+		shopId: Id<"shops">;
 	},
 ) {
-	const approvals = await ctx.db
-		.query("merchantActionApprovals")
-		.withIndex("by_conversation_and_requested_at", (query) =>
-			query.eq("conversationId", options.conversationId),
-		)
-		.order("desc")
-		.take(25);
+	const [executingApprovals, pendingApprovals] = await Promise.all([
+		ctx.db
+			.query("merchantActionApprovals")
+			.withIndex("by_shop_and_status_and_requested_at", (query) =>
+				query.eq("shopId", options.shopId).eq("status", "executing"),
+			)
+			.order("desc")
+			.take(PENDING_APPROVAL_SCAN_LIMIT),
+		ctx.db
+			.query("merchantActionApprovals")
+			.withIndex("by_shop_and_status_and_requested_at", (query) =>
+				query.eq("shopId", options.shopId).eq("status", "pending"),
+			)
+			.order("desc")
+			.take(PENDING_APPROVAL_SCAN_LIMIT),
+	]);
 
-	return approvals.filter(
-		(approval) => approval.status === "pending" || approval.status === "executing",
-	).length;
+	return [...pendingApprovals, ...executingApprovals]
+		.sort((left, right) => right.requestedAt - left.requestedAt)
+		.slice(0, options.limit);
+}
+
+async function buildPendingApprovalCountByConversation(
+	ctx: QueryCtx,
+	options: {
+		conversationIds: readonly Id<"merchantCopilotConversations">[];
+		shopId: Id<"shops">;
+	},
+) {
+	if (options.conversationIds.length === 0) {
+		return new Map<Id<"merchantCopilotConversations">, number>();
+	}
+
+	const counts = new Map<Id<"merchantCopilotConversations">, number>();
+	for (const conversationId of options.conversationIds) {
+		counts.set(conversationId, 0);
+	}
+	const approvals = await listPendingApprovalsByShop(ctx, {
+		limit: PENDING_APPROVAL_SCAN_LIMIT,
+		shopId: options.shopId,
+	});
+
+	for (const approval of approvals) {
+		if (!approval.conversationId || !counts.has(approval.conversationId)) {
+			continue;
+		}
+
+		counts.set(approval.conversationId, (counts.get(approval.conversationId) ?? 0) + 1);
+	}
+
+	return counts;
 }
 
 async function listCopilotSessionSummaries(
@@ -1096,20 +1174,20 @@ async function listCopilotSessionSummaries(
 	},
 ): Promise<MerchantCopilotSessionSummary[]> {
 	const conversations = await listCopilotConversations(ctx, options);
+	const pendingApprovalCountByConversation = await buildPendingApprovalCountByConversation(ctx, {
+		conversationIds: conversations.map((conversation) => conversation._id),
+		shopId: options.shopId,
+	});
 
-	return await Promise.all(
-		conversations.map(async (conversation) => ({
-			conversationId: conversation._id,
-			createdAt: new Date(conversation.createdAt).toISOString(),
-			lastAssistantSummary: conversation.lastAssistantSummary ?? null,
-			lastPromptPreview: conversation.lastPromptPreview ?? null,
-			pendingApprovalCount: await countPendingApprovalsForConversation(ctx, {
-				conversationId: conversation._id,
-			}),
-			title: conversation.title,
-			updatedAt: new Date(conversation.updatedAt).toISOString(),
-		})),
-	);
+	return conversations.map((conversation) => ({
+		conversationId: conversation._id,
+		createdAt: new Date(conversation.createdAt).toISOString(),
+		lastAssistantSummary: conversation.lastAssistantSummary ?? null,
+		lastPromptPreview: conversation.lastPromptPreview ?? null,
+		pendingApprovalCount: pendingApprovalCountByConversation.get(conversation._id) ?? 0,
+		title: conversation.title,
+		updatedAt: new Date(conversation.updatedAt).toISOString(),
+	}));
 }
 
 async function loadConversationState(
@@ -1228,6 +1306,8 @@ async function searchDocumentsByShop(
 async function listWorkflowRecords(
 	ctx: QueryCtx,
 	options: {
+		logLimit?: number;
+		recordLimit?: number;
 		shopId: Id<"shops">;
 	},
 ): Promise<MerchantWorkflowRecord[]> {
@@ -1235,7 +1315,7 @@ async function listWorkflowRecords(
 		.query("syncJobs")
 		.withIndex("by_shop_and_last_updated_at", (query) => query.eq("shopId", options.shopId))
 		.order("desc")
-		.take(20)) as WorkflowRow[];
+		.take(options.recordLimit ?? WORKFLOW_RECORD_LIMIT)) as WorkflowRow[];
 
 	return await Promise.all(
 		rows.map(async (row) => {
@@ -1243,7 +1323,7 @@ async function listWorkflowRecords(
 				.query("workflowLogs")
 				.withIndex("by_job_and_created_at", (query) => query.eq("jobId", row._id))
 				.order("desc")
-				.take(8);
+				.take(options.logLimit ?? WORKFLOW_LOG_LIMIT);
 
 			return {
 				cacheKey: row.cacheKey ?? null,
@@ -1390,18 +1470,30 @@ function buildShopifyCitation(label: string, detail: string): MerchantCitation {
 	};
 }
 
-function buildProductSearchRows(rows: ProductSearchNode[]) {
+function buildExplorerDataset(
+	key: MerchantExplorerDatasetKey,
+	rows: MerchantExplorerDataset["rows"],
+): MerchantExplorerDataset {
+	const meta = EXPLORER_DATASET_META[key];
+
+	return {
+		description: meta.description,
+		key,
+		rows,
+		title: meta.title,
+	};
+}
+
+function buildCatalogProductRows(rows: Doc<"shopifyCatalogProducts">[]) {
 	return rows.map((row) => ({
-		description: row.description ?? null,
-		handle: row.handle ?? null,
+		availability: row.availableForSale ? "available" : "unavailable",
+		handle: row.handle,
 		product_type: row.productType ?? null,
-		status: row.status ?? null,
-		title: row.title ?? null,
-		total_inventory: (row.variants?.nodes ?? []).reduce(
-			(total, variant) => total + (variant.inventoryQuantity ?? 0),
-			0,
-		),
-		updated_at: formatFromString(row.updatedAt) ?? row.updatedAt ?? null,
+		status: row.sourceStatus,
+		summary: row.summary,
+		title: row.title,
+		updated_at: new Date(row.sourceUpdatedAt).toISOString(),
+		variant_count: row.variantTitles.length,
 		vendor: row.vendor ?? null,
 	}));
 }
@@ -1851,14 +1943,11 @@ export const getOverviewSnapshotInternal = internalAction({
 			throw new Error("No connected offline Shopify token is available for this merchant tool.");
 		}
 
-		const [documents, conversationState, snapshot]: [
-			MerchantKnowledgeDocumentsData,
-			MerchantCopilotConversation,
-			MerchantOverviewResponse,
-		] = await Promise.all([
-			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
-			ctx.runQuery(internal.merchantWorkspace.getConversationStateInternal, {
-				actorId: args.actorId,
+		const [documents, pendingApprovalSummary, snapshot] = await Promise.all([
+			ctx.runQuery(internal.merchantWorkspace.getKnowledgeDocumentsInternal, {
+				shopId: args.shopId,
+			}),
+			ctx.runQuery(internal.merchantWorkspace.getPendingApprovalSummaryInternal, {
 				shopId: args.shopId,
 			}),
 			fetchShopifyOverview({
@@ -1888,11 +1977,11 @@ export const getOverviewSnapshotInternal = internalAction({
 		const dashboard = buildDefaultDashboard({
 			activeProducts: snapshot.activeProductsCount?.count ?? 0,
 			citations,
-			documentCount: documents.documents.length,
+			documentCount: documents.length,
 			lowStockCount: lowStockRows.length,
 			lowStockRows,
 			orderCount: snapshot.recentOrdersCount?.count ?? orders.length,
-			pendingApprovalCount: conversationState.pendingApprovals.length,
+			pendingApprovalCount: pendingApprovalSummary.count,
 			revenueCurrency,
 			revenueTotal,
 			salesTrend: buildTrendPoints(orders),
@@ -2331,10 +2420,19 @@ export const overview = action({
 			shopDomain: runtime.shop.domain,
 			shopId: runtime.shop._id,
 		});
-		const [documents, workflowRecords, conversationState] = await Promise.all([
-			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
-			ctx.runQuery(api.merchantWorkspace.workflows, {}),
-			ctx.runQuery(api.merchantWorkspace.copilotState, {}),
+		const [documents, pendingApprovalSummary, recentWorkflows] = await Promise.all([
+			ctx.runQuery(internal.merchantWorkspace.getKnowledgeDocumentsInternal, {
+				shopId: runtime.shop._id,
+			}),
+			ctx.runQuery(internal.merchantWorkspace.getPendingApprovalSummaryInternal, {
+				limit: OVERVIEW_PENDING_APPROVAL_LIMIT,
+				shopId: runtime.shop._id,
+			}),
+			ctx.runQuery(internal.merchantWorkspace.getRecentWorkflowRecordsInternal, {
+				logLimit: OVERVIEW_WORKFLOW_LOG_LIMIT,
+				limit: OVERVIEW_WORKFLOW_RECORD_LIMIT,
+				shopId: runtime.shop._id,
+			}),
 		]);
 
 		let activeProducts = runtime.shop.installStatus === "connected" ? 0 : 0;
@@ -2380,11 +2478,11 @@ export const overview = action({
 		const dashboard = buildDefaultDashboard({
 			activeProducts,
 			citations,
-			documentCount: documents.documents.length,
+			documentCount: documents.length,
 			lowStockCount: lowStockRows.length,
 			lowStockRows,
 			orderCount,
-			pendingApprovalCount: conversationState.pendingApprovals.length,
+			pendingApprovalCount: pendingApprovalSummary.count,
 			revenueCurrency,
 			revenueTotal,
 			salesTrend,
@@ -2394,89 +2492,79 @@ export const overview = action({
 		return {
 			dashboard,
 			generatedAt: new Date().toISOString(),
-			pendingApprovals: conversationState.pendingApprovals,
-			recentWorkflows: workflowRecords.records.slice(0, 6),
+			pendingApprovals: pendingApprovalSummary.approvals,
+			recentWorkflows,
 		};
 	},
 });
 
 export const explorer = action({
-	args: {},
-	handler: async (ctx): Promise<MerchantExplorerData> => {
+	args: {
+		dataset: v.optional(
+			v.union(
+				v.literal("audit_logs"),
+				v.literal("documents"),
+				v.literal("inventory"),
+				v.literal("orders"),
+				v.literal("products"),
+			),
+		),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerData> => {
 		const claims = await requireMerchantClaims(ctx);
+		const activeDataset = args.dataset ?? "products";
 		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
 			actorId: claims.actorId,
 			shopDomain: claims.shopDomain,
 			shopId: claims.shopId,
 		});
-		const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
-			shopDomain: runtime.shop.domain,
-			shopId: runtime.shop._id,
-		});
-		const [documents, recentAudits] = await Promise.all([
-			ctx.runQuery(api.merchantDocuments.knowledgeDocuments, {}),
-			ctx.runQuery(internal.merchantWorkspace.getRecentAuditRows, {
-				shopId: runtime.shop._id,
-			}),
-		]);
+		let dataset: MerchantExplorerDataset;
 
-		let products: ProductSearchNode[] = [];
-		let orders: OrderNode[] = [];
+		switch (activeDataset) {
+			case "audit_logs":
+			case "documents":
+			case "products":
+				dataset = await ctx.runQuery(internal.merchantWorkspace.getExplorerDatasetInternal, {
+					dataset: activeDataset,
+					shopId: runtime.shop._id,
+				});
+				break;
+			case "inventory": {
+				const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
+					shopDomain: runtime.shop.domain,
+					shopId: runtime.shop._id,
+				});
+				const products = installationAccessToken
+					? await searchShopifyProducts({
+							accessToken: installationAccessToken,
+							query: "status:active",
+							shopDomain: runtime.shop.domain,
+						})
+					: [];
 
-		if (installationAccessToken) {
-			[products, orders] = await Promise.all([
-				searchShopifyProducts({
-					accessToken: installationAccessToken,
-					query: "status:active",
+				dataset = buildExplorerDataset("inventory", buildInventoryRows(products));
+				break;
+			}
+			case "orders": {
+				const installationAccessToken = await resolveUsableInstallationAccessToken(ctx, {
 					shopDomain: runtime.shop.domain,
-				}),
-				searchShopifyOrders({
-					accessToken: installationAccessToken,
-					query: recentOrdersQuery(),
-					shopDomain: runtime.shop.domain,
-				}),
-			]);
+					shopId: runtime.shop._id,
+				});
+				const orders = installationAccessToken
+					? await searchShopifyOrders({
+							accessToken: installationAccessToken,
+							query: recentOrdersQuery(),
+							shopDomain: runtime.shop.domain,
+						})
+					: [];
+
+				dataset = buildExplorerDataset("orders", buildOrderRows(orders));
+				break;
+			}
 		}
 
 		return {
-			datasets: [
-				{
-					description: "Current product search surface backed by Shopify Admin API reads.",
-					key: "products",
-					rows: buildProductSearchRows(products),
-					title: "Products",
-				},
-				{
-					description: "Recent order window aligned with the take-home demo scope.",
-					key: "orders",
-					rows: buildOrderRows(orders),
-					title: "Orders",
-				},
-				{
-					description: "Variant inventory view focused on low-stock operational review.",
-					key: "inventory",
-					rows: buildInventoryRows(products),
-					title: "Inventory",
-				},
-				{
-					description: "Uploaded merchant-private and public knowledge records.",
-					key: "documents",
-					rows: documents.documents.map((document: MerchantDocumentRecord) => ({
-						file_name: document.fileName,
-						status: document.status,
-						title: document.title,
-						updated_at: document.updatedAt,
-						visibility: document.visibility,
-					})),
-					title: "Documents",
-				},
-				{
-					description: "Approval and operational audit rows written to Convex.",
-					key: "audit_logs",
-					rows: buildAuditRows(recentAudits),
-					title: "Audit logs",
-				},
-			],
+			datasets: [dataset],
 			generatedAt: new Date().toISOString(),
 		};
 	},
@@ -2484,6 +2572,7 @@ export const explorer = action({
 
 export const getRecentAuditRows = internalQuery({
 	args: {
+		limit: v.optional(v.number()),
 		shopId: v.id("shops"),
 	},
 	handler: async (ctx, args) => {
@@ -2491,7 +2580,101 @@ export const getRecentAuditRows = internalQuery({
 			.query("auditLogs")
 			.withIndex("by_shop_created_at", (query) => query.eq("shopId", args.shopId))
 			.order("desc")
-			.take(25);
+			.take(args.limit ?? EXPLORER_RECORD_LIMIT);
+	},
+});
+
+export const getKnowledgeDocumentsInternal = internalQuery({
+	args: {
+		limit: v.optional(v.number()),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		return (
+			await listDocumentsByShop(ctx, {
+				shopId: args.shopId,
+			})
+		).slice(0, args.limit ?? EXPLORER_RECORD_LIMIT);
+	},
+});
+
+export const getPendingApprovalSummaryInternal = internalQuery({
+	args: {
+		limit: v.optional(v.number()),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		const approvals = await listPendingApprovalsByShop(ctx, {
+			limit: PENDING_APPROVAL_SCAN_LIMIT,
+			shopId: args.shopId,
+		});
+
+		return {
+			approvals: approvals
+				.slice(0, args.limit ?? OVERVIEW_PENDING_APPROVAL_LIMIT)
+				.map(toApprovalCard),
+			count: approvals.length,
+		};
+	},
+});
+
+export const getRecentWorkflowRecordsInternal = internalQuery({
+	args: {
+		logLimit: v.optional(v.number()),
+		limit: v.optional(v.number()),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args) => {
+		return await listWorkflowRecords(ctx, {
+			logLimit: args.logLimit,
+			recordLimit: args.limit,
+			shopId: args.shopId,
+		});
+	},
+});
+
+export const getExplorerDatasetInternal = internalQuery({
+	args: {
+		dataset: v.union(v.literal("audit_logs"), v.literal("documents"), v.literal("products")),
+		shopId: v.id("shops"),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDataset> => {
+		switch (args.dataset) {
+			case "audit_logs": {
+				const rows = await ctx.db
+					.query("auditLogs")
+					.withIndex("by_shop_created_at", (query) => query.eq("shopId", args.shopId))
+					.order("desc")
+					.take(EXPLORER_RECORD_LIMIT);
+
+				return buildExplorerDataset("audit_logs", buildAuditRows(rows));
+			}
+			case "documents": {
+				const documents = await listDocumentsByShop(ctx, {
+					shopId: args.shopId,
+				});
+
+				return buildExplorerDataset(
+					"documents",
+					documents.slice(0, EXPLORER_RECORD_LIMIT).map((document) => ({
+						file_name: document.fileName ?? null,
+						status: document.status,
+						title: document.title,
+						updated_at: new Date(document.updatedAt).toISOString(),
+						visibility: document.visibility,
+					})),
+				);
+			}
+			case "products": {
+				const rows = await ctx.db
+					.query("shopifyCatalogProducts")
+					.withIndex("by_shop_and_source_updated_at", (query) => query.eq("shopId", args.shopId))
+					.order("desc")
+					.take(EXPLORER_RECORD_LIMIT);
+
+				return buildExplorerDataset("products", buildCatalogProductRows(rows));
+			}
+		}
 	},
 });
 

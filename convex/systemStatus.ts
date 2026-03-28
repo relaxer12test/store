@@ -1,9 +1,8 @@
-import type { MetricCard, SignalLine, TableRecord } from "../src/shared/contracts/app-shell";
-import type { SystemStatusSnapshot } from "../src/shared/contracts/system-status";
-import { components } from "./_generated/api";
-import type { Doc } from "./_generated/dataModel";
-import { query } from "./_generated/server";
-import { requireAdmin } from "./auth";
+import { components, internal } from "@convex/_generated/api";
+import { action, internalQuery } from "@convex/_generated/server";
+import { requireAdmin } from "@convex/auth";
+import type { MetricCard, SignalLine } from "@/shared/contracts/app-shell";
+import type { SystemStatusOverview } from "@/shared/contracts/system-status";
 
 interface BetterAuthOrganizationSnapshot {
 	_id?: string;
@@ -19,91 +18,6 @@ interface BetterAuthMemberSnapshot {
 
 function getAuthRecordId(record: { _id?: string; id?: string }) {
 	return record.id ?? record._id ?? "";
-}
-
-function formatTimestamp(value: number | undefined) {
-	if (!value) {
-		return "n/a";
-	}
-
-	return new Date(value).toISOString();
-}
-
-function sortByNumberDesc<T>(items: T[], getValue: (item: T) => number | undefined) {
-	return [...items].sort((left, right) => (getValue(right) ?? 0) - (getValue(left) ?? 0));
-}
-
-function toShopRecord(
-	shop: Doc<"shops">,
-	installation?: Doc<"shopifyInstallations">,
-	actorCount = 0,
-): TableRecord {
-	return {
-		id: shop._id,
-		created_at: formatTimestamp(shop.createdAt),
-		domain: shop.domain,
-		install_status: shop.installStatus,
-		last_authenticated_at: formatTimestamp(shop.lastAuthenticatedAt),
-		last_token_exchange_at: formatTimestamp(installation?.lastTokenExchangeAt),
-		name: shop.name,
-		scope_count: String(installation?.scopes.length ?? 0),
-		token_status: installation?.status ?? "missing",
-		member_count: String(actorCount),
-	};
-}
-
-function toSyncJobRecord(syncJob: Doc<"syncJobs">): TableRecord {
-	return {
-		cache_key: syncJob.cacheKey ?? "n/a",
-		completed_at: formatTimestamp(syncJob.completedAt),
-		id: syncJob._id,
-		domain: syncJob.domain,
-		error: syncJob.error ?? "n/a",
-		last_updated_at: formatTimestamp(syncJob.lastUpdatedAt),
-		requested_at: formatTimestamp(syncJob.requestedAt),
-		shop_id: syncJob.shopId,
-		started_at: formatTimestamp(syncJob.startedAt),
-		status: syncJob.status,
-		type: syncJob.type,
-	};
-}
-
-function toWebhookDeliveryRecord(webhookDelivery: Doc<"webhookDeliveries">): TableRecord {
-	return {
-		delivery_key: webhookDelivery.deliveryKey ?? "n/a",
-		error: webhookDelivery.error ?? "n/a",
-		id: webhookDelivery._id,
-		processed_at: formatTimestamp(webhookDelivery.processedAt),
-		received_at: formatTimestamp(webhookDelivery.receivedAt),
-		shop_id: webhookDelivery.shopId ?? "n/a",
-		status: webhookDelivery.status,
-		topic: webhookDelivery.topic,
-		webhook_id: webhookDelivery.webhookId ?? "n/a",
-	};
-}
-
-function toAuditLogRecord(auditLog: Doc<"auditLogs">): TableRecord {
-	return {
-		id: auditLog._id,
-		action: auditLog.action,
-		actor_id: auditLog.actorId ?? "n/a",
-		created_at: formatTimestamp(auditLog.createdAt),
-		status: auditLog.status ?? "n/a",
-		shop_id: auditLog.shopId ?? "n/a",
-	};
-}
-
-function toCacheStateRecord(cacheState: Doc<"shopifyCacheStates">): TableRecord {
-	return {
-		id: cacheState._id,
-		cache_key: cacheState.cacheKey,
-		last_completed_at: formatTimestamp(cacheState.lastCompletedAt),
-		last_error: cacheState.lastError ?? "n/a",
-		last_requested_at: formatTimestamp(cacheState.lastRequestedAt),
-		last_webhook_at: formatTimestamp(cacheState.lastWebhookAt),
-		record_count: String(cacheState.recordCount ?? 0),
-		status: cacheState.status,
-	};
 }
 
 function buildMetrics({
@@ -292,11 +206,9 @@ function buildBlockers({
 	].filter((value): value is string => value !== null);
 }
 
-export const snapshot = query({
+export const readOverview = internalQuery({
 	args: {},
-	handler: async (ctx): Promise<SystemStatusSnapshot> => {
-		await requireAdmin(ctx);
-
+	handler: async (ctx): Promise<SystemStatusOverview> => {
 		const [
 			shops,
 			installations,
@@ -331,31 +243,18 @@ export const snapshot = query({
 			ctx.db.query("auditLogs").take(50),
 		]);
 
-		const installationByShopId = new Map(
-			installations.map((installation) => [installation.shopId, installation]),
-		);
 		const shopIdByOrganizationId = new Map(
 			organizations.page.map((organization) => [
 				getAuthRecordId(organization),
 				organization.shopId,
 			]),
 		);
-		const actorCountByShopId = members.page.reduce<Map<Doc<"shops">["_id"], number>>(
-			(map, member) => {
-				const shopId = shopIdByOrganizationId.get(member.organizationId);
-
-				if (shopId) {
-					map.set(shopId as Doc<"shops">["_id"], (map.get(shopId as Doc<"shops">["_id"]) ?? 0) + 1);
-				}
-
-				return map;
-			},
-			new Map(),
-		);
+		const merchantMemberCount = members.page.filter((member) =>
+			shopIdByOrganizationId.has(member.organizationId),
+		).length;
 		const connectedInstallationCount = installations.filter(
 			(installation) => installation.status === "connected",
 		).length;
-		const merchantMemberCount = members.page.length;
 		const widgetConfigCount = widgetConfigs.length;
 		const connectedShopCount = shops.filter((shop) => shop.installStatus === "connected").length;
 
@@ -390,20 +289,15 @@ export const snapshot = query({
 				widgetConfigCount,
 				webhookDeliveryCount: webhookDeliveries.length,
 			}),
-			shops: sortByNumberDesc(shops, (shop) => shop.createdAt).map((shop) =>
-				toShopRecord(shop, installationByShopId.get(shop._id), actorCountByShopId.get(shop._id)),
-			),
-			cacheStates: sortByNumberDesc(cacheStates, (cacheState) => cacheState.updatedAt).map(
-				toCacheStateRecord,
-			),
-			syncJobs: sortByNumberDesc(syncJobs, (syncJob) => syncJob.lastUpdatedAt).map(toSyncJobRecord),
-			webhookDeliveries: sortByNumberDesc(
-				webhookDeliveries,
-				(webhookDelivery) => webhookDelivery.receivedAt,
-			).map(toWebhookDeliveryRecord),
-			auditLogs: sortByNumberDesc(auditLogs, (auditLog) => auditLog.createdAt).map(
-				toAuditLogRecord,
-			),
 		};
+	},
+});
+
+export const overview = action({
+	args: {},
+	handler: async (ctx): Promise<SystemStatusOverview> => {
+		await requireAdmin(ctx);
+
+		return await ctx.runQuery(internal.systemStatus.readOverview, {});
 	},
 });

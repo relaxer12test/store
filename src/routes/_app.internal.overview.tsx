@@ -11,7 +11,10 @@ export const Route = createFileRoute("/_app/internal/overview")({
 });
 
 function InternalOverviewRoute() {
-	const { data } = useSuspenseQuery(internalOverviewQuery);
+	const { data } = useSuspenseQuery({
+		queryKey: internalOverviewQuery.queryKey,
+		staleTime: internalOverviewQuery.staleTime,
+	});
 
 	return <InternalHome snapshot={data} />;
 }

@@ -138,9 +138,19 @@ export interface MerchantCopilotSessionsData {
 	sessions: MerchantCopilotSessionSummary[];
 }
 
+export const merchantExplorerDatasetKeys = [
+	"products",
+	"orders",
+	"inventory",
+	"documents",
+	"audit_logs",
+] as const;
+
+export type MerchantExplorerDatasetKey = (typeof merchantExplorerDatasetKeys)[number];
+
 export interface MerchantExplorerDataset {
 	description: string;
-	key: "audit_logs" | "documents" | "inventory" | "orders" | "products";
+	key: MerchantExplorerDatasetKey;
 	rows: Array<Record<string, string | number | null>>;
 	title: string;
 }

@@ -1,4 +1,4 @@
-import { convexQuery } from "@convex-dev/react-query";
+import { convexAction, convexQuery } from "@convex-dev/react-query";
 import type { Id } from "@convex/_generated/dataModel";
 import type { QueryClient } from "@tanstack/react-query";
 import type {
@@ -24,7 +24,7 @@ function toPaginationArgs(search: { cursor?: string; limit: number }) {
 	};
 }
 
-export const internalOverviewQuery = convexQuery(api.systemStatus.snapshot, {});
+export const internalOverviewQuery = convexAction(api.systemStatus.overview, {});
 
 export function getInternalShopsQuery(search: InternalShopsSearch) {
 	return convexQuery(api.internalAdmin.listShops, {

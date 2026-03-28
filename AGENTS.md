@@ -20,3 +20,5 @@ e2e must only be used on dev server 3000 and dev server must always be run by de
 we dont use prettier check npm run format
 
 we don't edit cata/\* components they are libraries if we think issue is there we are wrong
+
+when we write e2e tests we shoudn't use goTo or anything technical we must rely on UI clicks so its more natural

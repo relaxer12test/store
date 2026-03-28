@@ -2,7 +2,7 @@ import { useConvexAction, useConvexMutation } from "@convex-dev/react-query";
 import type { Id } from "@convex/_generated/dataModel";
 import { useForm } from "@tanstack/react-form";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/cata/button";
 import { Checkbox, CheckboxField } from "@/components/ui/cata/checkbox";
 import { Description, Field, FieldGroup, Fieldset, Label } from "@/components/ui/cata/fieldset";
@@ -88,15 +88,12 @@ function textToKnowledgeSources(value: string) {
 export function MerchantSettingsPage({
 	data,
 	documents,
-	isRefreshing,
-	onRefresh,
 }: {
 	data: MerchantSettingsData;
 	documents: MerchantKnowledgeDocumentsData;
-	isRefreshing: boolean;
-	onRefresh: () => void;
 }) {
 	const queryClient = useQueryClient();
+	const refreshThemeDiagnostics = useConvexAction(api.merchantApp.refreshThemeDiagnostics);
 	const saveWidgetSettings = useConvexMutation(api.merchantApp.updateWidgetSettings);
 	const beginDocumentUpload = useConvexMutation(api.merchantDocuments.beginDocumentUpload);
 	const finalizeDocumentUpload = useConvexAction(api.merchantDocuments.finalizeDocumentUpload);
@@ -108,6 +105,16 @@ export function MerchantSettingsPage({
 	const reprocessDocument = useConvexMutation(api.merchantDocuments.reprocessDocument);
 	const reprocessDocuments = useConvexMutation(api.merchantDocuments.reprocessDocuments);
 	const documentFileInputRef = useRef<HTMLInputElement | null>(null);
+	const refreshThemeDiagnosticsMutation = useMutation({
+		mutationFn: refreshThemeDiagnostics,
+	});
+
+	useEffect(() => {
+		refreshThemeDiagnosticsMutation.reset();
+	}, [data.installHealth.shopDomain, refreshThemeDiagnosticsMutation]);
+
+	const extensionStatus = refreshThemeDiagnosticsMutation.data ?? data.extensionStatus;
+
 	async function invalidateSettingsQueries() {
 		await Promise.all([
 			queryClient.invalidateQueries({
@@ -299,11 +306,11 @@ export function MerchantSettingsPage({
 
 				<Panel description="Theme embed status and activation." title="Storefront embed status">
 					<div className="flex flex-wrap items-center gap-3">
-						<StatusPill tone={embedStatusTone(data.extensionStatus.status)}>
-							{data.extensionStatus.status}
+						<StatusPill tone={embedStatusTone(extensionStatus.status)}>
+							{extensionStatus.status}
 						</StatusPill>
-						{data.extensionStatus.mainThemeName ? (
-							<StatusPill tone="neutral">{data.extensionStatus.mainThemeName}</StatusPill>
+						{extensionStatus.mainThemeName ? (
+							<StatusPill tone="neutral">{extensionStatus.mainThemeName}</StatusPill>
 						) : null}
 					</div>
 
@@ -311,42 +318,44 @@ export function MerchantSettingsPage({
 						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
 							<Subheading level={3}>Current theme</Subheading>
 							<Text>
-								{data.extensionStatus.mainThemeName
-									? `${data.extensionStatus.mainThemeName}${data.extensionStatus.mainThemeId ? ` (${data.extensionStatus.mainThemeId})` : ""}`
+								{extensionStatus.mainThemeName
+									? `${extensionStatus.mainThemeName}${extensionStatus.mainThemeId ? ` (${extensionStatus.mainThemeId})` : ""}`
 									: "Theme not detected"}
 							</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
 							<Subheading level={3}>Live embed state</Subheading>
 							<Text>
-								{data.extensionStatus.status === "enabled"
+								{extensionStatus.status === "enabled"
 									? "Embed is enabled."
-									: data.extensionStatus.status === "disabled"
+									: extensionStatus.status === "disabled"
 										? "Embed is installed but disabled."
-										: data.extensionStatus.status === "not_detected"
+										: extensionStatus.status === "not_detected"
 											? "Embed has not been activated yet."
-											: "Diagnostics unavailable until the app has a valid token."}
+											: "Theme diagnostics have not been refreshed yet, or a valid token is unavailable."}
 							</Text>
 						</div>
 					</div>
 
-					{data.extensionStatus.errorMessage ? (
+					{extensionStatus.errorMessage ? (
 						<div className="mt-4">
-							<EmptyState
-								body={data.extensionStatus.errorMessage}
-								title="Theme diagnostics error"
-							/>
+							<EmptyState body={extensionStatus.errorMessage} title="Theme diagnostics error" />
 						</div>
 					) : null}
 
 					<div className="mt-5 flex flex-wrap gap-3">
-						{data.extensionStatus.activationUrl ? (
-							<Button color="dark/zinc" href={data.extensionStatus.activationUrl}>
+						{extensionStatus.activationUrl ? (
+							<Button color="dark/zinc" href={extensionStatus.activationUrl}>
 								Open theme editor
 							</Button>
 						) : null}
-						<Button outline disabled={isRefreshing} onClick={onRefresh} type="button">
-							{isRefreshing ? "Refreshing..." : "Refresh diagnostics"}
+						<Button
+							outline
+							disabled={refreshThemeDiagnosticsMutation.isPending}
+							onClick={() => refreshThemeDiagnosticsMutation.mutate({})}
+							type="button"
+						>
+							{refreshThemeDiagnosticsMutation.isPending ? "Refreshing..." : "Refresh diagnostics"}
 						</Button>
 					</div>
 				</Panel>
