@@ -443,7 +443,7 @@
 	function createStreamingAssistantMessage(onApplyCartPlan, onCheckoutCart) {
 		var current = createElement(
 			"div",
-			"storefront-ai-widget-message storefront-ai-widget-message--assistant storefront-ai-widget-message--streaming",
+			"storefront-ai-widget-message storefront-ai-widget-message--assistant storefront-ai-widget-message--streaming storefront-ai-widget-message--streaming-pending",
 		);
 
 		var typingDots = createElement("div", "storefront-ai-widget-typing");
@@ -461,10 +461,15 @@
 
 		var hasReceivedText = false;
 
+		function promoteToAssistantBubble() {
+			current.classList.remove("storefront-ai-widget-message--streaming-pending");
+		}
+
 		function setToolStatus(statusText) {
 			if (hasReceivedText) {
 				return;
 			}
+			promoteToAssistantBubble();
 			toolStatus.textContent = statusText;
 			toolStatus.hidden = false;
 		}
@@ -472,6 +477,7 @@
 		function setText(text) {
 			if (!hasReceivedText && text) {
 				hasReceivedText = true;
+				promoteToAssistantBubble();
 				typingDots.hidden = true;
 				toolStatus.hidden = true;
 				textNode.hidden = false;
@@ -887,11 +893,13 @@
 
 		function clearFeed() {
 			feed.innerHTML = "";
+			panel.classList.remove("storefront-ai-widget-panel--wide");
 		}
 
 		function appendMessageToFeed(messageElement) {
 			messageElement.classList.add("storefront-ai-widget-message--entering");
 			feed.appendChild(messageElement);
+			syncPanelWidth();
 			scrollFeedToBottom();
 			messageElement.addEventListener(
 				"animationend",
@@ -900,6 +908,13 @@
 				},
 				{ once: true },
 			);
+		}
+
+		function syncPanelWidth() {
+			var hasCards =
+				feed.querySelector(".storefront-ai-widget-cards--products") ||
+				feed.querySelector(".storefront-ai-widget-cart-plan");
+			panel.classList.toggle("storefront-ai-widget-panel--wide", !!hasCards);
 		}
 
 		function buildGreetingReplyPayload() {
@@ -1102,10 +1117,20 @@
 			});
 		}
 
+		function showFeedLoading(text) {
+			var loader = createElement("div", "storefront-ai-widget-feed-loading");
+			var spinner = createElement("div", "storefront-ai-widget-feed-spinner");
+			loader.appendChild(spinner);
+			if (text) {
+				loader.appendChild(createElement("span", "", text));
+			}
+			feed.appendChild(loader);
+		}
+
 		function loadSessionDetail(sessionId) {
 			setView("chat");
 			clearFeed();
-			addSystemMessage("Restoring your conversation\u2026");
+			showFeedLoading("Restoring your conversation\u2026");
 
 			return fetchWidgetJson(
 				"/api/shopify/widget/session?shop=" +
@@ -1155,6 +1180,7 @@
 					);
 
 					state.loadedSessionId = sessionId;
+					syncPanelWidth();
 					scrollFeedToBottom();
 				})
 				.catch(function (error) {
