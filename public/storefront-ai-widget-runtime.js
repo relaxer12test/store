@@ -309,7 +309,7 @@
 
 	function createCartPlanCard(plan, onApply, onCheckout) {
 		var card = createElement("section", "storefront-ai-widget-cart-plan");
-		var title = createElement("h4", "storefront-ai-widget-card-title", "Cart plan");
+		var title = createElement("h4", "storefront-ai-widget-card-title", "Your cart");
 		var list = createElement("ul", "storefront-ai-widget-cart-plan-list");
 		var actions = createElement("div", "storefront-ai-widget-cart-plan-actions");
 		var explanation =
@@ -946,9 +946,9 @@
 
 			if (state.sessions.length === 0) {
 				var emptyState = createElement("div", "storefront-ai-widget-session-empty");
-				emptyState.appendChild(createElement("strong", "", "No saved chats yet"));
+				emptyState.appendChild(createElement("strong", "", "No conversations yet"));
 				emptyState.appendChild(
-					createElement("p", "", "Start a new chat and it will appear here after the first reply."),
+					createElement("p", "", "Your chats will appear here once you send your first message."),
 				);
 				sessionListView.appendChild(emptyState);
 				return;
@@ -972,7 +972,7 @@
 				var previewNode = createElement(
 					"p",
 					"storefront-ai-widget-session-preview",
-					session.lastReplyPreview || "Open this chat to keep going.",
+					session.lastReplyPreview || "Tap to continue this conversation.",
 				);
 
 				button.type = "button";
@@ -1105,7 +1105,7 @@
 		function loadSessionDetail(sessionId) {
 			setView("chat");
 			clearFeed();
-			addSystemMessage("Loading your chat...");
+			addSystemMessage("Restoring your conversation\u2026");
 
 			return fetchWidgetJson(
 				"/api/shopify/widget/session?shop=" +
@@ -1162,7 +1162,7 @@
 					addErrorMessage(
 						error instanceof Error
 							? error.message
-							: "The conversation could not be loaded right now.",
+							: "Couldn\u2019t load this conversation. Please try again.",
 					);
 				});
 		}
@@ -1185,7 +1185,7 @@
 					addErrorMessage(
 						error instanceof Error
 							? error.message
-							: "The storefront assistant could not restore your conversations.",
+							: "Couldn\u2019t restore your conversations. Starting fresh.",
 					);
 				});
 		}
@@ -1335,13 +1335,13 @@
 			})
 				.then(function (response) {
 					updateCartUiAfterAdd(response || {}, payload.items, button);
-					addSystemMessage("Added the plan to your cart. Your cart has been updated.");
+					addSystemMessage("Items added to your cart.");
 				})
 				.catch(function (error) {
 					addErrorMessage(
 						error instanceof Error
 							? error.message
-							: "The cart plan could not be applied right now.",
+							: "Couldn\u2019t add items to your cart. Please try again.",
 					);
 				})
 				.finally(function () {
@@ -1689,7 +1689,7 @@
 				addErrorMessage(
 					error instanceof Error
 						? error.message
-						: "Your saved chats could not be loaded right now.",
+						: "Couldn\u2019t load your chat history. Please try again.",
 				);
 			});
 		});
@@ -1764,7 +1764,7 @@
 						buildThemeEditorNotice(
 							error instanceof Error
 								? error.message
-								: "The storefront assistant could not load its configuration.",
+								: "Couldn\u2019t connect to the store assistant. Please refresh the page.",
 						),
 					);
 				}

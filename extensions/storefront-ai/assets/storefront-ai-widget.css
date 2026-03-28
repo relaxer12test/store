@@ -24,6 +24,20 @@
 		BlinkMacSystemFont,
 		"Segoe UI",
 		sans-serif;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+.storefront-ai-widget-shell *,
+.storefront-ai-widget-shell *::before,
+.storefront-ai-widget-shell *::after {
+	box-sizing: border-box;
+}
+
+.storefront-ai-widget-shell button {
+	font-family: inherit;
+	font-size: inherit;
+	line-height: inherit;
 }
 
 .storefront-ai-widget-shell--bottom-right {
@@ -67,6 +81,11 @@
 .storefront-ai-widget-toggle:focus-visible {
 	transform: translateY(-2px);
 	box-shadow: 0 6px 18px rgba(0, 0, 0, 0.2);
+}
+
+.storefront-ai-widget-toggle:active {
+	transform: translateY(0) scale(0.95);
+	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .storefront-ai-widget-toggle--open {
@@ -143,7 +162,8 @@
 	max-height: min(640px, calc(100vh - 96px));
 	display: grid;
 	grid-template-rows: auto minmax(0, 1fr) auto;
-	overflow: hidden;
+	position: relative;
+	overflow: clip;
 	border: 1px solid var(--storefront-ai-border);
 	border-radius: var(--storefront-ai-radius-panel);
 	background: var(--storefront-ai-bg);
@@ -226,10 +246,10 @@
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	width: 28px;
-	height: 28px;
+	width: 32px;
+	height: 32px;
 	border: 0;
-	border-radius: 6px;
+	border-radius: 8px;
 	background: transparent;
 	color: var(--storefront-ai-text-secondary);
 	cursor: pointer;
@@ -237,11 +257,23 @@
 	transition:
 		background 120ms ease,
 		color 120ms ease;
+	/* Touch target expansion */
+	position: relative;
+}
+
+.storefront-ai-widget-header-button::after {
+	content: "";
+	position: absolute;
+	inset: -6px;
 }
 
 .storefront-ai-widget-header-button:hover {
 	background: var(--storefront-ai-bg-subtle);
 	color: var(--storefront-ai-text);
+}
+
+.storefront-ai-widget-header-button:active {
+	background: rgba(0, 0, 0, 0.06);
 }
 
 .storefront-ai-widget-header-button svg {
@@ -250,6 +282,21 @@
 }
 
 /* ─── Sessions Drawer ─── */
+.storefront-ai-widget-session-backdrop {
+	position: absolute;
+	inset: 0;
+	z-index: 1;
+	background: rgba(0, 0, 0, 0.15);
+	opacity: 0;
+	pointer-events: none;
+	transition: opacity 250ms ease;
+}
+
+.storefront-ai-widget-session-backdrop--visible {
+	opacity: 1;
+	pointer-events: auto;
+}
+
 .storefront-ai-widget-session-page {
 	position: absolute;
 	left: 0;
@@ -259,13 +306,17 @@
 	z-index: 2;
 	display: grid;
 	gap: 8px;
+	align-content: start;
 	padding: 0 16px 16px;
 	overflow-y: auto;
+	overscroll-behavior: contain;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 	border-radius: var(--storefront-ai-radius-panel) var(--storefront-ai-radius-panel) 0 0;
 	background: var(--storefront-ai-bg);
 	box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.08);
 	transform: translateY(100%);
-	transition: transform 250ms ease;
+	transition: transform 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .storefront-ai-widget-session-page--open {
@@ -317,6 +368,10 @@
 	transform: translateY(-1px);
 }
 
+.storefront-ai-widget-session-cta:active {
+	transform: scale(0.97);
+}
+
 .storefront-ai-widget-session-list {
 	display: grid;
 	gap: 6px;
@@ -362,6 +417,10 @@
 .storefront-ai-widget-session:hover {
 	background: var(--storefront-ai-bg-subtle);
 	border-color: rgba(0, 0, 0, 0.12);
+}
+
+.storefront-ai-widget-session:active {
+	background: rgba(0, 0, 0, 0.04);
 }
 
 .storefront-ai-widget-session.is-active {
@@ -427,10 +486,14 @@
 .storefront-ai-widget-feed {
 	display: grid;
 	gap: 10px;
+	align-content: start;
 	padding: 16px;
 	overflow-y: auto;
+	overscroll-behavior: contain;
 	background: var(--storefront-ai-bg);
 	position: relative;
+	scrollbar-width: thin;
+	scrollbar-color: rgba(0, 0, 0, 0.12) transparent;
 }
 
 /* ─── Messages ─── */
@@ -512,6 +575,7 @@
 
 .storefront-ai-widget-message-text {
 	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .storefront-ai-widget-message-text--supporting {
@@ -772,6 +836,10 @@
 
 .storefront-ai-widget-cart-plan-name {
 	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 .storefront-ai-widget-cart-plan-detail,
@@ -865,11 +933,15 @@
 	background: var(--storefront-ai-bg-subtle);
 }
 
+.storefront-ai-widget-suggestion:active {
+	transform: scale(0.97);
+}
+
 /* ─── Form / Input ─── */
 .storefront-ai-widget-form {
 	display: grid;
-	gap: 0;
-	padding: 8px 16px 12px;
+	gap: 6px;
+	padding: 8px 0 12px;
 	border-top: 1px solid var(--storefront-ai-border);
 	background: var(--storefront-ai-bg);
 	position: relative;
@@ -879,6 +951,7 @@
 	position: relative;
 	display: flex;
 	align-items: flex-end;
+	padding: 0 16px;
 }
 
 .storefront-ai-widget-input {
@@ -903,6 +976,9 @@
 
 .storefront-ai-widget-input:focus {
 	border-color: var(--storefront-ai-accent, #1a1a1a);
+}
+
+.storefront-ai-widget-input:focus:not(:focus-visible) {
 	outline: none;
 }
 
@@ -1014,12 +1090,19 @@
 	}
 }
 
+/* ─── Tablet ─── */
+@media (max-width: 768px) {
+	.storefront-ai-widget-shell {
+		bottom: 96px;
+	}
+}
+
 /* ─── Mobile ─── */
 @media (max-width: 640px) {
 	.storefront-ai-widget-shell {
 		left: 12px;
 		right: 12px;
-		bottom: 96px;
+		bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 		align-items: stretch;
 	}
 
@@ -1041,8 +1124,24 @@
 	}
 
 	.storefront-ai-widget-panel {
-		max-height: calc(100dvh - 80px);
+		max-height: calc(100dvh - 80px - env(safe-area-inset-bottom, 0px));
 		border-radius: var(--storefront-ai-radius-panel) var(--storefront-ai-radius-panel) 0 0;
+	}
+
+	.storefront-ai-widget-header {
+		padding: 10px 12px;
+	}
+
+	.storefront-ai-widget-feed {
+		padding: 12px;
+	}
+
+	.storefront-ai-widget-suggestions {
+		padding: 0 12px 6px;
+	}
+
+	.storefront-ai-widget-input-wrap {
+		padding: 0 12px;
 	}
 
 	.storefront-ai-widget-cart-plan-item {
@@ -1057,5 +1156,42 @@
 	.storefront-ai-widget-card--product {
 		min-width: 140px;
 		max-width: 160px;
+	}
+
+	.storefront-ai-widget-heading {
+		font-size: 13px;
+	}
+
+	.storefront-ai-widget-session-page {
+		padding: 0 12px 12px;
+		max-height: 85%;
+	}
+}
+
+/* ─── Very small screens ─── */
+@media (max-width: 360px) {
+	.storefront-ai-widget-shell {
+		left: 8px;
+		right: 8px;
+	}
+
+	.storefront-ai-widget-card--product {
+		min-width: 120px;
+		max-width: 140px;
+	}
+
+	.storefront-ai-widget-message {
+		max-width: 92%;
+	}
+}
+
+/* ─── Landscape mobile ─── */
+@media (max-height: 500px) and (orientation: landscape) {
+	.storefront-ai-widget-panel {
+		max-height: calc(100dvh - 64px);
+	}
+
+	.storefront-ai-widget-shell {
+		bottom: 56px;
 	}
 }

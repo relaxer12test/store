@@ -575,6 +575,7 @@
 
 .storefront-ai-widget-message-text {
 	overflow-wrap: anywhere;
+	word-break: break-word;
 }
 
 .storefront-ai-widget-message-text--supporting {
@@ -835,6 +836,10 @@
 
 .storefront-ai-widget-cart-plan-name {
 	font-weight: 600;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+	min-width: 0;
 }
 
 .storefront-ai-widget-cart-plan-detail,
@@ -1085,12 +1090,19 @@
 	}
 }
 
+/* ─── Tablet ─── */
+@media (max-width: 768px) {
+	.storefront-ai-widget-shell {
+		bottom: 96px;
+	}
+}
+
 /* ─── Mobile ─── */
 @media (max-width: 640px) {
 	.storefront-ai-widget-shell {
 		left: 12px;
 		right: 12px;
-		bottom: 96px;
+		bottom: calc(96px + env(safe-area-inset-bottom, 0px));
 		align-items: stretch;
 	}
 
@@ -1112,8 +1124,24 @@
 	}
 
 	.storefront-ai-widget-panel {
-		max-height: calc(100dvh - 80px);
+		max-height: calc(100dvh - 80px - env(safe-area-inset-bottom, 0px));
 		border-radius: var(--storefront-ai-radius-panel) var(--storefront-ai-radius-panel) 0 0;
+	}
+
+	.storefront-ai-widget-header {
+		padding: 10px 12px;
+	}
+
+	.storefront-ai-widget-feed {
+		padding: 12px;
+	}
+
+	.storefront-ai-widget-suggestions {
+		padding: 0 12px 6px;
+	}
+
+	.storefront-ai-widget-input-wrap {
+		padding: 0 12px;
 	}
 
 	.storefront-ai-widget-cart-plan-item {
@@ -1128,5 +1156,42 @@
 	.storefront-ai-widget-card--product {
 		min-width: 140px;
 		max-width: 160px;
+	}
+
+	.storefront-ai-widget-heading {
+		font-size: 13px;
+	}
+
+	.storefront-ai-widget-session-page {
+		padding: 0 12px 12px;
+		max-height: 85%;
+	}
+}
+
+/* ─── Very small screens ─── */
+@media (max-width: 360px) {
+	.storefront-ai-widget-shell {
+		left: 8px;
+		right: 8px;
+	}
+
+	.storefront-ai-widget-card--product {
+		min-width: 120px;
+		max-width: 140px;
+	}
+
+	.storefront-ai-widget-message {
+		max-width: 92%;
+	}
+}
+
+/* ─── Landscape mobile ─── */
+@media (max-height: 500px) and (orientation: landscape) {
+	.storefront-ai-widget-panel {
+		max-height: calc(100dvh - 64px);
+	}
+
+	.storefront-ai-widget-shell {
+		bottom: 56px;
 	}
 }
