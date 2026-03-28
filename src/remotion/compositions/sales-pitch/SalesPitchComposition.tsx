@@ -1,9 +1,10 @@
+import { TransitionSeries, springTiming } from "@remotion/transitions";
+import { fade } from "@remotion/transitions/fade";
 import { useEffect, useRef, useState } from "react";
 import {
 	Audio,
 	AbsoluteFill,
 	Img,
-	Sequence,
 	continueRender,
 	delayRender,
 	interpolate,
@@ -17,7 +18,9 @@ import {
 	SALES_PITCH_FOOTAGE_CUES,
 	SALES_PITCH_NARRATION_LINES,
 	SALES_PITCH_SCENE_BEATS,
+	SALES_PITCH_SCENE_DURATIONS,
 	SALES_PITCH_TOTAL_FRAMES,
+	SALES_PITCH_TRANSITION_FRAMES,
 } from "@/remotion/compositions/sales-pitch/sales-pitch.data";
 import {
 	ApprovalScene,
@@ -165,13 +168,6 @@ function useNarrationAvailability() {
 	return isAvailable;
 }
 
-function getActiveBeat(frame: number) {
-	return (
-		SALES_PITCH_SCENE_BEATS.find((beat) => frame >= beat.startFrame && frame < beat.endFrame) ??
-		SALES_PITCH_SCENE_BEATS[SALES_PITCH_SCENE_BEATS.length - 1]
-	);
-}
-
 function getActiveCaption(frame: number) {
 	return (
 		SALES_PITCH_CAPTION_CUES.find(
@@ -180,21 +176,13 @@ function getActiveCaption(frame: number) {
 	);
 }
 
-function BrandChrome({
-	activeBeat,
-	brandLabel,
-	subtitleLabel,
-}: {
-	activeBeat: SceneBeat;
-	brandLabel: string;
-	subtitleLabel: string;
-}) {
+function BrandChrome({ brandLabel }: { brandLabel: string }) {
 	const frame = useCurrentFrame();
 	const { fps } = useVideoConfig();
 	const reveal = spring({
 		config: {
 			damping: 200,
-			stiffness: 180,
+			stiffness: 160,
 		},
 		fps,
 		frame,
@@ -204,7 +192,7 @@ function BrandChrome({
 	return (
 		<div
 			style={{
-				inset: "34px 48px auto",
+				inset: "28px 48px auto",
 				position: "absolute",
 				zIndex: 20,
 			}}
@@ -212,142 +200,67 @@ function BrandChrome({
 			<div
 				style={{
 					alignItems: "center",
-					backdropFilter: "blur(14px)",
-					background: "rgba(255, 255, 255, 0.8)",
-					border: "1px solid rgba(15, 23, 42, 0.07)",
+					backdropFilter: "blur(10px)",
+					background: "rgba(255, 255, 255, 0.72)",
+					border: "1px solid rgba(15, 23, 42, 0.06)",
 					borderRadius: 999,
-					boxShadow: "0 20px 42px rgba(15, 23, 42, 0.08)",
+					boxShadow: "0 8px 32px rgba(15, 23, 42, 0.06)",
 					display: "grid",
-					gap: 22,
-					gridTemplateColumns: "auto auto minmax(0, 1fr) auto",
-					padding: "14px 18px 14px 14px",
-					transform: `translateY(${interpolate(reveal, [0, 1], [-28, 0])}px)`,
+					gap: 14,
+					gridTemplateColumns: "auto auto minmax(0, 1fr)",
+					opacity: interpolate(reveal, [0, 1], [0, 1]),
+					padding: "8px 20px 8px 8px",
+					transform: `translateY(${interpolate(reveal, [0, 1], [-16, 0])}px)`,
 				}}
 			>
 				<div
 					style={{
 						alignItems: "center",
 						background: "linear-gradient(135deg, #111827 0%, #334155 100%)",
-						borderRadius: 18,
+						borderRadius: 12,
 						display: "flex",
-						height: 54,
+						height: 32,
 						justifyContent: "center",
-						width: 54,
+						width: 32,
 					}}
 				>
 					<Img
 						src={staticFile("icon-moonbeam.svg")}
 						style={{
-							height: 30,
-							width: 30,
+							height: 18,
+							width: 18,
 						}}
 					/>
 				</div>
 				<div
 					style={{
-						display: "grid",
-						gap: 4,
-						minWidth: 0,
-					}}
-				>
-					<div
-						style={{
-							color: "#09090b",
-							fontFamily:
-								'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-							fontSize: 20,
-							fontWeight: 700,
-							letterSpacing: "-0.03em",
-						}}
-					>
-						{brandLabel}
-					</div>
-					<div
-						style={{
-							color: "#52525b",
-							fontFamily:
-								'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-							fontSize: 15,
-							fontWeight: 600,
-						}}
-					>
-						{subtitleLabel}
-					</div>
-				</div>
-				<div
-					style={{
-						alignItems: "center",
-						display: "grid",
-						gap: 8,
-						gridTemplateColumns: "1fr",
-						minWidth: 260,
-					}}
-				>
-					<div
-						style={{
-							alignItems: "center",
-							display: "flex",
-							justifyContent: "space-between",
-						}}
-					>
-						<div
-							style={{
-								color: "#52525b",
-								fontFamily:
-									'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-								fontSize: 13,
-								fontWeight: 700,
-								letterSpacing: "0.12em",
-								textTransform: "uppercase",
-							}}
-						>
-							{activeBeat.eyebrow}
-						</div>
-						<div
-							style={{
-								color: "#09090b",
-								fontFamily:
-									'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-								fontSize: 14,
-								fontWeight: 700,
-							}}
-						>
-							{Math.round(progress * 100)}%
-						</div>
-					</div>
-					<div
-						style={{
-							background: "rgba(15, 23, 42, 0.08)",
-							borderRadius: 999,
-							height: 8,
-							overflow: "hidden",
-							position: "relative",
-						}}
-					>
-						<div
-							style={{
-								background: "linear-gradient(90deg, #0f172a 0%, #2563eb 100%)",
-								borderRadius: 999,
-								height: "100%",
-								width: `${progress * 100}%`,
-							}}
-						/>
-					</div>
-				</div>
-				<div
-					style={{
-						background: "rgba(15, 23, 42, 0.08)",
-						borderRadius: 999,
 						color: "#09090b",
 						fontFamily:
 							'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-						fontSize: 15,
+						fontSize: 16,
 						fontWeight: 700,
-						padding: "12px 16px",
-						textTransform: "capitalize",
+						letterSpacing: "-0.02em",
 					}}
 				>
-					{activeBeat.audience}
+					{brandLabel}
+				</div>
+				<div
+					style={{
+						background: "rgba(15, 23, 42, 0.06)",
+						borderRadius: 999,
+						height: 3,
+						overflow: "hidden",
+					}}
+				>
+					<div
+						style={{
+							background: "linear-gradient(90deg, #0f172a 0%, #2563eb 100%)",
+							borderRadius: 999,
+							height: "100%",
+							transition: "width 0.1s ease-out",
+							width: `${progress * 100}%`,
+						}}
+					/>
 				</div>
 			</div>
 		</div>
@@ -360,7 +273,7 @@ function CaptionRail({ cue }: { cue: CaptionCue | null }) {
 	const reveal = spring({
 		config: {
 			damping: 200,
-			stiffness: 180,
+			stiffness: 160,
 		},
 		fps,
 		frame: cue ? Math.max(frame - cue.startFrame, 0) : 0,
@@ -384,17 +297,18 @@ function CaptionRail({ cue }: { cue: CaptionCue | null }) {
 		>
 			<div
 				style={{
-					backdropFilter: "blur(18px)",
-					background: "rgba(8, 13, 23, 0.78)",
-					border: "1px solid rgba(255, 255, 255, 0.08)",
-					borderRadius: 32,
-					boxShadow: "0 24px 64px rgba(15, 23, 42, 0.22)",
+					backdropFilter: "blur(16px)",
+					background: "rgba(8, 13, 23, 0.68)",
+					border: "1px solid rgba(255, 255, 255, 0.06)",
+					borderRadius: 24,
+					boxShadow: "0 16px 48px rgba(15, 23, 42, 0.18)",
 					display: "grid",
-					gap: 6,
-					maxWidth: 1180,
-					padding: "22px 30px",
+					gap: 4,
+					maxWidth: 1100,
+					opacity: interpolate(reveal, [0, 1], [0, 1]),
+					padding: "18px 28px",
 					textAlign: "center",
-					transform: `translateY(${interpolate(reveal, [0, 1], [18, 0])}px)`,
+					transform: `translateY(${interpolate(reveal, [0, 1], [12, 0])}px)`,
 				}}
 			>
 				{cue.lines.map((line) => (
@@ -404,10 +318,10 @@ function CaptionRail({ cue }: { cue: CaptionCue | null }) {
 							color: "white",
 							fontFamily:
 								'"SF Pro Text", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-							fontSize: 31,
+							fontSize: 28,
 							fontWeight: 600,
-							letterSpacing: "-0.03em",
-							lineHeight: 1.12,
+							letterSpacing: "-0.02em",
+							lineHeight: 1.18,
 						}}
 					>
 						{line}
@@ -433,9 +347,9 @@ function BackgroundWash() {
 			<div
 				style={{
 					background:
-						"radial-gradient(circle, rgba(37, 99, 235, 0.12) 0%, rgba(37, 99, 235, 0) 70%)",
+						"radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, rgba(37, 99, 235, 0) 70%)",
 					borderRadius: 9999,
-					filter: "blur(8px)",
+					filter: "blur(14px)",
 					height: 620,
 					left: shopperOrbX,
 					position: "absolute",
@@ -445,10 +359,10 @@ function BackgroundWash() {
 			/>
 			<div
 				style={{
-					background: "radial-gradient(circle, rgba(15, 23, 42, 0.12) 0%, rgba(15, 23, 42, 0) 70%)",
+					background: "radial-gradient(circle, rgba(15, 23, 42, 0.08) 0%, rgba(15, 23, 42, 0) 70%)",
 					borderRadius: 9999,
 					bottom: -120,
-					filter: "blur(12px)",
+					filter: "blur(16px)",
 					height: 760,
 					position: "absolute",
 					right: merchantOrbX,
@@ -590,13 +504,18 @@ export function SalesPitchComposition({
 	brandLabel = "StoreAI",
 	footageMode = "auto",
 	showGuides = false,
+	showSubtitles = true,
 	subtitleLabel = "Shopify AI Console",
 }: SalesPitchCompositionProps) {
 	const frame = useCurrentFrame();
-	const activeBeat = getActiveBeat(frame);
 	const activeCaption = getActiveCaption(frame);
 	const footageAvailability = useFootageAvailability(footageMode);
 	const narrationAvailable = useNarrationAvailability();
+
+	const transitionTiming = springTiming({
+		config: { damping: 200 },
+		durationInFrames: SALES_PITCH_TRANSITION_FRAMES,
+	});
 
 	return (
 		<AbsoluteFill
@@ -608,24 +527,35 @@ export function SalesPitchComposition({
 		>
 			<BackgroundWash />
 			<VoiceoverTrack isAvailable={narrationAvailable} />
-			<BrandChrome activeBeat={activeBeat} brandLabel={brandLabel} subtitleLabel={subtitleLabel} />
-			{SALES_PITCH_SCENE_BEATS.map((beat) => (
-				<Sequence
-					durationInFrames={beat.endFrame - beat.startFrame}
-					from={beat.startFrame}
-					key={beat.id}
-				>
-					<SceneRenderer
-						activeBeat={beat}
-						brandLabel={brandLabel}
-						footageAvailability={footageAvailability}
-						footageById={FOOTAGE_BY_ID}
-						footageMode={footageMode}
-						subtitleLabel={subtitleLabel}
-					/>
-				</Sequence>
-			))}
-			<CaptionRail cue={activeCaption} />
+			<BrandChrome brandLabel={brandLabel} />
+			<TransitionSeries>
+				{SALES_PITCH_SCENE_BEATS.flatMap((beat, i) => {
+					const duration = SALES_PITCH_SCENE_DURATIONS[i];
+					const elements = [
+						<TransitionSeries.Sequence durationInFrames={duration} key={beat.id}>
+							<SceneRenderer
+								activeBeat={beat}
+								brandLabel={brandLabel}
+								footageAvailability={footageAvailability}
+								footageById={FOOTAGE_BY_ID}
+								footageMode={footageMode}
+								subtitleLabel={subtitleLabel}
+							/>
+						</TransitionSeries.Sequence>,
+					];
+					if (i < SALES_PITCH_SCENE_BEATS.length - 1) {
+						elements.push(
+							<TransitionSeries.Transition
+								key={`transition-${beat.id}`}
+								presentation={fade()}
+								timing={transitionTiming}
+							/>,
+						);
+					}
+					return elements;
+				})}
+			</TransitionSeries>
+			{showSubtitles ? <CaptionRail cue={activeCaption} /> : null}
 			{showGuides ? <GuideOverlay /> : null}
 		</AbsoluteFill>
 	);

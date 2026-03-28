@@ -13,8 +13,8 @@ const rawVideoDir = path.join(tempDir, "raw");
 const stateDir = path.join(tempDir, "state");
 const footageDir = path.resolve(rootDir, "public/remotion/footage");
 const viewport = {
-	height: 900,
-	width: 1600,
+	height: 1080,
+	width: 1920,
 };
 
 loadEnvFile(path.resolve(rootDir, ".env.local"));
@@ -306,56 +306,98 @@ async function createAdminState(browser) {
 	return statePath;
 }
 
-async function newRecordedContext(browser, { baseURL, clipId, storageStatePath }) {
-	await rm(path.join(rawVideoDir, clipId), {
-		force: true,
-		recursive: true,
-	}).catch(() => {});
-	ensureDir(path.join(rawVideoDir, clipId));
+const CAPTURE_FPS = 20;
+const CAPTURE_INTERVAL_MS = Math.round(1000 / CAPTURE_FPS);
 
-	return browser.newContext({
+async function newRecordedContext(browser, { baseURL, clipId, storageStatePath }) {
+	const framesDir = path.join(rawVideoDir, clipId);
+	await rm(framesDir, { force: true, recursive: true }).catch(() => {});
+	ensureDir(framesDir);
+
+	const context = await browser.newContext({
 		baseURL,
-		recordVideo: {
-			dir: path.join(rawVideoDir, clipId),
-			size: viewport,
-		},
 		storageState: storageStatePath,
 		viewport,
 	});
+
+	context._captureClipId = clipId;
+	context._captureFramesDir = framesDir;
+	return context;
 }
 
-async function transcodeVideo(inputPath, outputPath) {
+function startFrameCapture(page) {
+	const context = page.context();
+	const framesDir = context._captureFramesDir;
+	let frameIndex = 0;
+	let running = true;
+
+	const loop = (async () => {
+		while (running) {
+			const start = Date.now();
+			const framePath = path.join(framesDir, `frame-${String(frameIndex).padStart(6, "0")}.jpg`);
+			await page.screenshot({ path: framePath, quality: 95, type: "jpeg" }).catch(() => {});
+			frameIndex++;
+			const elapsed = Date.now() - start;
+			const delay = Math.max(CAPTURE_INTERVAL_MS - elapsed, 0);
+			if (delay > 0) {
+				await new Promise((resolve) => setTimeout(resolve, delay));
+			}
+		}
+	})();
+
+	return {
+		stop: async () => {
+			running = false;
+			await loop;
+			return frameIndex;
+		},
+	};
+}
+
+async function stitchFrames(framesDir, outputPath) {
 	await execFileAsync("/opt/homebrew/bin/ffmpeg", [
 		"-y",
+		"-framerate",
+		String(CAPTURE_FPS),
 		"-i",
-		inputPath,
+		path.join(framesDir, "frame-%06d.jpg"),
 		"-vf",
-		"scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:(ow-iw)/2:(oh-ih)/2",
+		"format=yuv420p",
 		"-r",
-		"30",
+		String(CAPTURE_FPS),
 		"-c:v",
 		"libx264",
+		"-crf",
+		"18",
+		"-preset",
+		"slow",
 		"-pix_fmt",
 		"yuv420p",
+		"-colorspace",
+		"bt709",
+		"-color_primaries",
+		"bt709",
+		"-color_trc",
+		"bt709",
 		"-movflags",
 		"+faststart",
 		outputPath,
 	]);
 }
 
-async function finalizeClip(page, clipId) {
-	const video = page.video();
+async function finalizeClip(recorder, page, clipId) {
+	const frameCount = await recorder.stop();
 	const context = page.context();
+	const framesDir = context._captureFramesDir;
 	await context.close();
 
-	if (!video) {
-		throw new Error(`No Playwright video was produced for ${clipId}.`);
+	if (frameCount === 0) {
+		throw new Error(`No frames were captured for ${clipId}.`);
 	}
 
-	const rawVideoPath = await video.path();
 	const outputPath = path.join(footageDir, `${clipId}.mp4`);
-	await transcodeVideo(rawVideoPath, outputPath);
-	console.log(`captured ${clipId} -> ${outputPath}`);
+	await stitchFrames(framesDir, outputPath);
+	console.log(`captured ${clipId} -> ${outputPath} (${frameCount} frames)`);
 }
 
 async function captureShopperRecommendation(browser, storefrontStatePath) {
@@ -371,6 +413,7 @@ async function captureShopperRecommendation(browser, storefrontStatePath) {
 	await openStorefront(page, "/");
 	await openAssistant(page);
 	await startFreshAssistantSession(page);
+	const recorder = startFrameCapture(page);
 	let previousText = await readWidgetText(page);
 	await sendAssistantPrompt(page, curiousCustomerPrompt);
 	previousText = await waitForWidgetTextGrowth(page, previousText, 80);
@@ -378,7 +421,7 @@ async function captureShopperRecommendation(browser, storefrontStatePath) {
 		node.scrollTop = 0;
 	});
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 	return previousText;
 }
 
@@ -395,6 +438,7 @@ async function captureShopperCartPlan(browser, storefrontStatePath) {
 	await openStorefront(page, "/");
 	await openAssistant(page);
 	await startFreshAssistantSession(page);
+	const recorder = startFrameCapture(page);
 	let previousText = await readWidgetText(page);
 	await sendAssistantPrompt(page, curiousCustomerPrompt);
 	previousText = await waitForWidgetTextGrowth(page, previousText, 80);
@@ -429,7 +473,7 @@ async function captureShopperCartPlan(browser, storefrontStatePath) {
 	});
 	await addToCartButton.hover();
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function captureShopperRefusal(browser, storefrontStatePath) {
@@ -445,11 +489,12 @@ async function captureShopperRefusal(browser, storefrontStatePath) {
 	await openStorefront(page, "/");
 	await openAssistant(page);
 	await startFreshAssistantSession(page);
+	const recorder = startFrameCapture(page);
 	const previousText = await readWidgetText(page);
 	await sendAssistantPrompt(page, refusalPrompt);
 	await waitForWidgetTextGrowth(page, previousText, 70);
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function openMerchantApp(page) {
@@ -525,8 +570,9 @@ async function captureMerchantDashboard(browser, adminStatePath) {
 		state: "visible",
 		timeout: 20_000,
 	});
+	const recorder = startFrameCapture(page);
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function captureMerchantApprovalFlow(browser, adminStatePath) {
@@ -556,6 +602,7 @@ async function captureMerchantApprovalFlow(browser, adminStatePath) {
 		await pause(page, 1.2);
 	}
 
+	const recorder = startFrameCapture(page);
 	const quickPrompt = page.getByRole("button", { name: merchantCopilotPrompt }).first();
 
 	if (await quickPrompt.isVisible().catch(() => false)) {
@@ -575,7 +622,7 @@ async function captureMerchantApprovalFlow(browser, adminStatePath) {
 		});
 	await pause(page, 3);
 
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function captureMerchantDocumentGrounding(browser, adminStatePath) {
@@ -597,8 +644,9 @@ async function captureMerchantDocumentGrounding(browser, adminStatePath) {
 	await page.getByRole("heading", { name: "Knowledge documents" }).scrollIntoViewIfNeeded();
 	await ensureMerchantKnowledgeDocuments(page);
 	await page.getByRole("heading", { name: "Knowledge documents" }).scrollIntoViewIfNeeded();
+	const recorder = startFrameCapture(page);
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function captureMerchantTraceabilityClose(browser, adminStatePath) {
@@ -617,6 +665,7 @@ async function captureMerchantTraceabilityClose(browser, adminStatePath) {
 		state: "visible",
 		timeout: 20_000,
 	});
+	const recorder = startFrameCapture(page);
 	await page.getByRole("button", { name: "Queue re-index workflow" }).click();
 	await pause(page, 1.8);
 	await clickAppNav(page, "Workflows");
@@ -625,7 +674,7 @@ async function captureMerchantTraceabilityClose(browser, adminStatePath) {
 		timeout: 20_000,
 	});
 	await pause(page, 3.5);
-	await finalizeClip(page, clipId);
+	await finalizeClip(recorder, page, clipId);
 }
 
 async function withBrowser(task) {

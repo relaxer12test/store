@@ -10,6 +10,7 @@ export const SALES_PITCH_WIDTH = 1920;
 export const SALES_PITCH_HEIGHT = 1080;
 export const SALES_PITCH_TOTAL_SECONDS = 75;
 export const SALES_PITCH_TOTAL_FRAMES = SALES_PITCH_TOTAL_SECONDS * SALES_PITCH_FPS;
+export const SALES_PITCH_TRANSITION_FRAMES = 15;
 
 function secondsToFrames(value: number) {
 	return Math.round(value * SALES_PITCH_FPS);
@@ -330,3 +331,8 @@ export const SALES_PITCH_CAPTION_CUES: CaptionCue[] = [
 		startFrame: secondsToFrames(67),
 	},
 ];
+
+export const SALES_PITCH_SCENE_DURATIONS: number[] = SALES_PITCH_SCENE_BEATS.map((beat, i) => {
+	const baseDuration = beat.endFrame - beat.startFrame;
+	return i === 0 ? baseDuration : baseDuration + SALES_PITCH_TRANSITION_FRAMES;
+});

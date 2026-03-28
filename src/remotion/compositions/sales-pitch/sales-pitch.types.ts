@@ -6,6 +6,7 @@ export interface SalesPitchCompositionProps {
 	brandLabel?: string;
 	footageMode?: SalesPitchFootageMode;
 	showGuides?: boolean;
+	showSubtitles?: boolean;
 	subtitleLabel?: string;
 }
 

@@ -12,6 +12,7 @@ const defaultProps: SalesPitchCompositionProps = {
 	brandLabel: "StoreAI",
 	footageMode: "auto",
 	showGuides: false,
+	showSubtitles: true,
 	subtitleLabel: "Shopify AI Console",
 };
 

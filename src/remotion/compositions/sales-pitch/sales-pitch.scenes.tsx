@@ -33,7 +33,7 @@ function sceneEnter(frame: number, fps: number, delay = 0) {
 	return spring({
 		config: {
 			damping: 200,
-			stiffness: 180,
+			stiffness: 160,
 		},
 		fps,
 		frame: Math.max(frame - delay, 0),
@@ -228,8 +228,8 @@ function FootageCanvas({
 			style={{
 				background: "#0f172a",
 				border: `1px solid ${frameBorder}`,
-				borderRadius: 36,
-				boxShadow: "0 28px 80px rgba(15, 23, 42, 0.22)",
+				borderRadius: 28,
+				boxShadow: "0 20px 60px rgba(15, 23, 42, 0.16)",
 				height: "100%",
 				overflow: "hidden",
 				position: "relative",
@@ -307,15 +307,15 @@ function OverlayPanel({
 		<div
 			style={{
 				backdropFilter: "blur(14px)",
-				background: "rgba(8, 13, 23, 0.64)",
+				background: "rgba(8, 13, 23, 0.56)",
 				border: `1px solid ${glassBorder}`,
-				borderRadius: 28,
+				borderRadius: 24,
 				bottom: 28,
 				display: "grid",
 				gap: 14,
 				left: 28,
 				maxWidth: 760,
-				padding: "26px 28px",
+				padding: "24px 26px",
 				position: "absolute",
 			}}
 		>
@@ -602,9 +602,8 @@ export function ShopperAssistantScene({
 	const frame = useCurrentFrame();
 	const recommendationCue = footageById["shopper-recommendation"];
 	const cartPlanCue = footageById["shopper-cart-plan"];
-	const localFrame = frame - beat.startFrame;
 	const swapPoint = Math.round((beat.endFrame - beat.startFrame) * 0.56);
-	const cue = localFrame < swapPoint ? recommendationCue : cartPlanCue;
+	const cue = frame < swapPoint ? recommendationCue : cartPlanCue;
 
 	return (
 		<FootageFocusedScene
@@ -696,7 +695,7 @@ export function ClosingScene({
 	const cue = footageById["merchant-traceability-close"];
 	const frame = useCurrentFrame();
 	const { fps } = useVideoConfig();
-	const reveal = sceneEnter(frame - beat.startFrame, fps, 4);
+	const reveal = sceneEnter(frame, fps, 4);
 
 	return (
 		<Stage>
