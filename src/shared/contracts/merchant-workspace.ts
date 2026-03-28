@@ -123,6 +123,21 @@ export interface MerchantCopilotConversation {
 	quickPrompts: string[];
 }
 
+export interface MerchantCopilotSessionSummary {
+	conversationId: string;
+	createdAt: string;
+	lastAssistantSummary: string | null;
+	lastPromptPreview: string | null;
+	pendingApprovalCount: number;
+	title: string;
+	updatedAt: string;
+}
+
+export interface MerchantCopilotSessionsData {
+	generatedAt: string;
+	sessions: MerchantCopilotSessionSummary[];
+}
+
 export interface MerchantExplorerDataset {
 	description: string;
 	key: "audit_logs" | "documents" | "inventory" | "orders" | "products";

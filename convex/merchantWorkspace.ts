@@ -27,6 +27,8 @@ import {
 	type MerchantApprovalCard,
 	type MerchantCitation,
 	type MerchantCopilotConversation,
+	type MerchantCopilotSessionsData,
+	type MerchantCopilotSessionSummary,
 	type MerchantDocumentRecord,
 	type MerchantKnowledgeDocumentsData,
 	type MerchantExplorerData,
@@ -1051,6 +1053,65 @@ async function getLatestConversation(
 	return rows[0] ?? null;
 }
 
+async function listCopilotConversations(
+	ctx: QueryCtx,
+	options: {
+		actorId: string;
+		shopId: Id<"shops">;
+	},
+) {
+	return await ctx.db
+		.query("merchantCopilotConversations")
+		.withIndex("by_shop_and_actor_and_updated_at", (query) =>
+			query.eq("shopId", options.shopId).eq("actorId", options.actorId),
+		)
+		.order("desc")
+		.take(25);
+}
+
+async function countPendingApprovalsForConversation(
+	ctx: QueryCtx,
+	options: {
+		conversationId: Id<"merchantCopilotConversations">;
+	},
+) {
+	const approvals = await ctx.db
+		.query("merchantActionApprovals")
+		.withIndex("by_conversation_and_requested_at", (query) =>
+			query.eq("conversationId", options.conversationId),
+		)
+		.order("desc")
+		.take(25);
+
+	return approvals.filter(
+		(approval) => approval.status === "pending" || approval.status === "executing",
+	).length;
+}
+
+async function listCopilotSessionSummaries(
+	ctx: QueryCtx,
+	options: {
+		actorId: string;
+		shopId: Id<"shops">;
+	},
+): Promise<MerchantCopilotSessionSummary[]> {
+	const conversations = await listCopilotConversations(ctx, options);
+
+	return await Promise.all(
+		conversations.map(async (conversation) => ({
+			conversationId: conversation._id,
+			createdAt: new Date(conversation.createdAt).toISOString(),
+			lastAssistantSummary: conversation.lastAssistantSummary ?? null,
+			lastPromptPreview: conversation.lastPromptPreview ?? null,
+			pendingApprovalCount: await countPendingApprovalsForConversation(ctx, {
+				conversationId: conversation._id,
+			}),
+			title: conversation.title,
+			updatedAt: new Date(conversation.updatedAt).toISOString(),
+		})),
+	);
+}
+
 async function loadConversationState(
 	ctx: QueryCtx,
 	options: {
@@ -1067,6 +1128,16 @@ async function loadConversationState(
 			});
 
 	if (!conversation || conversation.shopId !== options.shopId) {
+		return {
+			conversationId: null,
+			latestDashboard: null,
+			messages: [],
+			pendingApprovals: [],
+			quickPrompts: QUICK_PROMPTS,
+		};
+	}
+
+	if (conversation.actorId !== options.actorId) {
 		return {
 			conversationId: null,
 			latestDashboard: null,
@@ -1473,6 +1544,10 @@ export const appendCopilotMessage = internalMutation({
 					args.role === "assistant" ? args.body.slice(0, 180) : conversation.lastAssistantSummary,
 				lastPromptPreview:
 					args.role === "user" ? args.body.slice(0, 180) : conversation.lastPromptPreview,
+				title:
+					args.role === "user" && conversation.title === DEFAULT_CONVERSATION_TITLE
+						? args.body.slice(0, 72)
+						: conversation.title,
 				updatedAt: now,
 			});
 		}
@@ -1534,6 +1609,57 @@ export const setConversationThread = internalMutation({
 		return conversation._id;
 	},
 });
+
+async function deleteConversationMessages(
+	ctx: MutationCtx,
+	options: {
+		conversationId: Id<"merchantCopilotConversations">;
+	},
+) {
+	while (true) {
+		const rows = await ctx.db
+			.query("merchantCopilotMessages")
+			.withIndex("by_conversation_and_created_at", (query) =>
+				query.eq("conversationId", options.conversationId),
+			)
+			.take(64);
+
+		if (rows.length === 0) {
+			break;
+		}
+
+		for (const row of rows) {
+			await ctx.db.delete(row._id);
+		}
+	}
+}
+
+async function detachConversationApprovals(
+	ctx: MutationCtx,
+	options: {
+		conversationId: Id<"merchantCopilotConversations">;
+	},
+) {
+	while (true) {
+		const rows = await ctx.db
+			.query("merchantActionApprovals")
+			.withIndex("by_conversation_and_requested_at", (query) =>
+				query.eq("conversationId", options.conversationId),
+			)
+			.take(64);
+
+		if (rows.length === 0) {
+			break;
+		}
+
+		for (const row of rows) {
+			await ctx.db.patch(row._id, {
+				conversationId: undefined,
+				updatedAt: Date.now(),
+			});
+		}
+	}
+}
 
 export const createApprovalRequest = internalMutation({
 	args: {
@@ -1872,6 +1998,133 @@ export const copilotState = query({
 			conversationId: args.conversationId,
 			shopId: shop._id,
 		});
+	},
+});
+
+export const copilotSessions = query({
+	args: {},
+	handler: async (ctx): Promise<MerchantCopilotSessionsData> => {
+		const { actor, shop } = await requireMerchantActor(ctx);
+
+		return {
+			generatedAt: new Date().toISOString(),
+			sessions: await listCopilotSessionSummaries(ctx, {
+				actorId: actor.id,
+				shopId: shop._id,
+			}),
+		};
+	},
+});
+
+export const createConversation = mutation({
+	args: {},
+	handler: async (ctx) => {
+		const { actor, shop } = await requireMerchantActor(ctx);
+		const now = Date.now();
+		const conversationId = await ctx.db.insert("merchantCopilotConversations", {
+			actorId: actor.id,
+			createdAt: now,
+			shopId: shop._id,
+			threadId: undefined,
+			title: DEFAULT_CONVERSATION_TITLE,
+			updatedAt: now,
+		});
+
+		await auditAction(ctx, {
+			action: "merchant.copilot.conversation.created",
+			actorId: actor.id,
+			detail: "Merchant started a new copilot conversation.",
+			payload: {
+				conversationId,
+			},
+			shopId: shop._id,
+			status: "success",
+		});
+
+		return {
+			conversationId,
+			ok: true,
+		};
+	},
+});
+
+export const renameConversation = mutation({
+	args: {
+		conversationId: v.id("merchantCopilotConversations"),
+		title: v.string(),
+	},
+	handler: async (ctx, args) => {
+		const { actor, shop } = await requireMerchantActor(ctx);
+		const conversation = await ctx.db.get(args.conversationId);
+		const title = args.title.trim();
+
+		if (!conversation || conversation.shopId !== shop._id || conversation.actorId !== actor.id) {
+			throw new Error("Conversation not found.");
+		}
+
+		if (title.length < 3) {
+			throw new Error("Conversation title must be at least 3 characters.");
+		}
+
+		await ctx.db.patch(conversation._id, {
+			title: title.slice(0, 72),
+			updatedAt: Date.now(),
+		});
+
+		return {
+			ok: true,
+		};
+	},
+});
+
+export const deleteConversation = mutation({
+	args: {
+		conversationId: v.id("merchantCopilotConversations"),
+	},
+	handler: async (ctx, args) => {
+		const { actor, shop } = await requireMerchantActor(ctx);
+		const conversation = await ctx.db.get(args.conversationId);
+
+		if (!conversation || conversation.shopId !== shop._id || conversation.actorId !== actor.id) {
+			throw new Error("Conversation not found.");
+		}
+
+		const approvals = await ctx.db
+			.query("merchantActionApprovals")
+			.withIndex("by_conversation_and_requested_at", (query) =>
+				query.eq("conversationId", conversation._id),
+			)
+			.take(25);
+		const blockingApproval = approvals.find(
+			(approval) => approval.status === "pending" || approval.status === "executing",
+		);
+
+		if (blockingApproval) {
+			throw new Error("Resolve pending approvals before deleting this conversation.");
+		}
+
+		await deleteConversationMessages(ctx, {
+			conversationId: conversation._id,
+		});
+		await detachConversationApprovals(ctx, {
+			conversationId: conversation._id,
+		});
+		await ctx.db.delete(conversation._id);
+
+		await auditAction(ctx, {
+			action: "merchant.copilot.conversation.deleted",
+			actorId: actor.id,
+			detail: `Merchant deleted copilot conversation ${conversation.title}.`,
+			payload: {
+				conversationId: conversation._id,
+			},
+			shopId: shop._id,
+			status: "success",
+		});
+
+		return {
+			ok: true,
+		};
 	},
 });
 
