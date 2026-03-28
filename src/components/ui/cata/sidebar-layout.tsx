@@ -2,8 +2,14 @@
 
 import * as Headless from "@headlessui/react";
 import type React from "react";
-import { useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { NavbarItem } from "./navbar";
+
+const SidebarCloseContext = createContext<(() => void) | null>(null);
+
+export function useSidebarClose() {
+	return useContext(SidebarCloseContext);
+}
 
 function OpenMenuIcon() {
 	return (
@@ -27,7 +33,7 @@ function MobileSidebar({
 	children,
 }: React.PropsWithChildren<{ open: boolean; close: () => void }>) {
 	return (
-		<Headless.Dialog open={open} onClose={close} className="lg:hidden">
+		<Headless.Dialog aria-label="Navigation menu" open={open} onClose={close} className="lg:hidden">
 			<Headless.DialogBackdrop
 				transition
 				className="fixed inset-0 bg-black/30 transition data-closed:opacity-0 data-enter:duration-300 data-enter:ease-out data-leave:duration-200 data-leave:ease-in"
@@ -66,7 +72,9 @@ export function SidebarLayout({
 
 			{/* Sidebar on mobile */}
 			<MobileSidebar open={showSidebar} close={() => setShowSidebar(false)}>
-				{sidebar}
+				<SidebarCloseContext.Provider value={() => setShowSidebar(false)}>
+					{sidebar}
+				</SidebarCloseContext.Provider>
 			</MobileSidebar>
 
 			{/* Navbar on mobile */}

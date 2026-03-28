@@ -9,10 +9,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="{{ settings.color_background }}">
     <link rel="canonical" href="{{ canonical_url }}">
-    {%- assign favicon_image = settings.favicon | default: settings.logo -%}
-    {%- if favicon_image != blank -%}
-      <link rel="icon" href="{{ favicon_image | image_url: width: 32, height: 32 }}">
-    {%- endif -%}
 
     {%- assign formatted_balance = gift_card.balance | money_without_trailing_zeros | strip_html -%}
 
@@ -21,6 +17,46 @@
     <meta name="description" content="{{ 'gift_cards.issued.subtext' | t }}">
 
     {{ content_for_header }}
+    <script>
+      (() => {
+        const faviconHref =
+          {%- if settings.favicon != blank -%}
+            {{ settings.favicon | image_url: width: 32, height: 32 | json }}
+          {%- elsif shop.brand.favicon_url != blank -%}
+            {{ shop.brand.favicon_url | image_url | json }}
+          {%- elsif shop.brand.square_logo != blank -%}
+            {{ shop.brand.square_logo | image_url: width: 32, height: 32 | json }}
+          {%- elsif settings.logo != blank -%}
+            {{ settings.logo | image_url: width: 32, height: 32 | json }}
+          {%- elsif shop.brand.logo != blank -%}
+            {{ shop.brand.logo | image_url: width: 32, height: 32 | json }}
+          {%- else -%}
+            {{ 'logo.svg' | asset_url | json }}
+          {%- endif -%};
+        const faviconType =
+          faviconHref && faviconHref.endsWith('.svg') ? 'image/svg+xml' : '';
+
+        if (!faviconHref) return;
+
+        for (const rel of ['icon', 'shortcut icon']) {
+          let link = document.head.querySelector(`link[rel="${rel}"]`);
+
+          if (!link) {
+            link = document.createElement('link');
+            link.rel = rel;
+            document.head.appendChild(link);
+          }
+
+          link.href = faviconHref;
+
+          if (faviconType) {
+            link.type = faviconType;
+          } else {
+            link.removeAttribute('type');
+          }
+        }
+      })();
+    </script>
 
     {%- liquid
       assign body_font_bold = settings.type_body_font | font_modify: 'weight', 'bold'

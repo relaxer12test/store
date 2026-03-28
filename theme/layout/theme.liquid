@@ -6,10 +6,6 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <meta name="theme-color" content="">
     <link rel="canonical" href="{{ canonical_url }}">
-    {%- assign favicon_image = settings.favicon | default: settings.logo -%}
-    {%- if favicon_image != blank -%}
-      <link rel="icon" href="{{ favicon_image | image_url: width: 32, height: 32 }}">
-    {%- endif -%}
 
     <title>
       {{ page_title }}

@@ -95,11 +95,11 @@ function InternalAiSessionsIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Live shopper sessions</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Sessions</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} sessions`}</StatusPill>
 				</>
 			}
-			description="Storefront shopper sessions with dedicated session routes. Search is session-id driven and detail pages stay reactive to incoming thread updates."
+			description="Shopper chat sessions and live transcripts."
 			title="AI sessions"
 		>
 			<ResourceToolbar

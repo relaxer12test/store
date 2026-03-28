@@ -1,4 +1,3 @@
-import { Link } from "@tanstack/react-router";
 import {
 	DescriptionDetails,
 	DescriptionList,
@@ -98,32 +97,6 @@ export function TimelineList({ items }: { items: TimelineItem[] }) {
 				</li>
 			))}
 		</ol>
-	);
-}
-
-export interface SurfaceNavItem {
-	description: string;
-	title: string;
-	to: string;
-}
-
-export function SurfaceNav({ items, label }: { items: SurfaceNavItem[]; label: string }) {
-	return (
-		<nav aria-label={label} className="flex flex-wrap gap-3">
-			{items.map((item) => (
-				<Link
-					activeProps={{
-						className: "border-zinc-300 bg-zinc-100 dark:border-white/20 dark:bg-zinc-800",
-					}}
-					className="min-w-[13rem] rounded-lg border border-zinc-950/5 bg-white px-4 py-3 transition hover:border-zinc-300 dark:border-white/10 dark:bg-zinc-900 dark:hover:border-white/20"
-					key={item.to}
-					to={item.to}
-				>
-					<Strong>{item.title}</Strong>
-					<Text>{item.description}</Text>
-				</Link>
-			))}
-		</nav>
 	);
 }
 

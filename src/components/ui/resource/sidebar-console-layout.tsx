@@ -10,7 +10,7 @@ import {
 	SidebarLabel,
 	SidebarSection,
 } from "@/components/ui/cata/sidebar";
-import { SidebarLayout } from "@/components/ui/cata/sidebar-layout";
+import { SidebarLayout, useSidebarClose } from "@/components/ui/cata/sidebar-layout";
 import { Text } from "@/components/ui/cata/text";
 
 export interface SidebarConsoleNavItem {
@@ -24,20 +24,19 @@ function NavigationSidebar({
 	navDescription,
 	navEyebrow,
 	navTitle,
-	onNavigate,
 }: {
 	items: SidebarConsoleNavItem[];
 	navDescription?: string;
 	navEyebrow?: string;
 	navTitle: string;
-	onNavigate?: () => void;
 }) {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const closeSidebar = useSidebarClose();
 
 	return (
-		<Sidebar className="h-full rounded-[2rem] border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80">
+		<Sidebar aria-label="Console navigation" className="h-full rounded-[2rem] border border-zinc-950/6 bg-zinc-50/90 dark:border-white/10 dark:bg-zinc-950/80">
 			<SidebarHeader className="border-b border-zinc-950/6 px-5 py-5 dark:border-white/10">
 				{navEyebrow ? (
 					<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">
@@ -54,7 +53,7 @@ function NavigationSidebar({
 						const current = pathname === item.href || pathname.startsWith(`${item.href}/`);
 
 						return (
-							<SidebarItem current={current} href={item.href} key={item.href} onClick={onNavigate}>
+							<SidebarItem current={current} href={item.href} key={item.href} onClick={closeSidebar ?? undefined}>
 								<div className="min-w-0">
 									<SidebarLabel>{item.label}</SidebarLabel>
 									<Text className="mt-1 truncate text-xs/5 text-zinc-500 dark:text-zinc-400">
@@ -79,7 +78,6 @@ export function SidebarConsoleLayout({
 	navDescription,
 	navEyebrow,
 	navTitle,
-	status,
 	title,
 }: React.PropsWithChildren<{
 	description: string;
@@ -89,7 +87,6 @@ export function SidebarConsoleLayout({
 	navDescription?: string;
 	navEyebrow?: string;
 	navTitle: string;
-	status?: React.ReactNode;
 	title: string;
 }>) {
 	return (
@@ -111,8 +108,8 @@ export function SidebarConsoleLayout({
 				/>
 			}
 		>
-			<div className="grid gap-6">
-				<header className="flex flex-col gap-4 rounded-[2rem] border border-zinc-950/6 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(244,244,245,0.94))] px-6 py-6 shadow-sm dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.98),rgba(9,9,11,0.94))]">
+			<div className="grid gap-5">
+				<header className="flex flex-col gap-4 rounded-[2rem] border border-zinc-950/6 bg-[linear-gradient(135deg,rgba(255,255,255,0.98),rgba(244,244,245,0.94))] px-4 py-4 shadow-sm sm:px-6 sm:py-6 dark:border-white/10 dark:bg-[linear-gradient(135deg,rgba(24,24,27,0.98),rgba(9,9,11,0.94))]">
 					<div className="flex items-start justify-between gap-4">
 						<div className="max-w-3xl">
 							{eyebrow ? (
@@ -120,11 +117,9 @@ export function SidebarConsoleLayout({
 									{eyebrow}
 								</Text>
 							) : null}
-							<Heading className="mt-3 text-3xl/10">{title}</Heading>
-							<Text className="mt-3 max-w-2xl">{description}</Text>
+							<Heading className="mt-2 text-2xl/8 sm:mt-3 sm:text-3xl/10">{title}</Heading>
+							<Text className="mt-2 max-w-2xl sm:mt-3">{description}</Text>
 						</div>
-
-						{status ? <div className="hidden lg:flex">{status}</div> : null}
 					</div>
 				</header>
 

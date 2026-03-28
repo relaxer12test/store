@@ -85,10 +85,10 @@ function InternalAuditsIndexRoute() {
 			badges={
 				<>
 					<StatusPill tone="accent">Audit trail</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} entries`}</StatusPill>
 				</>
 			}
-			description="Recorded audit entries and approval-adjacent side effects. Search is action-driven and the detail pane exposes stored payload metadata."
+			description="Recorded actions and their details."
 			title="Audits"
 		>
 			<ResourceToolbar

@@ -83,11 +83,11 @@ function InternalUsersIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Better Auth</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Auth</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} users`}</StatusPill>
 				</>
 			}
-			description="Better Auth users with role, membership, and recent-session drill-in. Search is name/email driven; role filtering stays explicit."
+			description="Users, roles, and recent sessions."
 			title="Users"
 		>
 			<ResourceToolbar

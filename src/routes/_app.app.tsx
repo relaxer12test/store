@@ -1,37 +1,34 @@
 import { createFileRoute, Outlet } from "@tanstack/react-router";
-import type { SurfaceNavItem } from "@/components/ui/layout";
-import { EmbeddedAppShellBanner } from "@/features/app-shell/components/embedded-app-shell-banner";
+import type { SidebarConsoleNavItem } from "@/components/ui/resource";
+import { SidebarConsoleLayout } from "@/components/ui/resource";
 import { MerchantAccessState } from "@/features/app-shell/components/merchant-access-state";
 import { MerchantSessionGate } from "@/features/app-shell/components/merchant-session-gate";
-import { SurfaceLayout } from "@/features/app-shell/components/surface-layout";
-import { useEmbeddedAppBootstrap } from "@/integrations/app/embedded";
-import { useAppAuth } from "@/lib/auth-client";
 
-const appNav: SurfaceNavItem[] = [
+const appNav: SidebarConsoleNavItem[] = [
 	{
-		description: "Warehouse-backed merchant overview with no-spinner first load.",
-		title: "Overview",
-		to: "/app",
+		description: "Store health and recent activity.",
+		href: "/app",
+		label: "Overview",
 	},
 	{
-		description: "Approval-aware assistant surface for admin questions and actions.",
-		title: "Copilot",
-		to: "/app/copilot",
+		description: "AI assistant for store questions and actions.",
+		href: "/app/copilot",
+		label: "Copilot",
 	},
 	{
-		description: "Composable table shell for explorer-style merchant grids.",
-		title: "Explorer",
-		to: "/app/explorer",
+		description: "Browse and search store data.",
+		href: "/app/explorer",
+		label: "Explorer",
 	},
 	{
-		description: "Async jobs, queues, and workflow diagnostics.",
-		title: "Workflows",
-		to: "/app/workflows",
+		description: "Background jobs and queue status.",
+		href: "/app/workflows",
+		label: "Workflows",
 	},
 	{
-		description: "Reusable form wrappers for settings and install health.",
-		title: "Settings",
-		to: "/app/settings",
+		description: "Widget settings and install health.",
+		href: "/app/settings",
+		label: "Settings",
 	},
 ];
 
@@ -43,27 +40,17 @@ export const Route = createFileRoute("/_app/app")({
 });
 
 function MerchantLayoutRoute() {
-	const auth = useAppAuth();
-	const embeddedApp = useEmbeddedAppBootstrap();
-
 	return (
-		<SurfaceLayout
-			description="Embedded Shopify app shell for merchants. The route can render as a lightweight shell first, then layer on App Bridge-authenticated requests without full-page redirects or route rewrites."
+		<SidebarConsoleLayout
+			description="Manage your store, review copilot suggestions, and configure settings."
 			eyebrow="Merchant app"
-			navItems={appNav}
-			notice={<EmbeddedAppShellBanner />}
-			statusLabel={
-				auth.isMerchant
-					? "Merchant workspace ready"
-					: embeddedApp.isEmbedded
-						? "Shopify admin shell"
-						: "Local development shell"
-			}
-			title="Store operating cockpit"
+			items={appNav}
+			navTitle="Navigation"
+			title="Your store"
 		>
 			<MerchantSessionGate fallback={<MerchantAccessState />}>
 				<Outlet />
 			</MerchantSessionGate>
-		</SurfaceLayout>
+		</SidebarConsoleLayout>
 	);
 }

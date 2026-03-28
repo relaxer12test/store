@@ -90,11 +90,11 @@ function InternalWorkflowsIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Queue state</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Queue status</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} workflows`}</StatusPill>
 				</>
 			}
-			description="Async workflow rows with retry posture and recent payload previews. Search is type-driven, while status stays index-backed."
+			description="Background workflows, retries, and recent activity."
 			title="Workflows"
 		>
 			<ResourceToolbar

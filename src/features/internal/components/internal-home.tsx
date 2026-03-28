@@ -9,7 +9,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 			<MetricGrid metrics={snapshot.metrics} />
 
 			<div className="grid gap-5 xl:grid-cols-[1fr_1fr]">
-				<Panel description="Live signals derived from Convex state." title="Watchlist">
+				<Panel description="Active alerts from system monitoring." title="Watchlist">
 					{snapshot.signals.length > 0 ? (
 						<div className="space-y-3">
 							{snapshot.signals.map((signal) => (
@@ -31,7 +31,7 @@ export function InternalHome({ snapshot }: { snapshot: SystemStatusSnapshot }) {
 				</Panel>
 
 				<Panel
-					description="Deeper diagnosis lives in the dedicated module routes."
+					description="Issues that need attention."
 					title="Current blockers"
 				>
 					{snapshot.blockers.length > 0 ? (

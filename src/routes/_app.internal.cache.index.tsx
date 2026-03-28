@@ -90,11 +90,11 @@ function InternalCacheIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Projection freshness</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Cache status</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} entries`}</StatusPill>
 				</>
 			}
-			description="Cache state rows for Shopify-backed projections. Search is cache-key driven, while status filtering stays index-backed."
+			description="Cache entries and refresh status."
 			title="Cache"
 		>
 			<ResourceToolbar

@@ -1,47 +1,46 @@
 import { createFileRoute, Outlet, redirect } from "@tanstack/react-router";
-import { StatusPill } from "@/components/ui/feedback";
 import { SidebarConsoleLayout } from "@/components/ui/resource";
 import { currentViewerQuery } from "@/lib/auth-queries";
 import { hasAdminViewer } from "@/shared/contracts/auth";
 
 const internalNavItems = [
 	{
-		description: "Live install posture, blockers, and the admin watchlist.",
+		description: "System health and active alerts.",
 		href: "/internal",
 		label: "Overview",
 	},
 	{
-		description: "Connected shops and install/auth state.",
+		description: "Connected shops and install status.",
 		href: "/internal/shops",
 		label: "Shops",
 	},
 	{
-		description: "Projection freshness, refresh lag, and cache failures.",
+		description: "Cache status and refresh health.",
 		href: "/internal/cache",
 		label: "Cache",
 	},
 	{
-		description: "Queued jobs, retries, and workflow logs.",
+		description: "Background jobs and retries.",
 		href: "/internal/workflows",
 		label: "Workflows",
 	},
 	{
-		description: "Inbound webhook deliveries and stored payload previews.",
+		description: "Webhook deliveries and payloads.",
 		href: "/internal/webhooks",
 		label: "Webhooks",
 	},
 	{
-		description: "Audit entries and approval-side effects.",
+		description: "Audit trail and recorded actions.",
 		href: "/internal/audits",
 		label: "Audits",
 	},
 	{
-		description: "Storefront shopper sessions with live transcript drill-in.",
+		description: "Shopper chat sessions and transcripts.",
 		href: "/internal/ai-sessions",
 		label: "AI sessions",
 	},
 	{
-		description: "Better Auth users, org membership, and admin roles.",
+		description: "Users, roles, and membership.",
 		href: "/internal/users",
 		label: "Users",
 	},
@@ -63,13 +62,10 @@ export const Route = createFileRoute("/_app/internal")({
 function InternalLayoutRoute() {
 	return (
 		<SidebarConsoleLayout
-			description="Dedicated operator routes for high-volume internal data. Every module is URL-backed, paginated, and detail-first so the admin shell can scale with real Convex rows."
-			eyebrow="Admin only"
+			description="System-wide admin views for shops, jobs, events, and sessions."
+			eyebrow="Admin"
 			items={internalNavItems}
-			navDescription="Route-backed admin surfaces for stores, jobs, events, and live shopper sessions."
-			navEyebrow="Internal console"
-			navTitle="Operator routes"
-			status={<StatusPill tone="accent">URL-backed navigation</StatusPill>}
+			navTitle="Navigation"
 			title="Internal console"
 		>
 			<Outlet />

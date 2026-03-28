@@ -152,6 +152,46 @@
 -%}
 
 <{% if section.settings.sticky_header_type != 'none' %}sticky-header data-sticky-type="{{ section.settings.sticky_header_type }}"{% else %}div{% endif %} class="header-wrapper color-{{ section.settings.color_scheme }} gradient{% if section.settings.show_line_separator %} header-wrapper--border-bottom{% endif %}">
+  <script>
+    (function () {
+      var faviconHref =
+        {%- if settings.favicon != blank -%}
+          {{ settings.favicon | image_url: width: 32, height: 32 | json }}
+        {%- elsif shop.brand.favicon_url != blank -%}
+          {{ shop.brand.favicon_url | image_url | json }}
+        {%- elsif shop.brand.square_logo != blank -%}
+          {{ shop.brand.square_logo | image_url: width: 32, height: 32 | json }}
+        {%- elsif settings.logo != blank -%}
+          {{ settings.logo | image_url: width: 32, height: 32 | json }}
+        {%- elsif shop.brand.logo != blank -%}
+          {{ shop.brand.logo | image_url: width: 32, height: 32 | json }}
+        {%- else -%}
+          {{ 'logo.svg' | asset_url | json }}
+        {%- endif -%};
+
+      if (!faviconHref) return;
+
+      var faviconType = faviconHref.endsWith('.svg') ? 'image/svg+xml' : null;
+
+      ['icon', 'shortcut icon'].forEach(function (rel) {
+        var link = document.head.querySelector('link[rel="' + rel + '"]');
+
+        if (!link) {
+          link = document.createElement('link');
+          link.rel = rel;
+          document.head.appendChild(link);
+        }
+
+        link.href = faviconHref;
+
+        if (faviconType) {
+          link.type = faviconType;
+        } else {
+          link.removeAttribute('type');
+        }
+      });
+    })();
+  </script>
   <header class="header header--{{ section.settings.logo_position }} header--mobile-{{ section.settings.mobile_logo_position }} page-width{% if section.settings.menu_type_desktop == 'drawer' %} drawer-menu{% endif %}{% if section.settings.menu != blank %} header--has-menu{% endif %}{% if has_app_block %} header--has-app{% endif %}">
     {%- if section.settings.menu != blank -%}
       <header-drawer data-breakpoint="{% if section.settings.menu_type_desktop == 'drawer' %}desktop{% else %}tablet{% endif %}">

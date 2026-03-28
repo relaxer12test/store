@@ -91,11 +91,11 @@ function InternalShopsIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Install posture</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Install status</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} shops`}</StatusPill>
 				</>
 			}
-			description="Connected shops, install state, and offline-token posture. Search is domain-first, while status stays as an indexed filter."
+			description="Connected shops and their install status."
 			title="Shops"
 		>
 			<ResourceToolbar

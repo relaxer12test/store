@@ -90,11 +90,11 @@ function InternalWebhooksIndexRoute() {
 		<ResourcePageLayout
 			badges={
 				<>
-					<StatusPill tone="accent">Inbound events</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} rows`}</StatusPill>
+					<StatusPill tone="accent">Deliveries</StatusPill>
+					<StatusPill tone="neutral">{`${data.records.length} webhooks`}</StatusPill>
 				</>
 			}
-			description="Inbound Shopify webhook deliveries with stored payload previews. Search is topic-driven, while delivery state remains filterable."
+			description="Webhook deliveries and payload history."
 			title="Webhooks"
 		>
 			<ResourceToolbar

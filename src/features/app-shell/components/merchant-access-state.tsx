@@ -12,14 +12,14 @@ export function MerchantAccessState() {
 			? "Awaiting merchant bootstrap"
 			: "Local development shell";
 	const body = auth.isPending
-		? "The app is checking the current Better Auth session and merchant viewer context."
+		? "Checking your session..."
 		: embeddedApp.isEmbedded
-			? "Protected merchant data loads after App Bridge supplies a fresh session token and the backend establishes a merchant browser session on the app host."
-			: "This route is running outside Shopify admin. The shell stays visible, but protected merchant data stays unavailable until the app is opened as an embedded Shopify app.";
+			? "Waiting for Shopify to provide access. This usually takes a moment."
+			: "Open this app from your Shopify admin to access store data.";
 
 	return (
 		<Panel
-			description="Merchant reads are protected by Shopify session verification and shop-scoped Convex auth."
+			description="Requires an active Shopify session."
 			title="Embedded access required"
 		>
 			<div className="space-y-4">

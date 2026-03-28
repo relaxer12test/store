@@ -248,7 +248,7 @@ export function MerchantSettingsPage({
 		<div className="grid gap-5">
 			<div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
 				<Panel
-					description="These values come from the authenticated shop installation record and current webhook history."
+					description="Current install and webhook status."
 					title="Install and webhook health"
 				>
 					<div className="flex flex-wrap gap-3">
@@ -274,37 +274,37 @@ export function MerchantSettingsPage({
 							value={
 								data.installHealth.scopes.length > 0
 									? data.installHealth.scopes.join(", ")
-									: "No scopes recorded yet."
+									: "Not recorded yet"
 							}
 						/>
 						<DetailRow
 							label="Last token exchange"
-							value={data.installHealth.lastTokenExchangeAt ?? "No token exchange recorded yet."}
+							value={data.installHealth.lastTokenExchangeAt ?? "Not recorded yet"}
 						/>
 						<DetailRow
 							label="Last embedded auth"
-							value={data.installHealth.lastAuthenticatedAt ?? "No embedded auth recorded yet."}
+							value={data.installHealth.lastAuthenticatedAt ?? "Not recorded yet"}
 						/>
 						<DetailRow
 							label="Recent topics"
 							value={
 								data.webhookHealth.recentTopics.length > 0
 									? data.webhookHealth.recentTopics.join(", ")
-									: "No webhook topics have been recorded yet."
+									: "Not recorded yet"
 							}
 						/>
 						<DetailRow
 							label="Last successful cache refresh"
 							value={
 								data.cacheHealth.lastSuccessfulRefreshAt ??
-								"No successful cache refresh has been recorded yet."
+								"Not recorded yet"
 							}
 						/>
 					</div>
 				</Panel>
 
 				<Panel
-					description="This checks the live theme and gives merchants a direct path into the theme editor."
+					description="Theme embed status and activation."
 					title="Storefront embed status"
 				>
 					<div className="flex flex-wrap items-center gap-3">
@@ -322,19 +322,19 @@ export function MerchantSettingsPage({
 							<Text>
 								{data.extensionStatus.mainThemeName
 									? `${data.extensionStatus.mainThemeName}${data.extensionStatus.mainThemeId ? ` (${data.extensionStatus.mainThemeId})` : ""}`
-									: "The current live theme could not be resolved from Admin API diagnostics."}
+									: "Theme not detected"}
 							</Text>
 						</div>
 						<div className="rounded-lg border border-zinc-950/5 bg-zinc-50 p-4 dark:border-white/10 dark:bg-zinc-800">
 							<Subheading level={3}>Live embed state</Subheading>
 							<Text>
 								{data.extensionStatus.status === "enabled"
-									? "The app embed is enabled on the live theme."
+									? "Embed is enabled."
 									: data.extensionStatus.status === "disabled"
-										? "The app embed exists on the live theme, but it is toggled off."
+										? "Embed is installed but disabled."
 										: data.extensionStatus.status === "not_detected"
-											? "The app embed has not been activated on the live theme yet."
-											: "Theme diagnostics are unavailable until the app has a valid offline token."}
+											? "Embed has not been activated yet."
+											: "Diagnostics unavailable until the app has a valid token."}
 							</Text>
 						</div>
 					</div>
@@ -362,7 +362,7 @@ export function MerchantSettingsPage({
 			</div>
 
 			<Panel
-				description="These caches exist only for repeated high-value reads. Shopify remains the source of truth for merchant mutations and canonical store state."
+				description="Cache health and pending jobs."
 				title="Cache freshness and workflows"
 			>
 				<div className="grid gap-4 md:grid-cols-2">
@@ -378,7 +378,7 @@ export function MerchantSettingsPage({
 							<Text>
 								{cache.recordCount !== null
 									? `${cache.recordCount} cached record(s) tracked.`
-									: "No record count has been written for this cache yet."}
+									: "No records tracked"}
 							</Text>
 							<Text>Requested: {cache.lastRequestedAt ?? "n/a"}</Text>
 							<Text>Completed: {cache.lastCompletedAt ?? "n/a"}</Text>
@@ -404,7 +404,7 @@ export function MerchantSettingsPage({
 						<Text>
 							{data.cacheHealth.staleWarnings.length > 0
 								? `${data.cacheHealth.staleWarnings.length} warning(s) need review.`
-								: "No stale-cache warning is active right now."}
+								: "No warnings"}
 						</Text>
 					</div>
 				</div>
@@ -424,7 +424,7 @@ export function MerchantSettingsPage({
 			</Panel>
 
 			<Panel
-				description="These settings drive the live storefront widget. Theme activation stays in the theme editor, while behavior and copy live here."
+				description="Configure the storefront chat widget."
 				title="Storefront widget controls"
 			>
 				<form
@@ -442,8 +442,7 @@ export function MerchantSettingsPage({
 										<Checkbox checked={field.state.value} onChange={field.handleChange} />
 										<Label>{field.state.value ? "Widget enabled" : "Widget disabled"}</Label>
 										<Description>
-											Disable this if the app embed should stay installed but the storefront
-											assistant should stop rendering.
+											Controls whether the storefront assistant is visible to shoppers.
 										</Description>
 									</CheckboxField>
 								)}
@@ -579,7 +578,7 @@ export function MerchantSettingsPage({
 			</Panel>
 
 			<Panel
-				description="Upload PDF, TXT, Markdown, DOCX, or inline text. Raw blobs land in R2, Convex tracks processing state and visibility, and public docs can ground storefront-safe policy answers."
+				description="Upload documents to give the copilot store-specific context."
 				title="Knowledge documents"
 			>
 				<div className="flex flex-wrap items-center gap-3">
@@ -663,7 +662,7 @@ export function MerchantSettingsPage({
 											type="file"
 										/>
 										<Description>
-											If a file is selected, the pasted text field below is ignored.
+											File uploads take priority over pasted text.
 										</Description>
 										{field.state.value ? (
 											<StatusPill tone="accent">
@@ -682,7 +681,7 @@ export function MerchantSettingsPage({
 											name={field.name}
 											onBlur={field.handleBlur}
 											onChange={(event) => field.handleChange(event.target.value)}
-											placeholder="Paste operating procedures, catalog notes, vendor guidance, or other merchant knowledge here."
+											placeholder="Paste document content here..."
 											rows={6}
 											value={field.state.value}
 										/>
@@ -788,7 +787,7 @@ export function MerchantSettingsPage({
 						))
 					) : (
 						<EmptyState
-							body="Upload SOPs, vendor notes, merchandising guidance, or other merchant knowledge to ground the copilot with shop-specific context."
+							body="Upload documents like SOPs, vendor notes, or product guides to help the copilot answer store-specific questions."
 							title="No knowledge documents"
 						/>
 					)}
