@@ -79,6 +79,7 @@ function NavigationSidebar({
 
 export function SidebarConsoleLayout({
 	children,
+	contentWidth = "constrained",
 	items,
 	mobileMenuLabel = "Sections",
 	navDescription,
@@ -86,6 +87,7 @@ export function SidebarConsoleLayout({
 	navTitle,
 	title,
 }: React.PropsWithChildren<{
+	contentWidth?: "constrained" | "full";
 	description?: string;
 	eyebrow?: string;
 	items: SidebarConsoleNavItem[];
@@ -97,6 +99,7 @@ export function SidebarConsoleLayout({
 }>) {
 	return (
 		<SidebarLayout
+			contentWidth={contentWidth}
 			navbar={
 				<div className="px-2 py-2">
 					<Text className="text-[0.68rem] font-semibold uppercase tracking-[0.24em] text-zinc-500">

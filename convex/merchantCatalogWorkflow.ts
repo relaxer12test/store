@@ -1,19 +1,16 @@
+import type { WorkflowId } from "@convex-dev/workflow";
 import { internal } from "@convex/_generated/api";
-import type { Doc, Id } from "@convex/_generated/dataModel";
+import type { Id } from "@convex/_generated/dataModel";
 import {
 	internalAction,
+	internalQuery,
 	internalMutation,
-	mutation,
-	query,
 	type MutationCtx,
 	type QueryCtx,
 } from "@convex/_generated/server";
-import { requireMerchantActor } from "@convex/auth";
 import { resolveUsableInstallationAccessToken } from "@convex/shopify";
 import { shopifyAdminGraphqlRequest } from "@convex/shopifyAdmin";
 import { workflow } from "@convex/workflow";
-import type { WorkflowId, WorkflowStep } from "@convex-dev/workflow";
-import { paginationOptsValidator } from "convex/server";
 import { v } from "convex/values";
 
 const MERCHANT_CATALOG_CACHE_KEY = "merchant_catalog_index";
@@ -46,23 +43,6 @@ const MERCHANT_CATALOG_QUERY = `
 		}
 	}
 `;
-
-const merchantCatalogProductValidator = v.object({
-	handle: v.string(),
-	onlineStoreUrl: v.optional(v.string()),
-	productType: v.optional(v.string()),
-	publishedAt: v.optional(v.number()),
-	searchText: v.string(),
-	shopifyLegacyProductId: v.optional(v.string()),
-	shopifyProductId: v.string(),
-	sourceStatus: v.string(),
-	sourceUpdatedAt: v.number(),
-	summary: v.string(),
-	title: v.string(),
-	totalInventory: v.optional(v.number()),
-	variantCount: v.optional(v.number()),
-	vendor: v.optional(v.string()),
-});
 
 type ShopifyCount = {
 	count?: number | null;
@@ -195,7 +175,8 @@ function sanitizeMerchantCatalogProduct(
 				? product.totalInventory
 				: undefined,
 		variantCount:
-			typeof product.variantsCount?.count === "number" && Number.isFinite(product.variantsCount.count)
+			typeof product.variantsCount?.count === "number" &&
+			Number.isFinite(product.variantsCount.count)
 				? product.variantsCount.count
 				: undefined,
 		vendor: product.vendor?.trim() || undefined,
@@ -210,6 +191,29 @@ function sanitizeMerchantCatalogProduct(
 
 function getCacheStaleAfter(now: number) {
 	return now + MERCHANT_CATALOG_STALE_MS;
+}
+
+function shouldRefreshMerchantCatalog(
+	cacheState: Awaited<ReturnType<typeof getCacheState>>,
+	now: number,
+) {
+	if (!cacheState || !cacheState.lastCompletedAt) {
+		return true;
+	}
+
+	if (cacheState.lastWebhookAt && cacheState.lastWebhookAt > cacheState.lastCompletedAt) {
+		return true;
+	}
+
+	if (cacheState.staleAfterAt && cacheState.staleAfterAt <= now) {
+		return true;
+	}
+
+	if (cacheState.status === "error" || cacheState.status === "disabled") {
+		return true;
+	}
+
+	return false;
 }
 
 async function getCacheState(ctx: QueryCtx | MutationCtx, shopId: Id<"shops">) {
@@ -227,7 +231,10 @@ export const fetchMerchantCatalogPage = internalAction({
 		shopDomain: v.string(),
 		shopId: v.id("shops"),
 	},
-	handler: async (ctx, args): Promise<{
+	handler: async (
+		ctx,
+		args,
+	): Promise<{
 		nextCursor: string | null;
 		pageNumber: number;
 		products: MerchantCatalogRow[];
@@ -411,7 +418,7 @@ export const handleMerchantCatalogWorkflowCompletion = internalMutation({
 		const errorMessage =
 			result?.kind === "canceled"
 				? "Merchant catalog sync workflow was canceled."
-				: result?.error ?? "Merchant catalog sync workflow failed.";
+				: (result?.error ?? "Merchant catalog sync workflow failed.");
 
 		await ctx.db.patch(cacheState._id, {
 			lastError: errorMessage,
@@ -522,23 +529,44 @@ export const startMerchantCatalogSync = internalMutation({
 		shopDomain: v.string(),
 		shopId: v.id("shops"),
 	},
-	handler: async (ctx, args): Promise<WorkflowId> => {
+	handler: async (ctx, args): Promise<WorkflowId | null> => {
 		const cacheState = await getCacheState(ctx, args.shopId);
+		const now = Date.now();
 
 		if (cacheState?.workflowId) {
-			const status = await workflow.status(ctx, cacheState.workflowId as WorkflowId);
+			const workflowId = cacheState.workflowId as WorkflowId;
+			const status = await workflow.status(ctx, workflowId);
 
 			if (status.type === "inProgress") {
-				return cacheState.workflowId as WorkflowId;
+				return workflowId;
+			}
+
+			if (status.type === "failed" || status.type === "canceled") {
+				await workflow.restart(ctx, workflowId, {
+					startAsync: true,
+				});
+				await ctx.db.patch(cacheState._id, {
+					lastError: undefined,
+					lastRequestedAt: now,
+					pendingReason: args.pendingReason,
+					progressMessage: "Resuming merchant catalog sync workflow.",
+					status: "running",
+					updatedAt: now,
+				});
+
+				return workflowId;
+			}
+
+			if (!shouldRefreshMerchantCatalog(cacheState, now)) {
+				return workflowId;
 			}
 		}
 
-		const requestedAt = Date.now();
 		const workflowId = await workflow.start(
 			ctx,
 			internal.merchantCatalogWorkflow.merchantCatalogSyncWorkflow,
 			{
-				refreshedAt: requestedAt,
+				refreshedAt: now,
 				shopDomain: args.shopDomain,
 				shopId: args.shopId,
 			},
@@ -553,7 +581,7 @@ export const startMerchantCatalogSync = internalMutation({
 
 		await ctx.runMutation(internal.merchantCatalogWorkflow.recordMerchantCatalogWorkflowStarted, {
 			pendingReason: args.pendingReason,
-			requestedAt,
+			requestedAt: now,
 			shopDomain: args.shopDomain,
 			shopId: args.shopId,
 			workflowId,
@@ -563,49 +591,14 @@ export const startMerchantCatalogSync = internalMutation({
 	},
 });
 
-export const resumeMerchantCatalogSync = mutation({
-	args: {},
-	handler: async (ctx): Promise<{ ok: true; workflowId: string }> => {
-		const { shop } = await requireMerchantActor(ctx);
-		const cacheState = await getCacheState(ctx, shop._id);
-
-		if (!cacheState?.workflowId) {
-			const workflowId = await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
-				pendingReason: "Merchant requested a fresh merchant catalog sync from Explorer.",
-				shopDomain: shop.domain,
-				shopId: shop._id,
-			});
-
-			return {
-				ok: true,
-				workflowId,
-			};
-		}
-
-		await workflow.restart(ctx, cacheState.workflowId as WorkflowId, {
-			startAsync: true,
-		});
-
-		await ctx.db.patch(cacheState._id, {
-			lastError: undefined,
-			lastRequestedAt: Date.now(),
-			progressMessage: "Resuming merchant catalog sync workflow.",
-			status: "running",
-			updatedAt: Date.now(),
-		});
-
-		return {
-			ok: true,
-			workflowId: cacheState.workflowId,
-		};
-	},
-});
-
-export const getMerchantCatalogWorkflowProgress = query({
+export const getMerchantCatalogWorkflowProgress = internalQuery({
 	args: {
 		shopId: v.id("shops"),
 	},
-	handler: async (ctx, args): Promise<{
+	handler: async (
+		ctx,
+		args,
+	): Promise<{
 		completedStepCount: number;
 		status: "canceled" | "completed" | "failed" | "inProgress" | "missing";
 		totalStepCount: number | null;
@@ -638,7 +631,10 @@ export const getMerchantCatalogWorkflowProgress = query({
 		return {
 			completedStepCount,
 			status: status.type,
-			totalStepCount: status.type === "inProgress" ? Math.max(steps.page.length, completedStepCount + status.running.length) : steps.page.length,
+			totalStepCount:
+				status.type === "inProgress"
+					? Math.max(steps.page.length, completedStepCount + status.running.length)
+					: steps.page.length,
 			workflowId,
 		};
 	},

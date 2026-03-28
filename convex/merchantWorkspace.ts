@@ -49,8 +49,6 @@ const DEFAULT_ORDER_WINDOW_DAYS = 30;
 const DEFAULT_SALES_TREND_DAYS = 14;
 const LOW_STOCK_THRESHOLD = 8;
 const MERCHANT_CATALOG_CACHE_KEY = "merchant_catalog_index";
-const MERCHANT_CATALOG_INDEX_REBUILD_JOB = "merchant_catalog_index_rebuild";
-const MERCHANT_EXPLORER_PAGE_SIZE = 50;
 const COPILOT_MESSAGE_LIMIT = 40;
 const DOCUMENT_PREVIEW_LIMIT = 320;
 const DOCUMENT_SUMMARY_LIMIT = 220;
@@ -898,24 +896,6 @@ function getCacheStaleWarning(cacheState: Doc<"shopifyCacheStates"> | null, now:
 	}
 
 	return null;
-}
-
-async function countWorkflowJobsByStatus(
-	ctx: QueryCtx,
-	options: {
-		shopId: Id<"shops">;
-		status: "pending" | "running";
-		type: string;
-	},
-) {
-	return (
-		await ctx.db
-			.query("syncJobs")
-			.withIndex("by_shop_and_type_and_status", (query) =>
-				query.eq("shopId", options.shopId).eq("type", options.type).eq("status", options.status),
-			)
-			.take(MERCHANT_EXPLORER_PAGE_SIZE)
-	).length;
 }
 
 function getInitials(name: string) {
@@ -2968,23 +2948,11 @@ export const explorerProductsPage = action({
 			shopId: claims.shopId,
 		});
 		const requestedStatus = args.status ?? "all";
-		const currentSync = await ctx.runQuery(
-			internal.merchantWorkspace.getExplorerProductSyncStateInternal,
-			{
-				shopId: runtime.shop._id,
-			},
-		);
-
-		if (
-			(currentSync.syncState.isStale || !currentSync.syncState.hasSnapshot) &&
-			currentSync.syncState.activeJobCount === 0
-		) {
-			await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
-				pendingReason: "Explorer requested a fresh merchant catalog snapshot.",
-				shopId: runtime.shop._id,
-				shopDomain: runtime.shop.domain,
-			});
-		}
+		await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
+			pendingReason: "Explorer ensured the merchant catalog workflow is active.",
+			shopId: runtime.shop._id,
+			shopDomain: runtime.shop.domain,
+		});
 
 		const [page, latestSync] = await Promise.all([
 			ctx.runQuery(internal.merchantWorkspace.getExplorerProductRowsInternal, {
@@ -3008,34 +2976,6 @@ export const explorerProductsPage = action({
 			...page,
 			summary: toExplorerSummary("products", resultLabel),
 			syncState: latestSync.syncState,
-		};
-	},
-});
-
-export const refreshExplorerProducts = mutation({
-	args: {},
-	handler: async (ctx): Promise<{ jobId: Id<"syncJobs">; ok: true }> => {
-		const { actor, shop } = await requireMerchantActor(ctx);
-		const workflowId = await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
-			pendingReason: "Merchant requested a fresh Shopify product sync for Explorer.",
-			shopId: shop._id,
-			shopDomain: shop.domain,
-		});
-
-		await auditAction(ctx, {
-			action: "merchant.explorer.product_refresh_requested",
-			actorId: actor.id,
-			detail: "Merchant requested a Shopify product refresh from Explorer.",
-			payload: {
-				workflowId,
-			},
-			shopId: shop._id,
-			status: "pending",
-		});
-
-		return {
-			jobId: workflowId as unknown as Id<"syncJobs">,
-			ok: true,
 		};
 	},
 });
@@ -3121,6 +3061,312 @@ export const explorerOrdersPage = action({
 			),
 			syncState: null,
 		};
+	},
+});
+
+export const explorerProductDetail = action({
+	args: {
+		rowId: v.string(),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDetailData | null> => {
+		const claims = await requireMerchantClaims(ctx);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
+		const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
+
+		if (!accessToken) {
+			throw new Error("No connected offline Shopify token is available for product detail.");
+		}
+
+		const detail = await getProductEditContext({
+			accessToken,
+			productId: args.rowId,
+			shopDomain: runtime.shop.domain,
+		});
+		const product = detail.product;
+
+		if (!product?.id) {
+			return null;
+		}
+
+		const variantSummary = (product.variants?.nodes ?? [])
+			.map((variant) => {
+				const parts = [variant.title ?? "Default"];
+				if (variant.sku ?? variant.inventoryItem?.sku) {
+					parts.push(`SKU: ${variant.sku ?? variant.inventoryItem?.sku}`);
+				}
+				if (typeof variant.inventoryQuantity === "number") {
+					parts.push(`Inventory: ${variant.inventoryQuantity}`);
+				}
+				return parts.join(" · ");
+			})
+			.join("\n");
+		const metafieldSummary = (product.metafields?.nodes ?? [])
+			.map(
+				(field) =>
+					`${field.namespace}.${field.key} (${field.type ?? "unknown"}) = ${field.value ?? ""}`,
+			)
+			.join("\n");
+
+		return toExplorerDetailData({
+			description: `${product.status ?? "unknown"} · ${product.vendor ?? "No vendor"}${product.productType ? ` · ${product.productType}` : ""}`,
+			fields: [
+				{ label: "Shopify product id", tone: "code", value: product.id },
+				{ label: "Handle", tone: "code", value: product.handle ?? null },
+				{ label: "Status", tone: "status", value: product.status ?? null },
+				{ label: "Vendor", value: product.vendor ?? null },
+				{ label: "Product type", value: product.productType ?? null },
+				{ label: "SEO title", value: product.seo?.title ?? null },
+				{ label: "SEO description", value: product.seo?.description ?? null },
+			],
+			sections: [
+				{
+					body: product.descriptionHtml ?? "No HTML description is currently stored.",
+					title: "Description HTML",
+					tone: "code",
+				},
+				{
+					body: variantSummary || "No variants were returned for this product.",
+					title: "Variants",
+				},
+				{
+					body: metafieldSummary || "No metafields were returned for this product.",
+					title: "Metafields",
+				},
+			],
+			source: toExplorerSource("shopify_live", "Live Shopify"),
+			title: product.title ?? "Product detail",
+		});
+	},
+});
+
+export const explorerInventoryDetail = action({
+	args: {
+		rowId: v.string(),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDetailData | null> => {
+		const claims = await requireMerchantClaims(ctx);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
+		const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
+
+		if (!accessToken) {
+			throw new Error("No connected offline Shopify token is available for inventory detail.");
+		}
+
+		const payload = await shopifyAdminGraphqlRequest<ExplorerInventoryDetailResponse>({
+			accessToken,
+			query: EXPLORER_INVENTORY_DETAIL_QUERY,
+			shop: runtime.shop.domain,
+			variables: {
+				id: args.rowId,
+			},
+		});
+		const variant = payload.productVariant;
+
+		if (!variant?.id) {
+			return null;
+		}
+
+		return toExplorerDetailData({
+			description: `${variant.product?.title ?? "Unknown product"}${variant.product?.status ? ` · ${variant.product.status}` : ""}`,
+			fields: [
+				{ label: "Variant id", tone: "code", value: variant.id },
+				{ label: "Product id", tone: "code", value: variant.product?.id ?? null },
+				{ label: "Handle", tone: "code", value: variant.product?.handle ?? null },
+				{ label: "Status", tone: "status", value: variant.product?.status ?? null },
+				{ label: "SKU", tone: "code", value: variant.sku ?? variant.inventoryItem?.sku ?? null },
+				{ label: "Price", value: variant.price ?? null },
+				{
+					label: "Inventory quantity",
+					value:
+						typeof variant.inventoryQuantity === "number"
+							? String(variant.inventoryQuantity)
+							: null,
+				},
+				{
+					label: "Tracked",
+					tone: "status",
+					value: variant.inventoryItem?.tracked ? "tracked" : "not tracked",
+				},
+				{
+					label: "Updated",
+					value: formatFromString(variant.updatedAt) ?? variant.updatedAt ?? null,
+				},
+				{ label: "Vendor", value: variant.product?.vendor ?? null },
+				{ label: "Product type", value: variant.product?.productType ?? null },
+			],
+			source: toExplorerSource("shopify_live", "Live Shopify"),
+			title: variant.title ?? "Inventory variant detail",
+		});
+	},
+});
+
+export const explorerOrderDetail = action({
+	args: {
+		rowId: v.string(),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDetailData | null> => {
+		const claims = await requireMerchantClaims(ctx);
+		const runtime = await ctx.runQuery(internal.merchantWorkspace.getRuntimeStateInternal, {
+			actorId: claims.actorId,
+			shopDomain: claims.shopDomain,
+			shopId: claims.shopId,
+		});
+		const accessToken = await resolveUsableInstallationAccessToken(ctx, {
+			shopDomain: runtime.shop.domain,
+			shopId: runtime.shop._id,
+		});
+
+		if (!accessToken) {
+			throw new Error("No connected offline Shopify token is available for order detail.");
+		}
+
+		const payload = await shopifyAdminGraphqlRequest<ExplorerOrderDetailResponse>({
+			accessToken,
+			query: EXPLORER_ORDER_DETAIL_QUERY,
+			shop: runtime.shop.domain,
+			variables: {
+				id: args.rowId,
+			},
+		});
+		const order = payload.order;
+
+		if (!order?.id) {
+			return null;
+		}
+
+		const lineItemSummary = (order.lineItems?.nodes ?? [])
+			.map(
+				(line) =>
+					`${line.quantity ?? 0} × ${line.title ?? "Untitled line"}${line.variantTitle ? ` (${line.variantTitle})` : ""}`,
+			)
+			.join("\n");
+
+		return toExplorerDetailData({
+			description: `${order.displayFinancialStatus ?? "unknown"} · ${order.displayFulfillmentStatus ?? "unknown"}`,
+			fields: [
+				{ label: "Order id", tone: "code", value: order.id },
+				{ label: "Email", value: order.email ?? null },
+				{ label: "Financial status", tone: "status", value: order.displayFinancialStatus ?? null },
+				{
+					label: "Fulfillment status",
+					tone: "status",
+					value: order.displayFulfillmentStatus ?? null,
+				},
+				{
+					label: "Processed",
+					value: formatFromString(order.processedAt) ?? order.processedAt ?? null,
+				},
+				{
+					label: "Total",
+					value: formatMoney(
+						parseAmount(order.currentTotalPriceSet?.shopMoney?.amount),
+						order.currentTotalPriceSet?.shopMoney?.currencyCode,
+					),
+				},
+			],
+			sections: [
+				{
+					body: lineItemSummary || "No line items were returned for this order.",
+					title: "Line items",
+				},
+			],
+			source: toExplorerSource("shopify_live", "Live Shopify"),
+			title: order.name ?? "Order detail",
+		});
+	},
+});
+
+export const explorerDocumentDetail = query({
+	args: {
+		rowId: v.id("merchantDocuments"),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDetailData | null> => {
+		const { shop } = await requireMerchantActor(ctx);
+		const document = await ctx.db.get(args.rowId);
+
+		if (!document || document.shopId !== shop._id) {
+			return null;
+		}
+
+		return toExplorerDetailData({
+			description: `${document.status} · ${document.visibility}`,
+			fields: [
+				{ label: "Document id", tone: "code", value: document._id },
+				{ label: "Status", tone: "status", value: document.status },
+				{ label: "Visibility", tone: "status", value: document.visibility },
+				{ label: "Source type", value: document.sourceType },
+				{ label: "File name", value: document.fileName ?? null },
+				{ label: "MIME type", value: document.mimeType ?? null },
+				{ label: "Updated", value: new Date(document.updatedAt).toISOString() },
+			],
+			sections: [
+				{
+					body: document.summary,
+					title: "Summary",
+				},
+				{
+					body: document.contentPreview,
+					title: "Preview",
+				},
+				{
+					body: document.content ?? "No extracted document content is available.",
+					title: "Content",
+				},
+			],
+			source: toExplorerSource("convex", "Convex"),
+			title: document.title,
+		});
+	},
+});
+
+export const explorerAuditLogDetail = query({
+	args: {
+		rowId: v.id("auditLogs"),
+	},
+	handler: async (ctx, args): Promise<MerchantExplorerDetailData | null> => {
+		const { shop } = await requireMerchantActor(ctx);
+		const record = await ctx.db.get(args.rowId);
+
+		if (!record || record.shopId !== shop._id) {
+			return null;
+		}
+
+		return toExplorerDetailData({
+			description: record.status ?? null,
+			fields: [
+				{ label: "Audit id", tone: "code", value: record._id },
+				{ label: "Action", value: record.action },
+				{ label: "Actor", value: record.actorId ?? "system" },
+				{ label: "Status", tone: "status", value: record.status ?? null },
+				{ label: "Created", value: new Date(record.createdAt).toISOString() },
+				{ label: "Detail", value: record.detail ?? null },
+			],
+			sections: [
+				{
+					body: record.payload
+						? JSON.stringify(record.payload, null, 2)
+						: "No structured payload was stored for this audit row.",
+					title: "Payload",
+					tone: "code",
+				},
+			],
+			source: toExplorerSource("convex", "Convex"),
+			title: record.action,
+		});
 	},
 });
 

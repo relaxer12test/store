@@ -14,3 +14,4 @@ todos.json
 test-results/
 .cache/
 public/remotion/footage/
+public/remotion/audio/

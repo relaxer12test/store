@@ -62,6 +62,7 @@ export const Route = createFileRoute("/_app/app")({
 function MerchantLayoutRoute() {
 	return (
 		<SidebarConsoleLayout
+			contentWidth="full"
 			description="Manage your store, review copilot suggestions, and configure settings."
 			eyebrow="Merchant app"
 			items={appNav}

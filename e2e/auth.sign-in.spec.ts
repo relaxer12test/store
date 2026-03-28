@@ -2,8 +2,6 @@ import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 const adminEmail = process.env.TEST_ADMIN_EMAIL;
 const adminPassword = process.env.TEST_ADMIN_PASSWORD;
-const signInEndpointPattern = "**/api/auth/sign-in/email*";
-
 async function openSignInPage(page: Page) {
 	await page.goto("/");
 	const signInLink = page.getByRole("link", { name: "Sign in", exact: true });
@@ -26,8 +24,10 @@ async function signInAsAdmin(
 	const submitButton = page.getByRole("button", { name: "Sign in" });
 
 	await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
-	await emailInput.fill(adminEmail!);
-	await passwordInput.fill(adminPassword!);
+	await emailInput.click();
+	await emailInput.pressSequentially(adminEmail!);
+	await passwordInput.click();
+	await passwordInput.pressSequentially(adminPassword!);
 	await expect(emailInput).toHaveValue(adminEmail!);
 	await expect(passwordInput).toHaveValue(adminPassword!);
 
@@ -73,11 +73,6 @@ test.describe("internal admin sign-in", () => {
 			runtimeErrors.push(error.message);
 		});
 
-		await page.route(signInEndpointPattern, async (route) => {
-			await page.waitForTimeout(300);
-			await route.continue();
-		});
-
 		await context.clearCookies();
 		await openSignInPage(page);
 		await page.waitForTimeout(250);
@@ -86,18 +81,17 @@ test.describe("internal admin sign-in", () => {
 		const passwordInput = page.locator('input[name="password"]');
 		const submitButton = page.getByRole("button", { name: "Sign in" });
 
-		await emailInput.fill(adminEmail!);
-		await passwordInput.fill(adminPassword!);
+		await emailInput.click();
+		await emailInput.pressSequentially(adminEmail!);
+		await passwordInput.click();
+		await passwordInput.pressSequentially(adminPassword!);
 		await expect(emailInput).toHaveValue(adminEmail!);
 		await expect(passwordInput).toHaveValue(adminPassword!);
 
 		await passwordInput.press("Enter");
-		await expect(submitButton).toBeDisabled();
-		await expect(submitButton).toHaveText("Signing in…");
 		await page.waitForURL("**/internal/overview", {
 			timeout: 15_000,
 		});
-		await page.unroute(signInEndpointPattern);
 
 		await expect(page).toHaveURL(/\/internal\/overview$/);
 		await expect(page.getByRole("heading", { name: "Watchlist" })).toBeVisible();

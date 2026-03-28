@@ -27,6 +27,7 @@ export type MerchantExplorerDocumentVisibility = (typeof documentVisibilityValue
 export interface MerchantExplorerSearch {
 	dataset: MerchantExplorerDatasetKey;
 	q?: string;
+	rowId?: string;
 	status?: MerchantExplorerDocumentStatus | MerchantExplorerProductStatus;
 	visibility?: MerchantExplorerDocumentVisibility;
 }
@@ -42,6 +43,7 @@ export function validateMerchantExplorerSearch(
 				"products",
 			) ?? "products",
 		q: normalizeSearchText(search.q),
+		rowId: normalizeSearchText(search.rowId),
 		status: normalizeEnum(search.status, [
 			...productStatusValues,
 			...documentStatusValues,
@@ -76,12 +78,14 @@ export function normalizeMerchantExplorerSearchForDataset(
 			return {
 				dataset: search.dataset,
 				q: search.q,
+				rowId: search.rowId,
 				status: getMerchantExplorerProductStatus(search.status),
 			};
 		case "documents":
 			return {
 				dataset: search.dataset,
 				q: search.q,
+				rowId: search.rowId,
 				status: getMerchantExplorerDocumentStatus(search.status),
 				visibility: getMerchantExplorerDocumentVisibility(search.visibility),
 			};
@@ -90,10 +94,37 @@ export function normalizeMerchantExplorerSearchForDataset(
 			return {
 				dataset: search.dataset,
 				q: search.q,
+				rowId: search.rowId,
 			};
 		case "audit_logs":
 			return {
 				dataset: search.dataset,
+				rowId: search.rowId,
 			};
 	}
+}
+
+export function serializeMerchantExplorerSearch(search: MerchantExplorerSearch) {
+	const params = new URLSearchParams();
+
+	params.set("dataset", search.dataset);
+
+	if (search.q) {
+		params.set("q", search.q);
+	}
+
+	if (search.rowId) {
+		params.set("rowId", search.rowId);
+	}
+
+	if (search.status && search.status !== "all") {
+		params.set("status", search.status);
+	}
+
+	if (search.visibility && search.visibility !== "all") {
+		params.set("visibility", search.visibility);
+	}
+
+	const encoded = params.toString();
+	return encoded.length > 0 ? `?${encoded}` : "";
 }

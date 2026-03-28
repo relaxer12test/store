@@ -1,7 +1,6 @@
-import { useConvexMutation } from "@convex-dev/react-query";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
+import { MerchantExplorerDetailPage } from "@/features/app-shell/components/merchant-explorer-detail-page";
 import { MerchantExplorerPage } from "@/features/app-shell/components/merchant-explorer-page";
 import {
 	type MerchantExplorerSearch,
@@ -9,13 +8,13 @@ import {
 	getMerchantExplorerDocumentVisibility,
 	getMerchantExplorerProductStatus,
 	normalizeMerchantExplorerSearchForDataset,
+	serializeMerchantExplorerSearch,
 	validateMerchantExplorerSearch,
 } from "@/features/app-shell/merchant-explorer-route-state";
 import {
-	invalidateMerchantWorkspaceQueries,
+	useMerchantExplorerDetail,
 	useMerchantExplorerPage,
 } from "@/features/app-shell/merchant-workspace";
-import { api } from "@/lib/convex-api";
 
 export const Route = createFileRoute("/_app/app/explorer")({
 	validateSearch: validateMerchantExplorerSearch,
@@ -26,23 +25,40 @@ function MerchantExplorerRoute() {
 	const navigate = useNavigate({
 		from: Route.fullPath,
 	});
-	const queryClient = useQueryClient();
-	const refreshProducts = useConvexMutation(api.merchantWorkspace.refreshExplorerProducts);
 	const search = Route.useSearch();
 	const [cursor, setCursor] = useState<string | undefined>(undefined);
 	const [cursorHistory, setCursorHistory] = useState<Array<string | undefined>>([]);
 	const explorerQuery = useMerchantExplorerPage(search, cursor);
-	const refreshProductsMutation = useMutation({
-		mutationFn: refreshProducts,
-		onSuccess: async () => {
-			await invalidateMerchantWorkspaceQueries(queryClient);
-		},
-	});
+	const detailQuery = useMerchantExplorerDetail(search);
 
 	useEffect(() => {
 		setCursor(undefined);
 		setCursorHistory([]);
 	}, [search.dataset, search.q, search.status, search.visibility]);
+
+	const listSearch = normalizeMerchantExplorerSearchForDataset({
+		...search,
+		rowId: undefined,
+	});
+
+	if (search.rowId) {
+		return (
+			<MerchantExplorerDetailPage
+				backHref={`/app/explorer${serializeMerchantExplorerSearch(listSearch)}`}
+				data={detailQuery.data}
+				description={`Explorer ${search.dataset.replaceAll("_", " ")}`}
+				errorMessage={
+					detailQuery.data
+						? null
+						: detailQuery.error instanceof Error
+							? detailQuery.error.message
+							: null
+				}
+				isLoading={detailQuery.isPending && !detailQuery.data}
+				title="Explorer detail"
+			/>
+		);
+	}
 
 	return (
 		<MerchantExplorerPage
@@ -58,13 +74,32 @@ function MerchantExplorerRoute() {
 			}
 			isFetching={explorerQuery.isFetching}
 			isLoading={explorerQuery.isPending && !explorerQuery.data}
-			isRefreshingProducts={refreshProductsMutation.isPending}
 			onDatasetChange={(dataset) => {
 				void navigate({
 					search: () =>
 						normalizeMerchantExplorerSearchForDataset({
 							dataset,
 						}),
+				});
+			}}
+			onFirstPage={
+				cursorHistory.length > 0 || cursor
+					? () => {
+							setCursor(undefined);
+							setCursorHistory([]);
+						}
+					: null
+			}
+			onGoToPage={(currentPage) => {
+				setCursorHistory((current) => {
+					if (currentPage <= 1) {
+						setCursor(undefined);
+						return [];
+					}
+
+					const nextCursor = current[currentPage - 1];
+					setCursor(nextCursor);
+					return current.slice(0, currentPage - 1);
 				});
 			}}
 			onNextPage={
@@ -86,13 +121,18 @@ function MerchantExplorerRoute() {
 						}
 					: null
 			}
-			onRefreshProducts={
-				search.dataset === "products"
-					? () => {
-							void refreshProductsMutation.mutateAsync({});
-						}
-					: null
-			}
+			getRowHref={(row) => {
+				const rowId = row._row_id;
+
+				if (!rowId || typeof rowId !== "string") {
+					return null;
+				}
+
+				return `/app/explorer${serializeMerchantExplorerSearch({
+					...search,
+					rowId,
+				})}`;
+			}}
 			onRetry={() => {
 				void explorerQuery.refetch();
 			}}
@@ -105,6 +145,7 @@ function MerchantExplorerRoute() {
 									normalizeMerchantExplorerSearchForDataset({
 										...current,
 										q: value || undefined,
+										rowId: undefined,
 									}),
 							});
 						}
@@ -116,6 +157,7 @@ function MerchantExplorerRoute() {
 								search: (current) =>
 									normalizeMerchantExplorerSearchForDataset({
 										...current,
+										rowId: undefined,
 										status: value as MerchantExplorerSearch["status"],
 									}),
 							});
@@ -129,6 +171,7 @@ function MerchantExplorerRoute() {
 								search: (current) =>
 									normalizeMerchantExplorerSearchForDataset({
 										...current,
+										rowId: undefined,
 										visibility: value as MerchantExplorerSearch["visibility"],
 									}),
 							});

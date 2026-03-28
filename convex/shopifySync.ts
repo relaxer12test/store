@@ -117,34 +117,6 @@ const PUBLIC_COLLECTIONS_QUERY = `
 	}
 `;
 
-const MERCHANT_CATALOG_QUERY = `
-	query MerchantCatalogPage($cursor: String) {
-		products(first: 100, after: $cursor, sortKey: UPDATED_AT) {
-			nodes {
-				id
-				legacyResourceId
-				title
-				handle
-				vendor
-				productType
-				status
-				updatedAt
-				publishedAt
-				onlineStoreUrl
-				totalInventory
-				description(truncateAt: 220)
-				variantsCount {
-					count
-				}
-			}
-			pageInfo {
-				hasNextPage
-				endCursor
-			}
-		}
-	}
-`;
-
 const MERCHANT_METRICS_QUERY = `
 	query MerchantMetricsOverview($recentOrdersQuery: String!) {
 		activeProductsCount: productsCount(query: "status:active", limit: 10000) {
@@ -369,23 +341,6 @@ type SanitizedCatalogCollection = {
 	title: string;
 };
 
-type SanitizedMerchantCatalogProduct = {
-	handle: string;
-	onlineStoreUrl?: string;
-	productType?: string;
-	publishedAt?: number;
-	searchText: string;
-	shopifyLegacyProductId?: string;
-	shopifyProductId: string;
-	sourceStatus: string;
-	sourceUpdatedAt: number;
-	summary: string;
-	title: string;
-	totalInventory?: number;
-	variantCount?: number;
-	vendor?: string;
-};
-
 function withoutUndefined<T extends Record<string, unknown>>(value: T) {
 	return Object.fromEntries(
 		Object.entries(value).filter((entry): entry is [string, Exclude<T[keyof T], undefined>] => {
@@ -483,22 +438,6 @@ function buildCollectionSearchText(
 	return [collection.title, collection.description].filter(Boolean).join(" ");
 }
 
-function buildMerchantCatalogSearchText(
-	product: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary">,
-	description?: string,
-) {
-	return [
-		product.title,
-		product.handle,
-		product.vendor,
-		product.productType,
-		product.sourceStatus,
-		description,
-	]
-		.filter(Boolean)
-		.join(" ");
-}
-
 function buildCatalogSummary(
 	product: Omit<SanitizedCatalogProduct, "searchText" | "summary">,
 	description?: string,
@@ -513,29 +452,6 @@ function buildCatalogSummary(
 		product.productType,
 		formatPriceLabel(product.minPrice, product.maxPrice, product.currencyCode),
 		product.availableForSale ? "Available online" : "Currently unavailable",
-	];
-
-	return parts.filter(Boolean).join(" · ");
-}
-
-function buildMerchantCatalogSummary(
-	product: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary">,
-	description?: string,
-) {
-	if (description) {
-		return description;
-	}
-
-	const parts = [
-		product.title,
-		product.vendor,
-		product.productType,
-		product.sourceStatus,
-		product.publishedAt || product.onlineStoreUrl ? "Published" : "Not published",
-		product.totalInventory === undefined ? null : `${product.totalInventory} in stock`,
-		product.variantCount === undefined
-			? null
-			: `${product.variantCount} variant${product.variantCount === 1 ? "" : "s"}`,
 	];
 
 	return parts.filter(Boolean).join(" · ");
@@ -781,51 +697,6 @@ function sanitizeCatalogCollection(
 	};
 }
 
-function sanitizeMerchantCatalogProduct(
-	product: NonNullable<NonNullable<CatalogPageResponse["products"]>["nodes"]>[number],
-) {
-	const title = product.title?.trim();
-	const handle = product.handle?.trim();
-	const productId = product.id?.trim();
-	const sourceUpdatedAt = parseTimestamp(product.updatedAt);
-
-	if (!title || !handle || !productId || sourceUpdatedAt === undefined) {
-		return null;
-	}
-
-	const description = normalizeCatalogDescription(product.description);
-	const sanitized: Omit<SanitizedMerchantCatalogProduct, "searchText" | "summary"> = {
-		handle,
-		onlineStoreUrl: product.onlineStoreUrl ?? undefined,
-		productType: product.productType?.trim() || undefined,
-		publishedAt: parseTimestamp(product.publishedAt),
-		shopifyLegacyProductId:
-			product.legacyResourceId !== undefined && product.legacyResourceId !== null
-				? String(product.legacyResourceId)
-				: undefined,
-		shopifyProductId: productId,
-		sourceStatus: product.status ?? "ACTIVE",
-		sourceUpdatedAt,
-		title,
-		totalInventory:
-			typeof product.totalInventory === "number" && Number.isFinite(product.totalInventory)
-				? product.totalInventory
-				: undefined,
-		variantCount:
-			typeof product.variantsCount?.count === "number" &&
-			Number.isFinite(product.variantsCount.count)
-				? product.variantsCount.count
-				: undefined,
-		vendor: product.vendor?.trim() || undefined,
-	};
-
-	return {
-		...sanitized,
-		searchText: buildMerchantCatalogSearchText(sanitized, description),
-		summary: buildMerchantCatalogSummary(sanitized, description),
-	};
-}
-
 async function fetchPublicCatalogProducts({
 	accessToken,
 	shopDomain,
@@ -849,45 +720,6 @@ async function fetchPublicCatalogProducts({
 
 		for (const node of connection?.nodes ?? []) {
 			const product = sanitizeCatalogProduct(node);
-
-			if (product) {
-				products.push(product);
-			}
-		}
-
-		if (!connection?.pageInfo?.hasNextPage || !connection.pageInfo.endCursor) {
-			break;
-		}
-
-		cursor = connection.pageInfo.endCursor;
-	}
-
-	return products;
-}
-
-async function fetchMerchantCatalogProducts({
-	accessToken,
-	shopDomain,
-}: {
-	accessToken: string;
-	shopDomain: string;
-}) {
-	const products: SanitizedMerchantCatalogProduct[] = [];
-	let cursor: string | undefined;
-
-	while (true) {
-		const payload = await shopifyAdminGraphqlRequest<CatalogPageResponse>({
-			accessToken,
-			query: MERCHANT_CATALOG_QUERY,
-			shop: shopDomain,
-			variables: {
-				cursor,
-			},
-		});
-		const connection = payload.products;
-
-		for (const node of connection?.nodes ?? []) {
-			const product = sanitizeMerchantCatalogProduct(node);
 
 			if (product) {
 				products.push(product);
@@ -1030,56 +862,6 @@ async function runCatalogIndexRebuild(
 		recordCount: products.length + collections.length,
 		resultSummary: `Catalog index rebuilt with ${products.length} product row(s) and ${collections.length} collection row(s).`,
 		sourceUpdatedAt: [...products, ...collections].reduce<number | undefined>((latest, record) => {
-			if (latest === undefined || record.sourceUpdatedAt > latest) {
-				return record.sourceUpdatedAt;
-			}
-
-			return latest;
-		}, undefined),
-	});
-}
-
-async function runMerchantCatalogIndexRebuild(
-	ctx: ActionCtx,
-	job: Doc<"syncJobs">,
-	shop: Doc<"shops">,
-	accessToken: string,
-) {
-	const refreshedAt = Date.now();
-	const products = await fetchMerchantCatalogProducts({
-		accessToken,
-		shopDomain: shop.domain,
-	});
-
-	for (const batch of chunkItems(products, MAX_CATALOG_BATCH_SIZE)) {
-		await ctx.runMutation(internal.shopifySync.upsertMerchantCatalogBatch, {
-			domain: shop.domain,
-			products: batch,
-			refreshedAt,
-			shopId: shop._id,
-		});
-	}
-
-	while (true) {
-		const deletedCount: number = await ctx.runMutation(
-			internal.shopifySync.deleteStaleMerchantCatalogBatch,
-			{
-				refreshedAt,
-				shopId: shop._id,
-			},
-		);
-
-		if (deletedCount === 0) {
-			break;
-		}
-	}
-
-	await ctx.runMutation(internal.shopifySync.completeJob, {
-		jobId: job._id,
-		payloadPreview: `Indexed ${products.length} merchant products from Shopify.`,
-		recordCount: products.length,
-		resultSummary: `Merchant catalog index rebuilt with ${products.length} product row(s).`,
-		sourceUpdatedAt: products.reduce<number | undefined>((latest, record) => {
 			if (latest === undefined || record.sourceUpdatedAt > latest) {
 				return record.sourceUpdatedAt;
 			}
@@ -2073,7 +1855,8 @@ export const runJob = internalAction({
 			switch (job.type) {
 				case MERCHANT_CATALOG_INDEX_REBUILD_JOB: {
 					await ctx.runMutation(internal.merchantCatalogWorkflow.startMerchantCatalogSync, {
-						pendingReason: job.payloadPreview ?? "Queued merchant catalog workflow from legacy sync job.",
+						pendingReason:
+							job.payloadPreview ?? "Queued merchant catalog workflow from legacy sync job.",
 						shopDomain: shop.domain,
 						shopId: shop._id,
 					});

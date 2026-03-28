@@ -48,7 +48,6 @@ function ForgotPasswordRoute() {
 			});
 		},
 	});
-
 	return (
 		<div className="w-full max-w-sm">
 			<Heading>Reset password</Heading>
@@ -56,19 +55,9 @@ function ForgotPasswordRoute() {
 
 			<form
 				className="mt-8"
-				onKeyDown={(event) => {
-					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
-						return;
-					}
-
-					event.preventDefault();
-					const formElement = event.currentTarget;
-					queueMicrotask(() => {
-						formElement.requestSubmit();
-					});
-				}}
 				onSubmit={(event) => {
 					event.preventDefault();
+					event.stopPropagation();
 					void form.handleSubmit();
 				}}
 			>
@@ -94,10 +83,10 @@ function ForgotPasswordRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<form.Subscribe selector={(state) => state.isSubmitting}>
-					{(isSubmitting) => (
+				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+					{([canSubmit, isSubmitting]) => (
 						<div className="mt-6 flex items-center gap-3">
-							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+							<Button color="dark/zinc" disabled={!canSubmit} type="submit">
 								{isSubmitting ? "Sending\u2026" : "Send reset link"}
 							</Button>
 							<Button plain onClick={() => void navigate({ to: "/auth/sign-in" })} type="button">

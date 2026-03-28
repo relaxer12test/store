@@ -61,7 +61,6 @@ function SignInRoute() {
 			});
 		},
 	});
-
 	return (
 		<div className="w-full max-w-sm">
 			<Heading>Sign in</Heading>
@@ -69,19 +68,9 @@ function SignInRoute() {
 
 			<form
 				className="mt-8"
-				onKeyDown={(event) => {
-					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
-						return;
-					}
-
-					event.preventDefault();
-					const formElement = event.currentTarget;
-					queueMicrotask(() => {
-						formElement.requestSubmit();
-					});
-				}}
 				onSubmit={(event) => {
 					event.preventDefault();
+					event.stopPropagation();
 					void form.handleSubmit();
 				}}
 			>
@@ -123,10 +112,10 @@ function SignInRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<form.Subscribe selector={(state) => state.isSubmitting}>
-					{(isSubmitting) => (
+				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+					{([canSubmit, isSubmitting]) => (
 						<div className="mt-6 flex items-center justify-between">
-							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+							<Button color="dark/zinc" disabled={!canSubmit} type="submit">
 								{isSubmitting ? "Signing in\u2026" : "Sign in"}
 							</Button>
 							<Button

@@ -16,6 +16,7 @@ import {
 import { api } from "@/lib/convex-api";
 import type {
 	MerchantExplorerDatasetKey,
+	MerchantExplorerDetailData,
 	MerchantExplorerPageData,
 } from "@/shared/contracts/merchant-workspace";
 
@@ -67,6 +68,35 @@ export function getMerchantExplorerPageQuery(search: MerchantExplorerSearch, cur
 		case "audit_logs":
 			return convexQuery(api.merchantWorkspace.explorerAuditLogsPage, {
 				...toPaginationArgs(cursor),
+			});
+	}
+}
+
+export function getMerchantExplorerDetailQuery(search: MerchantExplorerSearch) {
+	if (!search.rowId) {
+		throw new Error("Explorer detail requires a row id.");
+	}
+
+	switch (search.dataset) {
+		case "products":
+			return convexAction(api.merchantWorkspace.explorerProductDetail, {
+				rowId: search.rowId,
+			});
+		case "inventory":
+			return convexAction(api.merchantWorkspace.explorerInventoryDetail, {
+				rowId: search.rowId,
+			});
+		case "orders":
+			return convexAction(api.merchantWorkspace.explorerOrderDetail, {
+				rowId: search.rowId,
+			});
+		case "documents":
+			return convexQuery(api.merchantWorkspace.explorerDocumentDetail, {
+				rowId: search.rowId as Id<"merchantDocuments">,
+			});
+		case "audit_logs":
+			return convexQuery(api.merchantWorkspace.explorerAuditLogDetail, {
+				rowId: search.rowId as Id<"auditLogs">,
 			});
 	}
 }
@@ -125,6 +155,20 @@ export function useMerchantExplorerPage(search: MerchantExplorerSearch, cursor?:
 				queryState.state.data.syncState.status === "running")
 				? 3_000
 				: false,
+	});
+}
+
+export function useMerchantExplorerDetail(search: MerchantExplorerSearch) {
+	const query = search.rowId
+		? (getMerchantExplorerDetailQuery(search) as UseQueryOptions<MerchantExplorerDetailData | null>)
+		: ({
+				queryFn: async () => null,
+				queryKey: ["merchantExplorerDetail", search.dataset, null],
+			} satisfies UseQueryOptions<MerchantExplorerDetailData | null>);
+
+	return useQuery({
+		...query,
+		enabled: Boolean(search.rowId),
 	});
 }
 

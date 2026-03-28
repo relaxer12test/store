@@ -51,7 +51,6 @@ function ResetPasswordRoute() {
 				.catch(() => false);
 		},
 	});
-
 	if (resetMutation.isSuccess) {
 		return (
 			<div className="w-full max-w-sm text-center">
@@ -89,19 +88,9 @@ function ResetPasswordRoute() {
 
 			<form
 				className="mt-8"
-				onKeyDown={(event) => {
-					if (event.key !== "Enter" || !(event.target instanceof HTMLInputElement)) {
-						return;
-					}
-
-					event.preventDefault();
-					const formElement = event.currentTarget;
-					queueMicrotask(() => {
-						formElement.requestSubmit();
-					});
-				}}
 				onSubmit={(event) => {
 					event.preventDefault();
+					event.stopPropagation();
 					void form.handleSubmit();
 				}}
 			>
@@ -142,10 +131,10 @@ function ResetPasswordRoute() {
 					</FieldGroup>
 				</Fieldset>
 
-				<form.Subscribe selector={(state) => state.isSubmitting}>
-					{(isSubmitting) => (
+				<form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+					{([canSubmit, isSubmitting]) => (
 						<div className="mt-6">
-							<Button color="dark/zinc" disabled={isSubmitting} type="submit">
+							<Button color="dark/zinc" disabled={!canSubmit} type="submit">
 								{isSubmitting ? "Resetting\u2026" : "Reset password"}
 							</Button>
 						</div>

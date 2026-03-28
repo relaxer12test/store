@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
+	Audio,
 	AbsoluteFill,
 	Img,
 	Sequence,
@@ -14,6 +15,7 @@ import {
 import {
 	SALES_PITCH_CAPTION_CUES,
 	SALES_PITCH_FOOTAGE_CUES,
+	SALES_PITCH_NARRATION_LINES,
 	SALES_PITCH_SCENE_BEATS,
 	SALES_PITCH_TOTAL_FRAMES,
 } from "@/remotion/compositions/sales-pitch/sales-pitch.data";
@@ -35,6 +37,7 @@ import type {
 } from "@/remotion/compositions/sales-pitch/sales-pitch.types";
 
 const frameBackground = "linear-gradient(180deg, #eef4fb 0%, #f8fafc 48%, #eef2f7 100%)";
+const NARRATION_MASTER_AUDIO_SRC = "remotion/audio/storeai-sales-pitch-voiceover.wav";
 
 const FOOTAGE_BY_ID: Record<string, FootageCue> = Object.fromEntries(
 	SALES_PITCH_FOOTAGE_CUES.map((cue) => [cue.id, cue]),
@@ -124,6 +127,42 @@ function useFootageAvailability(mode: SalesPitchFootageMode) {
 	}, [handle, mode]);
 
 	return availability;
+}
+
+function useNarrationAvailability() {
+	const [handle] = useState(() => delayRender("storeai-remotion-narration-check"));
+	const continueOnceRef = useRef(false);
+	const [isAvailable, setIsAvailable] = useState(false);
+
+	useEffect(() => {
+		let cancelled = false;
+
+		const continueIfNeeded = () => {
+			if (continueOnceRef.current) {
+				return;
+			}
+
+			continueOnceRef.current = true;
+			continueRender(handle);
+		};
+
+		void assetExists(NARRATION_MASTER_AUDIO_SRC)
+			.then((available) => {
+				if (!cancelled) {
+					setIsAvailable(available);
+				}
+			})
+			.finally(() => {
+				continueIfNeeded();
+			});
+
+		return () => {
+			cancelled = true;
+			continueIfNeeded();
+		};
+	}, [handle]);
+
+	return isAvailable;
 }
 
 function getActiveBeat(frame: number) {
@@ -420,6 +459,14 @@ function BackgroundWash() {
 	);
 }
 
+function VoiceoverTrack({ isAvailable }: { isAvailable: boolean }) {
+	if (!isAvailable || SALES_PITCH_NARRATION_LINES.length === 0) {
+		return null;
+	}
+
+	return <Audio src={staticFile(NARRATION_MASTER_AUDIO_SRC)} />;
+}
+
 function GuideOverlay() {
 	return (
 		<>
@@ -549,6 +596,7 @@ export function SalesPitchComposition({
 	const activeBeat = getActiveBeat(frame);
 	const activeCaption = getActiveCaption(frame);
 	const footageAvailability = useFootageAvailability(footageMode);
+	const narrationAvailable = useNarrationAvailability();
 
 	return (
 		<AbsoluteFill
@@ -559,6 +607,7 @@ export function SalesPitchComposition({
 			}}
 		>
 			<BackgroundWash />
+			<VoiceoverTrack isAvailable={narrationAvailable} />
 			<BrandChrome activeBeat={activeBeat} brandLabel={brandLabel} subtitleLabel={subtitleLabel} />
 			{SALES_PITCH_SCENE_BEATS.map((beat) => (
 				<Sequence
