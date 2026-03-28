@@ -56,7 +56,8 @@ test.describe("internal admin sign-in", () => {
 		});
 
 		await signInAsAdmin(page, context);
-		await expect(page.getByRole("heading", { name: "Internal diagnostics" })).toBeVisible();
+		await expect(page).toHaveURL(/\/internal\/overview$/);
+		await expect(page.getByRole("heading", { name: "Watchlist" })).toBeVisible();
 		expect(authRequests.some((url) => url.includes("/api/auth/"))).toBe(true);
 		expect(directConvexAuthRequests).toEqual([]);
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
@@ -109,16 +110,18 @@ test.describe("internal admin sign-in", () => {
 		await signInAsAdmin(page, context);
 
 		for (const pathname of [
-			"/internal",
-			"/internal/ai-chats",
-			"/internal/install-state",
+			"/internal/overview",
+			"/internal/shops",
 			"/internal/cache",
+			"/internal/workflows",
 			"/internal/webhooks",
-			"/internal/action-audits",
+			"/internal/audits",
+			"/internal/ai-sessions",
+			"/internal/users",
 		]) {
 			await page.goto(pathname);
-			await expect(page.getByRole("heading", { name: "Internal diagnostics" })).toBeVisible();
 			await expect(page.getByText("Something went wrong!")).toHaveCount(0);
+			await expect(page.getByText("This route failed to load")).toHaveCount(0);
 		}
 	});
 });

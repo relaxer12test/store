@@ -19,7 +19,6 @@ export function getRouter() {
 	setupRouterSsrQueryIntegration({
 		queryClient: appContext.queryClient,
 		router,
-		wrapQueryClient: false,
 	});
 
 	return router;

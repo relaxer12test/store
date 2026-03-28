@@ -197,7 +197,6 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 					convexQueryClient={context.convexQueryClient}
 					embeddedApp={context.embeddedApp}
 					initialToken={context.token}
-					queryClient={context.queryClient}
 				>
 					{children}
 				</AppProviders>

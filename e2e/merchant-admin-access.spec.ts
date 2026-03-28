@@ -45,7 +45,7 @@ test.describe("internal admin merchant access", () => {
 		await page.goto("/app/copilot");
 
 		await expect(page).toHaveURL(/\/app\/copilot$/);
-		await expect(page.getByText("Start the conversation")).toBeVisible();
+		await expect(page.getByRole("heading", { name: "How can I help?" })).toBeVisible();
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
 	});
 
