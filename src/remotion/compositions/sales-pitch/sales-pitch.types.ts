@@ -33,6 +33,7 @@ export interface FootageCue {
 	label: string;
 	placeholderTitle: string;
 	src: string;
+	trimBeforeFrames?: number;
 }
 
 export interface NarrationLine {

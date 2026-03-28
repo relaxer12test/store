@@ -245,6 +245,7 @@ function FootageCanvas({
 						objectFit: "cover",
 						width: "100%",
 					}}
+					trimBefore={cue.trimBeforeFrames}
 				/>
 			) : (
 				<CapturePlaceholder cue={cue} />

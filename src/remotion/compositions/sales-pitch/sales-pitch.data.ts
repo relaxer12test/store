@@ -126,6 +126,7 @@ export const SALES_PITCH_FOOTAGE_CUES: FootageCue[] = [
 		label: "Merchant dashboard",
 		placeholderTitle: "Merchant dashboard capture",
 		src: "remotion/footage/merchant-dashboard.mp4",
+		trimBeforeFrames: secondsToFrames(4),
 	},
 	{
 		description:
@@ -134,6 +135,7 @@ export const SALES_PITCH_FOOTAGE_CUES: FootageCue[] = [
 		label: "Merchant copilot",
 		placeholderTitle: "Merchant copilot capture",
 		src: "remotion/footage/merchant-approval-flow.mp4",
+		trimBeforeFrames: secondsToFrames(7),
 	},
 	{
 		description:
@@ -142,6 +144,7 @@ export const SALES_PITCH_FOOTAGE_CUES: FootageCue[] = [
 		label: "Document grounding",
 		placeholderTitle: "Document grounding capture",
 		src: "remotion/footage/merchant-document-grounding.mp4",
+		trimBeforeFrames: secondsToFrames(8),
 	},
 	{
 		description:
@@ -150,6 +153,7 @@ export const SALES_PITCH_FOOTAGE_CUES: FootageCue[] = [
 		label: "Traceability close",
 		placeholderTitle: "Traceability close capture",
 		src: "remotion/footage/merchant-traceability-close.mp4",
+		trimBeforeFrames: secondsToFrames(9),
 	},
 ];
 
