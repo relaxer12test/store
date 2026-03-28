@@ -59,8 +59,8 @@ export function AppNavbar() {
 						<DropdownMenu anchor="bottom end">
 							{displayEmail ? (
 								<>
-									<div className="w-64 max-w-[calc(100vw-3rem)] px-3.5 py-2 text-sm/5 text-zinc-500 sm:px-3 sm:text-xs/5">
-										<span className="block truncate" title={displayEmail}>
+									<div className="w-52 max-w-[calc(100vw-1rem)] min-w-0 px-3.5 py-2 text-sm/5 text-zinc-500 sm:px-3 sm:text-xs/5">
+										<span className="block max-w-full truncate" title={displayEmail}>
 											{displayEmail}
 										</span>
 									</div>
