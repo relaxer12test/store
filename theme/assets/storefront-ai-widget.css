@@ -5,6 +5,7 @@
 	--storefront-ai-radius-message: 14px;
 	--storefront-ai-radius-card: 10px;
 	--storefront-ai-radius-pill: 6px;
+	--storefront-ai-form-gutter: 16px;
 	--storefront-ai-bg: #ffffff;
 	--storefront-ai-bg-subtle: #f8f9fa;
 	--storefront-ai-text: #1a1a1a;
@@ -985,7 +986,7 @@
 	position: relative;
 	display: flex;
 	align-items: flex-end;
-	padding: 0 16px;
+	padding: 0 var(--storefront-ai-form-gutter);
 }
 
 .storefront-ai-widget-input {
@@ -1018,7 +1019,7 @@
 
 .storefront-ai-widget-submit {
 	position: absolute;
-	right: 4px;
+	right: calc(var(--storefront-ai-form-gutter) + 4px);
 	bottom: 4px;
 	display: inline-flex;
 	align-items: center;
@@ -1175,7 +1176,7 @@
 	}
 
 	.storefront-ai-widget-input-wrap {
-		padding: 0 12px;
+		--storefront-ai-form-gutter: 12px;
 	}
 
 	.storefront-ai-widget-cart-plan-item {
