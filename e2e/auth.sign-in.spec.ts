@@ -81,6 +81,30 @@ test.describe("internal admin sign-in", () => {
 		await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
 	});
 
+	test("internal users renders without Headless UI Fragment runtime errors", async ({
+		context,
+		page,
+	}) => {
+		const runtimeErrors: string[] = [];
+
+		page.on("console", (message) => {
+			if (message.type() === "error") {
+				runtimeErrors.push(message.text());
+			}
+		});
+		page.on("pageerror", (error) => {
+			runtimeErrors.push(error.message);
+		});
+
+		await signInAsAdmin(page, context);
+		await page.goto("/internal/users?dir=asc&limit=25&sort=name");
+
+		await expect(page.getByPlaceholder("Search by name or email")).toBeVisible();
+		await expect(page.getByText("Something went wrong!")).toHaveCount(0);
+		await expect(page.getByText("This route failed to load")).toHaveCount(0);
+		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
+	});
+
 	test("internal routes render without the generic error boundary", async ({ context, page }) => {
 		await signInAsAdmin(page, context);
 
