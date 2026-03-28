@@ -1,6 +1,6 @@
+import * as Headless from "@headlessui/react";
 import { useTransition } from "react";
 import {
-	Dropdown,
 	DropdownButton,
 	DropdownDivider,
 	DropdownItem,
@@ -45,32 +45,32 @@ export function AppNavbar() {
 
 			<NavbarSection>
 				{displayName ? (
-					<Dropdown as="div" className="relative">
-						<DropdownButton as={NavbarItem}>{displayName}</DropdownButton>
-						<DropdownMenu anchor="bottom end">
-							{displayEmail ? (
-								<>
-									<div className="px-3.5 py-2 text-sm/5 text-zinc-500 sm:px-3 sm:text-xs/5">
-										{displayEmail}
-									</div>
-									<DropdownDivider />
-								</>
-							) : null}
-							<DropdownItem
-								disabled={isPending}
-								onClick={() => {
-									startTransition(() => {
-										void (async () => {
-											await authClient.signOut();
-											window.location.reload();
-										})();
-									});
-								}}
-							>
-								<DropdownLabel>{isPending ? "Signing out…" : "Sign out"}</DropdownLabel>
-							</DropdownItem>
-						</DropdownMenu>
-					</Dropdown>
+					<Headless.Menu as="div" className="relative">
+							<DropdownButton as={NavbarItem}>{displayName}</DropdownButton>
+							<DropdownMenu anchor="bottom end">
+								{displayEmail ? (
+									<>
+										<div className="px-3.5 py-2 text-sm/5 text-zinc-500 sm:px-3 sm:text-xs/5">
+											{displayEmail}
+										</div>
+										<DropdownDivider />
+									</>
+								) : null}
+								<DropdownItem
+									disabled={isPending}
+									onClick={() => {
+										startTransition(() => {
+											void (async () => {
+												await authClient.signOut();
+												window.location.reload();
+											})();
+										});
+									}}
+								>
+									<DropdownLabel>{isPending ? "Signing out…" : "Sign out"}</DropdownLabel>
+								</DropdownItem>
+							</DropdownMenu>
+					</Headless.Menu>
 				) : (
 					<NavbarItem href="/auth/sign-in">Sign in</NavbarItem>
 				)}
