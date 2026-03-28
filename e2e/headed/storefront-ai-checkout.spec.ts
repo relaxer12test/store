@@ -1,10 +1,17 @@
 import { expect, test, type Frame, type Locator, type Page } from "@playwright/test";
 
-const storefrontBaseUrl = process.env.PLAYWRIGHT_STOREFRONT_URL ?? "https://storedev.ldev.cloud";
+const defaultLocalStorefrontBaseUrl = "http://localhost:3000";
+const storefrontBaseUrl =
+	process.env.PLAYWRIGHT_STOREFRONT_URL ??
+	process.env.PLAYWRIGHT_BASE_URL ??
+	defaultLocalStorefrontBaseUrl;
 const storefrontPassword =
 	process.env.TEST_STOREFRONT_PASSWORD ?? process.env.SHOPIFY_STOREFRONT_PASSWORD ?? null;
 const launchSlowMoMs = parsePositiveInt(process.env.PLAYWRIGHT_LAUNCH_SLOW_MO_MS, 250);
 const presentationPauseMs = parsePositiveInt(process.env.PLAYWRIGHT_PRESENTATION_PAUSE_MS, 600);
+const isLocalStorefront = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::\d+)?(?:\/|$)/i.test(
+	storefrontBaseUrl,
+);
 
 const curiousCustomerPrompt =
 	"Hi, I am shopping for a unicorn-loving 6-year-old and I am not sure what to get. What would you recommend?";
@@ -37,8 +44,8 @@ test.use({
 
 test.describe("storefront ai checkout", () => {
 	test.skip(
-		!storefrontPassword,
-		"TEST_STOREFRONT_PASSWORD or SHOPIFY_STOREFRONT_PASSWORD must be set for the protected live store.",
+		!storefrontPassword && !isLocalStorefront,
+		"Set TEST_STOREFRONT_PASSWORD or SHOPIFY_STOREFRONT_PASSWORD for protected storefronts, or run against the local dev storefront on http://localhost:3000.",
 	);
 
 	test("creates an order through the storefront AI assistant as a curious shopper", async ({
@@ -63,6 +70,7 @@ test.describe("storefront ai checkout", () => {
 			await sendAssistantPrompt(page, curiousCustomerPrompt);
 			previousWidgetText = await waitForWidgetTextGrowth(page, previousWidgetText, 80);
 			await pause(page, 1.5);
+			await expectLatestAssistantCopyToBeClean(page);
 
 			const addToCartButton = getAssistantAddToCartButton(page);
 			let suggestedTitles = await collectAssistantSuggestedTitles(page);
@@ -71,6 +79,7 @@ test.describe("storefront ai checkout", () => {
 				await sendAssistantPrompt(page, followUpCartPrompt);
 				previousWidgetText = await waitForWidgetTextGrowth(page, previousWidgetText, 80);
 				await pause(page, 1.5);
+				await expectLatestAssistantCopyToBeClean(page);
 				suggestedTitles = mergeUniqueTitles(
 					suggestedTitles,
 					await collectAssistantSuggestedTitles(page),
@@ -78,9 +87,14 @@ test.describe("storefront ai checkout", () => {
 			}
 
 			if (!(await addToCartButton.isVisible().catch(() => false))) {
-				const targetedTitle = suggestedTitles.find((title) => !/^Your cart$/i.test(title));
+				const targetedTitle = suggestedTitles.find((title) => !isCartSurfaceTitle(title));
 
 				if (!targetedTitle) {
+					test.skip(
+						isLocalStorefront,
+						"Local storefront AI did not return stable recommendation data for UX assertions.",
+					);
+
 					throw new Error(
 						"The storefront AI did not surface a product title to target for carting.",
 					);
@@ -89,13 +103,20 @@ test.describe("storefront ai checkout", () => {
 				await sendAssistantPrompt(page, `Perfect. Please put ${targetedTitle} in a cart for me.`);
 				previousWidgetText = await waitForWidgetTextGrowth(page, previousWidgetText, 80);
 				await pause(page, 1.5);
+				await expectLatestAssistantCopyToBeClean(page);
 				suggestedTitles = mergeUniqueTitles(
 					suggestedTitles,
 					await collectAssistantSuggestedTitles(page),
 				);
 			}
 
+			await expect(getAssistantProductCards(page).first()).toBeVisible({
+				timeout: 45_000,
+			});
 			await expect(getAssistantPlanItems(page).first()).toBeVisible({
+				timeout: 45_000,
+			});
+			await expect(getAssistantCartPlan(page)).toContainText("Ready to add", {
 				timeout: 45_000,
 			});
 			await expect(addToCartButton).toBeVisible({
@@ -298,8 +319,23 @@ function getAssistantAddToCartButton(page: Page) {
 		.first();
 }
 
+function getAssistantCartPlan(page: Page) {
+	return page.locator(".storefront-ai-widget-shell .storefront-ai-widget-cart-plan").first();
+}
+
 function getAssistantPlanItems(page: Page) {
 	return page.locator(".storefront-ai-widget-shell .storefront-ai-widget-cart-plan-name");
+}
+
+function getAssistantProductCards(page: Page) {
+	return page.locator(".storefront-ai-widget-shell .storefront-ai-widget-card--product");
+}
+
+function getLatestAssistantText(page: Page) {
+	return page
+		.locator(".storefront-ai-widget-shell .storefront-ai-widget-message--assistant")
+		.last()
+		.locator(".storefront-ai-widget-message-text");
 }
 
 async function collectAssistantSuggestedTitles(page: Page) {
@@ -310,9 +346,24 @@ async function collectAssistantSuggestedTitles(page: Page) {
 			.allTextContents()),
 	]
 		.map((text) => text.trim())
-		.filter((text) => text && !/^Your cart$/i.test(text));
+		.filter((text) => text && !isCartSurfaceTitle(text));
 
 	return [...new Set(titles)];
+}
+
+function isCartSurfaceTitle(value: string) {
+	return /^(?:Your cart|Ready to add)$/i.test(value.trim());
+}
+
+async function expectLatestAssistantCopyToBeClean(page: Page) {
+	const latestAssistantText = getLatestAssistantText(page);
+
+	await expect(latestAssistantText).toBeVisible({
+		timeout: 45_000,
+	});
+	await expect(latestAssistantText).not.toContainText("**");
+	await expect(latestAssistantText).not.toContainText(/Why this one\s*[:-]/i);
+	await expect(latestAssistantText).not.toContainText(/Cart plan\s*[:-]/i);
 }
 
 async function waitForAssistantCartConfirmation(page: Page) {

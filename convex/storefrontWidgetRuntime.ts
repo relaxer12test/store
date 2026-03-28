@@ -1,10 +1,10 @@
-import { createOpenAI } from "@ai-sdk/openai";
+import { createOpenAI, type OpenAILanguageModelResponsesOptions } from "@ai-sdk/openai";
 import { Agent, createTool, stepCountIs } from "@convex-dev/agent";
 import { MINUTE, RateLimiter } from "@convex-dev/rate-limiter";
 import { components, internal } from "@convex/_generated/api";
 import type { Id } from "@convex/_generated/dataModel";
 import type { ActionCtx } from "@convex/_generated/server";
-import type { ToolSet } from "ai";
+import { Output, type ToolSet } from "ai";
 import { z } from "zod";
 import type {
 	CartPlan,
@@ -90,6 +90,16 @@ const storefrontReplyPlanSchema = z.object({
 		"checkout",
 		"refusal",
 	]),
+});
+
+const storefrontAssistantAnswerSchema = z.object({
+	answer: z
+		.string()
+		.min(1)
+		.max(300)
+		.describe(
+			"A short plain-text shopper-facing answer. One or two short sentences only, with no markdown, bullets, headings, labels, or itemized cart formatting.",
+		),
 });
 
 type StorefrontReplyPlan = z.infer<typeof storefrontReplyPlanSchema>;
@@ -414,15 +424,20 @@ function buildSystemInstructions(config: StorefrontWidgetConfig) {
 		"You are the public storefront AI concierge for a Shopify storefront.",
 		`The store is ${config.shopName} (${config.shopDomain}).`,
 		"Reply naturally to the shopper in warm, concise language.",
+		"Your answer is rendered as plain text in a chat bubble, so never use markdown, bullets, numbered lists, headings, labels, or section titles.",
 		"Avoid unnecessary greetings or re-introductions. Continue the conversation naturally unless the shopper is clearly greeting you.",
 		"Use the tools before making claims about products, collections, variants, availability, or store policies.",
 		"Treat greetings, acknowledgements, thanks, and farewells as social turns. Social turns should not surface products or collections.",
 		"Use the explicit page context provided in the prompt when the shopper refers to the current page, product, or collection.",
 		"Never offer discounts, coupons, price overrides, hidden deals, unpublished products, merchant-private data, exact inventory counts, or operational/admin actions.",
+		"For products, cart, and checkout surfaces, keep the answer to one or two short sentences.",
+		"Do not restate item lists, quantities, or cart-plan structure in the answer when the UI already shows them.",
 		"Before you finish every shopper turn, call emitReplyPlan exactly once.",
 		"emitReplyPlan must describe the UI surface for this turn using exact product or collection handles when relevant.",
+		"For products, cart, and checkout surfaces, order productHandles from the strongest recommendation first.",
 		"Use surface none for purely conversational turns.",
 		"If the shopper is asking about shopping, comparison, collections, bundles, cart help, or checkout, choose the appropriate surface.",
+		"Cart and checkout turns should sound shopper-facing and action-ready, not like an internal memo or recommendation worksheet.",
 		"If you refuse, keep it brief and redirect back to safe storefront help.",
 		`Starter follow-up ideas the merchant prefers: ${config.quickPrompts.join(" | ")}.`,
 	].join(" ");
@@ -466,7 +481,7 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 		>({
 			ctx: toolCtx,
 			description:
-				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts.",
+				"Build a storefront-safe cart plan from exact public product handles. This never changes price or discounts. Any explanation or note must be short plain text for shoppers, not markdown, labels, bullets, or itemized repetition.",
 			execute: async (ctx, input) => {
 				return await ctx.runQuery(internal.storefrontConcierge.buildCartPlan, {
 					explanation: input.explanation ?? undefined,
@@ -476,9 +491,23 @@ function buildTools(toolCtx: StorefrontAgentCtx) {
 				});
 			},
 			inputSchema: z.object({
-				explanation: z.string().min(1).max(320).nullable(),
+				explanation: z
+					.string()
+					.min(1)
+					.max(140)
+					.nullable()
+					.describe(
+						"Optional shopper-facing reason shown above the cart items. Plain text only, one short sentence, with no markdown, labels, or list formatting.",
+					),
 				handles: z.array(z.string().min(1).max(120)).min(1).max(4),
-				note: z.string().min(1).max(200).nullable(),
+				note: z
+					.string()
+					.min(1)
+					.max(120)
+					.nullable()
+					.describe(
+						"Optional short shopper-facing note shown under the cart items. Plain text only, with no markdown, labels, or bullets.",
+					),
 			}),
 			strict: true,
 		}),
@@ -1335,7 +1364,18 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 			});
 			const result = await thread.streamText(
 				{
+					output: Output.object({
+						description:
+							"Storefront shopper-facing answer text for the current turn. The answer must be short plain text that works in a chat bubble.",
+						name: "storefront_shopper_answer",
+						schema: storefrontAssistantAnswerSchema,
+					}),
 					prompt: prepared.message,
+					providerOptions: {
+						openai: {
+							textVerbosity: "low",
+						} satisfies OpenAILanguageModelResponsesOptions,
+					},
 					system: buildSystemInstructions(prepared.config),
 					tools: buildTools(agentCtx),
 				},
@@ -1354,17 +1394,32 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				},
 			);
 
-			for await (const part of result.fullStream) {
-				if (part.type === "text-delta") {
+			let streamedAnswer = "";
+			const partialOutputTask = (async () => {
+				for await (const partial of result.partialOutputStream) {
+					const nextAnswer = partial && typeof partial.answer === "string" ? partial.answer : null;
+
+					if (!nextAnswer || !nextAnswer.startsWith(streamedAnswer)) {
+						continue;
+					}
+
+					const delta = nextAnswer.slice(streamedAnswer.length);
+
+					if (!delta) {
+						continue;
+					}
+
+					streamedAnswer = nextAnswer;
 					send({
 						data: {
-							delta: part.text,
+							delta,
 						},
 						event: "chunk",
 					});
-					continue;
 				}
+			})();
 
+			for await (const part of result.fullStream) {
 				if (part.type === "tool-call" && part.toolName !== "emitReplyPlan") {
 					send({
 						data: {
@@ -1375,7 +1430,8 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 				}
 			}
 
-			const answerText = await result.text;
+			await partialOutputTask;
+			const answerOutput = await result.output;
 			const steps = await result.steps;
 			const outputs = extractToolOutputs(
 				steps.flatMap((step) => step.toolResults) as Array<{
@@ -1383,7 +1439,7 @@ export async function streamStorefrontWidgetReply(ctx: ActionCtx, request: Runti
 					toolName: string;
 				}>,
 			);
-			const projected = await buildReplyFromPlan(ctx, prepared, answerText, outputs);
+			const projected = await buildReplyFromPlan(ctx, prepared, answerOutput.answer, outputs);
 
 			await ctx.runMutation(internal.storefrontConcierge.saveSessionReply, {
 				clientFingerprint: prepared.clientFingerprint,

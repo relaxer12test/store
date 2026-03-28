@@ -309,7 +309,7 @@
 
 	function createCartPlanCard(plan, onApply, onCheckout) {
 		var card = createElement("section", "storefront-ai-widget-cart-plan");
-		var title = createElement("h4", "storefront-ai-widget-card-title", "Your cart");
+		var title = createElement("h4", "storefront-ai-widget-card-title", "Ready to add");
 		var list = createElement("ul", "storefront-ai-widget-cart-plan-list");
 		var actions = createElement("div", "storefront-ai-widget-cart-plan-actions");
 		var explanation =
