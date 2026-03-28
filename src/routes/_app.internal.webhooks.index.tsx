@@ -2,10 +2,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -87,16 +85,7 @@ function InternalWebhooksIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalWebhookDeliveriesQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Deliveries</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} webhooks`}</StatusPill>
-				</>
-			}
-			description="Webhook deliveries and payload history."
-			title="Webhooks"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -183,6 +172,6 @@ function InternalWebhooksIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

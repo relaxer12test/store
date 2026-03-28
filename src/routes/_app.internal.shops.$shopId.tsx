@@ -9,12 +9,7 @@ import {
 import { Strong, Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import {
-	CodeValue,
-	ResourceDetailCard,
-	StatusValue,
-	formatTimestampLabel,
-} from "@/components/ui/resource";
+import { CodeValue, ResourceDetailPage, formatTimestampLabel } from "@/components/ui/resource";
 import { getInternalShopDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/shops/$shopId")({
@@ -30,9 +25,9 @@ function InternalShopDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Shop unavailable">
+			<ResourceDetailPage backHref="/internal/shops" title="Shop unavailable">
 				<EmptyState body="The selected shop could not be loaded." title="Detail unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
@@ -48,13 +43,12 @@ function InternalShopDetailRoute() {
 	} = data;
 
 	return (
-		<ResourceDetailCard title={shop.name}>
+		<ResourceDetailPage
+			backHref="/internal/shops"
+			description={`${shop.installStatus} · ${shop.tokenStatus}`}
+			title={shop.name}
+		>
 			<div className="grid gap-4">
-				<div className="flex flex-wrap items-center gap-2">
-					<StatusValue value={shop.installStatus} />
-					<StatusValue value={shop.tokenStatus} />
-				</div>
-
 				<DescriptionList>
 					<DescriptionTerm>Domain</DescriptionTerm>
 					<DescriptionDetails>
@@ -162,6 +156,6 @@ function InternalShopDetailRoute() {
 					</Button>
 				</div>
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

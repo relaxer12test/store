@@ -8,12 +8,7 @@ import {
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import {
-	CodeValue,
-	formatTimestampLabel,
-	ResourceDetailCard,
-	StatusValue,
-} from "@/components/ui/resource";
+import { CodeValue, formatTimestampLabel, ResourceDetailPage } from "@/components/ui/resource";
 import { getInternalAuditDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/audits/$auditId")({
@@ -29,21 +24,20 @@ function InternalAuditDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Audit detail unavailable">
+			<ResourceDetailPage backHref="/internal/audits" title="Audit detail unavailable">
 				<EmptyState body="The selected audit row could not be loaded." title="Unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
 	const { record } = data;
 
 	return (
-		<ResourceDetailCard title={record.action}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={record.status} />
-				{record.actorId ? <StatusValue value={record.actorId} /> : null}
-			</div>
-
+		<ResourceDetailPage
+			backHref="/internal/audits"
+			description={`${record.status}${record.actorId ? ` · ${record.actorId}` : ""}`}
+			title={record.action}
+		>
 			<DescriptionList>
 				<DescriptionTerm>Created</DescriptionTerm>
 				<DescriptionDetails>{formatTimestampLabel(record.createdAt)}</DescriptionDetails>
@@ -68,6 +62,6 @@ function InternalAuditDetailRoute() {
 					<Text>No structured payload was stored for this audit row.</Text>
 				)}
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

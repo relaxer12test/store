@@ -1,10 +1,8 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -81,16 +79,7 @@ function InternalAuditsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalAuditsQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Audit trail</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} entries`}</StatusPill>
-				</>
-			}
-			description="Recorded actions and their details."
-			title="Audits"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -158,6 +147,6 @@ function InternalAuditsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

@@ -2,11 +2,9 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	CodeValue,
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -88,16 +86,7 @@ function InternalShopsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalShopsQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Install status</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} shops`}</StatusPill>
-				</>
-			}
-			description="Connected shops and their install status."
-			title="Shops"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -185,6 +174,6 @@ function InternalShopsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

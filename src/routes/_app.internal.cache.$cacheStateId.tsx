@@ -9,12 +9,7 @@ import { Text } from "@/components/ui/cata/text";
 import { TextLink } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import {
-	CodeValue,
-	formatTimestampLabel,
-	ResourceDetailCard,
-	StatusValue,
-} from "@/components/ui/resource";
+import { CodeValue, formatTimestampLabel, ResourceDetailPage } from "@/components/ui/resource";
 import { getInternalCacheStateDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/cache/$cacheStateId")({
@@ -30,21 +25,20 @@ function InternalCacheDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Cache detail unavailable">
+			<ResourceDetailPage backHref="/internal/cache" title="Cache detail unavailable">
 				<EmptyState body="The selected cache state could not be loaded." title="Unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
 	const { record, recentWebhookDeliveries, recentWorkflows, shopName } = data;
 
 	return (
-		<ResourceDetailCard title={record.cacheKey}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={record.status} />
-				<StatusValue value={record.enabled ? "enabled" : "disabled"} />
-			</div>
-
+		<ResourceDetailPage
+			backHref="/internal/cache"
+			description={`${record.status} · ${record.enabled ? "enabled" : "disabled"}`}
+			title={record.cacheKey}
+		>
 			<DescriptionList>
 				<DescriptionTerm>Shop</DescriptionTerm>
 				<DescriptionDetails>{shopName}</DescriptionDetails>
@@ -78,6 +72,6 @@ function InternalCacheDetailRoute() {
 					{" for this shop."}
 				</Text>
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

@@ -1,11 +1,9 @@
 import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	CodeValue,
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -92,16 +90,7 @@ function InternalAiSessionsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalAiSessionsQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Sessions</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} sessions`}</StatusPill>
-				</>
-			}
-			description="Shopper chat sessions and live transcripts."
-			title="AI sessions"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -169,6 +158,6 @@ function InternalAiSessionsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

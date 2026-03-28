@@ -23,7 +23,7 @@ export function MerchantWorkflowsPage({ data }: { data: MerchantWorkflowsData })
 	const failedCount = data.records.filter((record) => record.status === "failed").length;
 
 	return (
-		<div className="grid gap-5">
+		<div className="grid gap-4">
 			<div className="grid gap-4 md:grid-cols-3">
 				<WorkflowSummaryCard label="Completed" value={completedCount} />
 				<WorkflowSummaryCard label="Queued or running" value={runningCount} />

@@ -62,6 +62,25 @@ test.describe("internal admin sign-in", () => {
 		expect(runtimeErrors, runtimeErrors.join("\n")).toEqual([]);
 	});
 
+	test("account dropdown shows email and signs out", async ({ context, page }) => {
+		await signInAsAdmin(page, context);
+
+		const accountMenuButton = page.getByRole("button", { name: "Account menu" });
+
+		await expect(accountMenuButton).toBeVisible();
+		await accountMenuButton.click();
+		await expect(page.getByTitle(adminEmail!)).toBeVisible();
+
+		const signOutButton = page.getByRole("menuitem", { name: "Sign out" });
+
+		await expect(signOutButton).toBeVisible();
+		await signOutButton.click();
+		await page.waitForURL("**/auth/sign-in", {
+			timeout: 15_000,
+		});
+		await expect(page.getByRole("heading", { name: "Sign in" })).toBeVisible();
+	});
+
 	test("internal routes render without the generic error boundary", async ({ context, page }) => {
 		await signInAsAdmin(page, context);
 

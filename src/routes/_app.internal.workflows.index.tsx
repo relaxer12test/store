@@ -2,10 +2,8 @@ import { useSuspenseQuery } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { Select } from "@/components/ui/cata/select";
 import { Text } from "@/components/ui/cata/text";
-import { StatusPill } from "@/components/ui/feedback";
 import {
 	formatTimestampLabel,
-	ResourcePageLayout,
 	ResourceTable,
 	ResourceToolbar,
 	StatusValue,
@@ -87,16 +85,7 @@ function InternalWorkflowsIndexRoute() {
 	const { data } = useSuspenseQuery(getInternalWorkflowsQuery(search));
 
 	return (
-		<ResourcePageLayout
-			badges={
-				<>
-					<StatusPill tone="accent">Queue status</StatusPill>
-					<StatusPill tone="neutral">{`${data.records.length} workflows`}</StatusPill>
-				</>
-			}
-			description="Background workflows, retries, and recent activity."
-			title="Workflows"
-		>
+		<div className="grid gap-3">
 			<ResourceToolbar
 				onPageSizeChange={(limit) => {
 					void navigate({
@@ -184,6 +173,6 @@ function InternalWorkflowsIndexRoute() {
 				pageInfo={data.pageInfo}
 				rows={data.records}
 			/>
-		</ResourcePageLayout>
+		</div>
 	);
 }

@@ -1,15 +1,8 @@
 import { Button } from "@/components/ui/cata/button";
-import { StatusPill } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import { DataTableShell } from "@/components/ui/table";
 import { buildExplorerColumns } from "@/features/app-shell/components/merchant-workspace-ui";
 import type { MerchantExplorerData } from "@/shared/contracts/merchant-workspace";
-
-function formatDatasetTimestamp(value: string) {
-	const parsed = Date.parse(value);
-
-	return Number.isFinite(parsed) ? new Date(parsed).toLocaleString() : value;
-}
 
 export function MerchantExplorerPage({
 	activeDatasetKey,
@@ -24,17 +17,12 @@ export function MerchantExplorerPage({
 		data.datasets.find((dataset) => dataset.key === activeDatasetKey) ?? data.datasets[0] ?? null;
 
 	return (
-		<div className="grid gap-5">
+		<div className="grid gap-4">
 			<Panel
 				description="Explorer datasets stay useful without chat. Every dataset runs through the shared TanStack Table shell with search, sorting, visibility controls, and row drill-in."
 				title="Explorer datasets"
 			>
-				<div className="flex flex-wrap items-center gap-3">
-					<StatusPill tone="accent">merchant explorer</StatusPill>
-					<StatusPill tone="neutral">{formatDatasetTimestamp(data.generatedAt)}</StatusPill>
-				</div>
-
-				<div className="mt-5 flex flex-wrap gap-3">
+				<div className="flex flex-wrap gap-3">
 					{data.datasets.map((dataset) => (
 						<Button
 							key={dataset.key}

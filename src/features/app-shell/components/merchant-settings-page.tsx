@@ -245,8 +245,8 @@ export function MerchantSettingsPage({
 	});
 
 	return (
-		<div className="grid gap-5">
-			<div className="grid gap-5 xl:grid-cols-[0.92fr_1.08fr]">
+		<div className="grid gap-4">
+			<div className="grid gap-4 xl:grid-cols-[0.92fr_1.08fr]">
 				<Panel description="Current install and webhook status." title="Install and webhook health">
 					<div className="flex flex-wrap gap-3">
 						<StatusPill tone={installStatusTone(data.installHealth.installStatus)}>
@@ -401,7 +401,7 @@ export function MerchantSettingsPage({
 					<div className="mt-5 space-y-3">
 						{data.cacheHealth.staleWarnings.map((warning) => (
 							<div
-								className="rounded-[1rem] border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
+								className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm leading-6 text-amber-950"
 								key={warning}
 							>
 								{warning}
@@ -567,7 +567,6 @@ export function MerchantSettingsPage({
 				title="Knowledge documents"
 			>
 				<div className="flex flex-wrap items-center gap-3">
-					<StatusPill tone="accent">{documents.documents.length} document(s)</StatusPill>
 					<Button
 						outline
 						disabled={reprocessDocumentsMutation.isPending}
@@ -717,11 +716,11 @@ export function MerchantSettingsPage({
 									</div>
 								</div>
 
-								<Text className="mt-4 rounded-[1rem] border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
+								<Text className="mt-4 rounded-xl border border-zinc-950/5 bg-white px-4 py-3 dark:border-white/10 dark:bg-zinc-900">
 									{document.contentPreview}
 								</Text>
 								{document.failureReason ? (
-									<Text className="mt-3 rounded-[1rem] border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900">
+									<Text className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900">
 										{document.failureReason}
 									</Text>
 								) : null}

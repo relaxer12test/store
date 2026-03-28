@@ -8,12 +8,12 @@ import type { MerchantOverviewData } from "@/shared/contracts/merchant-workspace
 
 export function MerchantHome({ overview }: { overview: MerchantOverviewData }) {
 	return (
-		<div className="grid gap-5">
+		<div className="grid gap-4">
 			<Panel title="Dashboard">
 				<MerchantDashboard dashboard={overview.dashboard} />
 			</Panel>
 
-			<div className="grid gap-5 xl:grid-cols-[0.95fr_1.05fr]">
+			<div className="grid gap-4 xl:grid-cols-[0.95fr_1.05fr]">
 				<Panel description="Actions waiting for your review." title="Pending approvals">
 					<MerchantApprovalCards
 						approvals={overview.pendingApprovals}

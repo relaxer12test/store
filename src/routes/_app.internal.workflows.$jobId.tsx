@@ -11,7 +11,7 @@ import { Panel } from "@/components/ui/layout";
 import {
 	CodeValue,
 	formatTimestampLabel,
-	ResourceDetailCard,
+	ResourceDetailPage,
 	StatusValue,
 } from "@/components/ui/resource";
 import { getInternalWorkflowDetailQuery } from "@/features/internal/internal-admin-queries";
@@ -29,21 +29,20 @@ function InternalWorkflowDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Workflow detail unavailable">
+			<ResourceDetailPage backHref="/internal/workflows" title="Workflow detail unavailable">
 				<EmptyState body="The selected workflow could not be loaded." title="Unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
 	const { logs, record } = data;
 
 	return (
-		<ResourceDetailCard title={record.type}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={record.status} />
-				{record.source ? <StatusValue value={record.source} /> : null}
-			</div>
-
+		<ResourceDetailPage
+			backHref="/internal/workflows"
+			description={`${record.status}${record.source ? ` · ${record.source}` : ""}`}
+			title={record.type}
+		>
 			<DescriptionList>
 				<DescriptionTerm>Shop</DescriptionTerm>
 				<DescriptionDetails>{record.shopName}</DescriptionDetails>
@@ -92,6 +91,6 @@ function InternalWorkflowDetailRoute() {
 					</ol>
 				)}
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

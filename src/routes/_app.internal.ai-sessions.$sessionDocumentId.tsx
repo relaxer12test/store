@@ -6,12 +6,12 @@ import {
 	DescriptionTerm,
 } from "@/components/ui/cata/description-list";
 import { Text } from "@/components/ui/cata/text";
-import { EmptyState, StatusPill } from "@/components/ui/feedback";
+import { EmptyState } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
 import {
 	CodeValue,
 	formatTimestampLabel,
-	ResourceDetailCard,
+	ResourceDetailPage,
 	StatusValue,
 } from "@/components/ui/resource";
 import {
@@ -51,25 +51,23 @@ function InternalAiSessionDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Session detail unavailable">
+			<ResourceDetailPage backHref="/internal/ai-sessions" title="Session detail unavailable">
 				<EmptyState
 					body="The selected storefront AI session could not be loaded."
 					title="Unavailable"
 				/>
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
 	const { session } = data;
 
 	return (
-		<ResourceDetailCard title={session.shopName}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={session.threadStatus} />
-				<StatusValue value={session.lastReplyTone ?? "no reply"} />
-				{transcriptQuery.isFetching ? <StatusPill tone="accent">Refreshing</StatusPill> : null}
-			</div>
-
+		<ResourceDetailPage
+			backHref="/internal/ai-sessions"
+			description={`${session.threadStatus} · ${session.lastReplyTone ?? "no reply"}`}
+			title={session.shopName}
+		>
 			<DescriptionList>
 				<DescriptionTerm>Shop domain</DescriptionTerm>
 				<DescriptionDetails>
@@ -192,6 +190,6 @@ function InternalAiSessionDetailRoute() {
 					</div>
 				)}
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }

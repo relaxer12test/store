@@ -8,12 +8,7 @@ import {
 import { Text } from "@/components/ui/cata/text";
 import { EmptyState } from "@/components/ui/feedback";
 import { Panel } from "@/components/ui/layout";
-import {
-	CodeValue,
-	formatTimestampLabel,
-	ResourceDetailCard,
-	StatusValue,
-} from "@/components/ui/resource";
+import { CodeValue, formatTimestampLabel, ResourceDetailPage } from "@/components/ui/resource";
 import { getInternalWebhookDetailQuery } from "@/features/internal/internal-admin-queries";
 
 export const Route = createFileRoute("/_app/internal/webhooks/$deliveryId")({
@@ -29,21 +24,20 @@ function InternalWebhookDetailRoute() {
 
 	if (!data) {
 		return (
-			<ResourceDetailCard title="Webhook detail unavailable">
+			<ResourceDetailPage backHref="/internal/webhooks" title="Webhook detail unavailable">
 				<EmptyState body="The selected webhook delivery could not be loaded." title="Unavailable" />
-			</ResourceDetailCard>
+			</ResourceDetailPage>
 		);
 	}
 
 	const { payloads, record } = data;
 
 	return (
-		<ResourceDetailCard title={record.topic}>
-			<div className="flex flex-wrap items-center gap-2">
-				<StatusValue value={record.status} />
-				{record.apiVersion ? <StatusValue value={record.apiVersion} /> : null}
-			</div>
-
+		<ResourceDetailPage
+			backHref="/internal/webhooks"
+			description={`${record.status}${record.apiVersion ? ` · ${record.apiVersion}` : ""}`}
+			title={record.topic}
+		>
 			<DescriptionList>
 				<DescriptionTerm>Shop</DescriptionTerm>
 				<DescriptionDetails>{record.shopName ?? "n/a"}</DescriptionDetails>
@@ -86,6 +80,6 @@ function InternalWebhookDetailRoute() {
 					</div>
 				)}
 			</Panel>
-		</ResourceDetailCard>
+		</ResourceDetailPage>
 	);
 }
